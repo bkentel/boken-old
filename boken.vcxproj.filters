@@ -22,6 +22,7 @@
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\scope_guard.hpp" />
     <ClInclude Include="src\math.hpp" />
+    <ClInclude Include="src\utility.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

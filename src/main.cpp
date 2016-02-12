@@ -6,24 +6,14 @@
 #include "random.hpp"
 #include "bsp_generator.hpp"
 #include "hash.hpp"
+#include "utility.hpp"
 
 #include <fstream>
 
 namespace boken {};
 namespace bk = boken;
 
-template <typename T, typename U>
-inline constexpr ptrdiff_t check_offsetof() noexcept {
-    static_assert(std::is_standard_layout<T>::value
-                , "Must be standard layout");
-    static_assert(!std::is_function<U>::value
-                , "Must not be a function");
-    static_assert(!std::is_member_function_pointer<std::add_pointer_t<U>>::value
-                , "Must not be a member function");
-    return 0;
-}
-
-#define BK_OFFSETOF(s, m) (check_offsetof<s, decltype(s::m)>() + offsetof(s, m))
+namespace boken {
 
 struct keydef_t {
     enum class key_t {
@@ -53,88 +43,6 @@ struct keydef_t {
     uint32_t    hash;
     key_t       type;
 };
-
-template <typename T>
-inline constexpr std::add_const_t<T>& as_const(T& t) noexcept {
-    return t;
-}
-
-template <typename T>
-inline constexpr std::add_const_t<T>* as_const(T* const t) noexcept {
-    return t;
-}
-
-template <typename T>
-inline constexpr void call_destructor(T& t) noexcept(std::is_nothrow_destructible<T>::value) {
-    t.~T();
-}
-
-template <size_t StackSize>
-class basic_buffer {
-public:
-    explicit basic_buffer(size_t const size)
-      : data_  {}
-      , size_  {size <= StackSize ? StackSize : size}
-      , first_ {init_storage_(data_, size_)}
-    {
-    }
-
-    template <typename = std::enable_if_t<(StackSize > 0)>>
-    basic_buffer() noexcept
-      : basic_buffer {StackSize}
-    {
-    }
-
-    ~basic_buffer() {
-        size_ <= StackSize ? call_destructor(data_.s_)
-                           : call_destructor(data_.d_);
-    }
-
-    auto size()  const noexcept { return size_; }
-    auto data()  const noexcept { return as_const(first_); }
-    auto begin() const noexcept { return data(); }
-    auto end()   const noexcept { return begin() + size(); }
-    auto data()        noexcept { return first_; }
-    auto begin()       noexcept { return data(); }
-    auto end()         noexcept { return begin() + size(); }
-
-    char operator[](size_t const i) const noexcept {
-        return *(begin() + i);
-    }
-
-    char& operator[](size_t const i) noexcept {
-        return *(begin() + i);
-    }
-private:
-    using static_t  = std::array<char, StackSize + 1>;
-    using dynamic_t = std::unique_ptr<char[]>;
-
-    union storage_t {
-        storage_t() noexcept {}
-        ~storage_t() {}
-
-        static_t  s_;
-        dynamic_t d_;
-    } data_;
-
-    static char* init_storage_(storage_t& data, size_t const size) {
-        if (size <= StackSize) {
-            new (&data.s_) static_t;
-            return data.s_.data();
-        } else {
-            new (&data.d_) dynamic_t {new char[size]};
-            return data.d_.get();
-        }
-    }
-
-    size_t size_;
-    char*  first_;
-};
-
-using dynamic_buffer = basic_buffer<0>;
-
-template <size_t Size>
-using static_buffer = basic_buffer<Size>;
 
 char const* load_keyboard_names() {
     static constexpr char end_of_data = 0xFF;
@@ -237,7 +145,55 @@ char const* load_keyboard_names() {
     return nullptr;
 }
 
-namespace boken {
+template <typename T>
+axis_aligned_rect<T> random_sub_rect(
+    random_state&              rng
+  , axis_aligned_rect<T> const r
+  , size_type<T>         const min_size
+  , size_type<T>         const max_size
+  , float                const variance = 2.0f
+) {
+    //BK_ASSERT(min_size <= max_size);
+    //BK_ASSERT(variance > 0.0f);
+
+    auto const w = r.width();
+    auto const h = r.height();
+
+    auto const new_size = [&](T const size) {
+        if (size <= value_cast(min_size)) {
+            return size;
+        }
+
+        auto const max_new_size = std::min(size, value_cast(max_size));
+        auto const size_range = max_new_size - value_cast(min_size);
+        if (size_range <= 0) {
+            return size;
+        }
+
+        return clamp(
+            round_as<T>(random_normal(
+                rng, size_range / 2.0, size_range / variance))
+          , value_cast(min_size)
+          , max_new_size);
+    };
+
+    auto const new_w = new_size(w);
+    auto const new_h = new_size(h);
+
+    auto const spare_x = w - new_w;
+    auto const spare_y = h - new_h;
+
+    auto const new_offset = [&](T const size) {
+        return (size <= 0)
+          ? T {0}
+          : static_cast<T>(random_uniform_int(rng, 0, static_cast<int>(size)));
+    };
+
+    return {offset_type_x<T> {r.x0 + new_offset(spare_x)}
+          , offset_type_y<T> {r.y0 + new_offset(spare_y)}
+          , size_type_x<T>   {new_w}
+          , size_type_y<T>   {new_h}};
+}
 
 enum class command_type {
     none
@@ -375,6 +331,27 @@ struct game_state {
 
                     t.tex_coord.first  = 11 * render_data.tile_w;
                     t.tex_coord.second = 13 * render_data.tile_h;
+                }
+            }
+
+            auto const r0 = random_sub_rect(
+                rng_substantive
+              , r
+              , size_type<int> {3}
+              , size_type<int> {20}
+            );
+
+            for (auto y = r0.y0; y < r0.y1; ++y) {
+                for (auto x = r0.x0; x < r0.x1; ++x) {
+                    auto& t = tile_data[x + y * render_data.w];
+
+                    t.position.first  = x * render_data.tile_w;
+                    t.position.second = y * render_data.tile_h;
+
+                    t.color = 0xFFFFFF00;
+
+                    t.tex_coord.first  = 0  * render_data.tile_w;
+                    t.tex_coord.second = 11 * render_data.tile_h;
                 }
             }
         }
@@ -539,6 +516,10 @@ struct game_state {
         std::vector<data_t> tile_data;
         std::vector<data_t> entity_data;
     } render_data;
+
+    struct map_t {
+        std::vector<uint8_t> flags;
+    } map_data;
 };
 
 } // namespace boken

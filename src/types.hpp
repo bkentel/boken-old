@@ -105,6 +105,14 @@ inline constexpr bool operator<(
     return value_cast(a) < value_cast(b);
 }
 
+template <typename T, typename U, typename Tag>
+inline constexpr bool operator<=(
+    tagged_integral_value<T, Tag> const a
+  , tagged_integral_value<U, Tag> const b
+) noexcept {
+    return value_cast(a) <= value_cast(b);
+}
+
 //===------------------------------------------------------------------------===
 //                                  Types
 //===------------------------------------------------------------------------===
