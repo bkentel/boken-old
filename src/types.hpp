@@ -44,7 +44,7 @@ public:
     using type = std::decay_t<T>;
     using tag  = Tag;
 
-    static_assert(std::is_integral<type>::value, "");
+    static_assert(std::is_arithmetic<type>::value, "");
 
     tagged_integral_value() = default;
 

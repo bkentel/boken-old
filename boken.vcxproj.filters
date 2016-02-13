@@ -10,6 +10,7 @@
     <ClCompile Include="src\random.cpp" />
     <ClCompile Include="src\catch.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
+    <ClCompile Include="src\text.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -23,6 +24,7 @@
     <ClInclude Include="src\scope_guard.hpp" />
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\utility.hpp" />
+    <ClInclude Include="src\text.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

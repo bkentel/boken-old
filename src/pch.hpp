@@ -12,6 +12,7 @@
 #include <numeric>
 #include <initializer_list>
 #include <tuple>
+#include <limits>
 
 #include <cstddef>
 #include <cstdint>

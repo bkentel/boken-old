@@ -311,6 +311,8 @@ public:
         sy_ = sy;
         tx_ = tx;
         ty_ = ty;
+
+        SDL_RenderSetScale(renderer_, sx_, sy_);
     }
 
     void render_data_n(int const n) noexcept final override {
@@ -319,18 +321,21 @@ public:
         auto cd = color_data_;
 
         SDL_Rect src {0, 0, tile_w_, tile_h_};
-        SDL_Rect dst {0, 0, static_cast<int>(std::ceil(tile_w_ * sx_))
-                          , static_cast<int>(std::ceil(tile_h_ * sy_))};
+        SDL_Rect dst {0, 0, static_cast<int>(std::ceil(tile_w_))
+                          , static_cast<int>(std::ceil(tile_h_))};
 
         uint32_t last_color = 0;
         set_draw_color(last_color);
+
+        auto const tx = static_cast<int>(std::ceil(tx_ / sx_));
+        auto const ty = static_cast<int>(std::ceil(ty_ / sy_));
 
         for (int i = 0; i < n; ++i, ++pd, ++td, ++cd) {
             std::tie(src.x, src.y) = td.value<std::pair<uint16_t, uint16_t>>();
             std::tie(dst.x, dst.y) = pd.value<std::pair<uint16_t, uint16_t>>();
 
-            dst.x = static_cast<int>(std::ceil(dst.x * sx_ + tx_));
-            dst.y = static_cast<int>(std::ceil(dst.y * sy_ + ty_));
+            dst.x = dst.x + tx;
+            dst.y = dst.y + ty;
 
             auto const color = cd.value<uint32_t>();
             if (color != last_color) {

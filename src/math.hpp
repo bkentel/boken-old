@@ -31,10 +31,12 @@ struct basic_2_tuple {
 template <typename T>
 using point2 = basic_2_tuple<T, tag_point>;
 using point2i = point2<int32_t>;
+using point2f = point2<float>;
 
 template <typename T>
 using vec2 = basic_2_tuple<T, tag_vector>;
 using vec2i = vec2<int32_t>;
+using vec2f = vec2<float>;
 
 template <typename T>
 inline constexpr basic_2_tuple<T, tag_point> operator+(
@@ -59,6 +61,15 @@ inline constexpr basic_2_tuple<T, tag_point> operator-(
 ) noexcept {
     return {p.x - v.x, p.y - v.y};
 }
+
+template <typename T>
+inline constexpr basic_2_tuple<T, tag_vector> operator-(
+    basic_2_tuple<T, tag_point> const p
+  , basic_2_tuple<T, tag_point> const q
+) noexcept {
+    return {p.x - q.x, p.y - q.y};
+}
+
 
 template <typename T>
 inline constexpr basic_2_tuple<T, tag_point>& operator-=(
