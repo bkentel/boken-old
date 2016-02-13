@@ -52,6 +52,8 @@ public:
     void layout(text_renderer& trender);
 
     void render(system& os, text_renderer& trender);
+
+    void move_to(int x, int y);
 private:
     struct data_t {
         point2<int16_t> position;
@@ -62,7 +64,7 @@ private:
 
     std::string          text_       {};
     std::vector<data_t>  data_       {};
-    point2<int16_t>      position_   {0, 0};
+    point2<int>          position_   {0, 0};
     size_type_x<int16_t> max_width_  {std::numeric_limits<int16_t>::max()};
     size_type_y<int16_t> max_height_ {std::numeric_limits<int16_t>::max()};
 };

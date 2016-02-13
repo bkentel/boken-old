@@ -348,9 +348,9 @@ struct game_state {
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     game_state() {
-        os.on_key([&](auto a) { on_key(a); });
-        os.on_mouse_move([&](auto a) { on_mouse_move(a); });
-        os.on_mouse_wheel([&](auto a, auto b) { on_mouse_wheel(a, b); });
+        os.on_key([&](auto a, auto b) { on_key(a, b); });
+        os.on_mouse_move([&](auto a, auto b) { on_mouse_move(a, b); });
+        os.on_mouse_wheel([&](auto a, auto b, auto c) { on_mouse_wheel(a, b, c); });
 
         cmd_translator.on_command([&](auto a, auto b) { on_command(a, b); });
 
@@ -429,23 +429,27 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void on_key(kb_event const event) {
+    void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
             cmd_translator.translate(event);
         }
     }
 
-    void on_mouse_move(mouse_event const event) {
-        if (event.button_state[2]) {
+    void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        if (kmods.none() && event.button_state[2]) {
             current_view.x_off += event.dx;
             current_view.y_off += event.dy;
+        }
+
+        if (kmods.test(kb_modifiers::m_shift)) {
+            test_layout.move_to(event.x, event.y);
         }
 
         last_mouse_x = event.x;
         last_mouse_y = event.y;
     }
 
-    void on_mouse_wheel(int const wy, int) {
+    void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
         auto const mouse_p = point2f {static_cast<float>(last_mouse_x)
                                     , static_cast<float>(last_mouse_y)};
 
@@ -555,6 +559,7 @@ struct game_state {
         //
         // text
         //
+        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
         test_layout.render(os, trender);
 
         os.render_present();

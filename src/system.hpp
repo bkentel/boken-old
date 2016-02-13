@@ -5,8 +5,56 @@
 #include <memory>
 #include <functional>
 #include <array>
+#include <bitset>
+#include <type_traits>
 
 namespace boken {
+
+struct kb_modifiers {
+    template <size_t Bit>
+    using flag_t = std::integral_constant<size_t, Bit>;
+
+    template <size_t... Bits>
+    using flags_t = std::integer_sequence<size_t, Bits...>;
+
+    static constexpr flag_t<1>  m_left_shift  = flag_t<1> {};
+    static constexpr flag_t<2>  m_right_shift  = flag_t<2> {};
+    static constexpr flag_t<3>  m_left_ctrl  = flag_t<3> {};
+    static constexpr flag_t<4>  m_right_ctrl  = flag_t<4> {};
+    static constexpr flag_t<5>  m_left_alt  = flag_t<5> {};
+    static constexpr flag_t<6>  m_right_alt  = flag_t<6> {};
+    static constexpr flag_t<7>  m_left_gui  = flag_t<7> {};
+    static constexpr flag_t<8>  m_right_gui  = flag_t<8> {};
+    static constexpr flag_t<9>  m_num  = flag_t<9> {};
+    static constexpr flag_t<10> m_caps  = flag_t<10> {};
+    static constexpr flag_t<11> m_mode  = flag_t<11> {};
+
+    static constexpr flags_t<m_left_shift, m_right_shift> m_shift  = flags_t<m_left_shift, m_right_shift> {};
+    static constexpr flags_t<m_left_ctrl, m_right_ctrl> m_ctrl  = flags_t<m_left_ctrl, m_right_ctrl> {};
+    static constexpr flags_t<m_left_alt, m_right_alt> m_alt  = flags_t<m_left_alt, m_right_alt> {};
+    static constexpr flags_t<m_left_gui, m_right_gui> m_gui  = flags_t<m_left_gui, m_right_gui> {};
+
+    constexpr explicit kb_modifiers(uint32_t const n) noexcept
+      : bits_ {n}
+    {
+    }
+
+    bool none() const noexcept {
+        return bits_.none();
+    }
+
+    template <size_t Bit>
+    constexpr bool test(flag_t<Bit>) const noexcept {
+        return bits_.test(Bit - 1);
+    }
+
+    template <size_t Bit0, size_t Bit1>
+    constexpr bool test(flags_t<Bit0, Bit1>) const noexcept {
+        return bits_.test(Bit0 - 1) || bits_.test(Bit1 - 1);
+    }
+
+    std::bitset<16> bits_;
+};
 
 struct kb_event {
     uint32_t timestamp;
@@ -101,16 +149,16 @@ public:
     using on_request_quit_handler = std::function<bool ()>;
     virtual void on_request_quit(on_request_quit_handler handler) = 0;
 
-    using on_key_handler = std::function<void (kb_event)>;
+    using on_key_handler = std::function<void (kb_event, kb_modifiers)>;
     virtual void on_key(on_key_handler handler) = 0;
 
-    using on_mouse_move_handler = std::function<void (mouse_event)>;
+    using on_mouse_move_handler = std::function<void (mouse_event, kb_modifiers)>;
     virtual void on_mouse_move(on_mouse_move_handler handler) = 0;
 
-    using on_mouse_button_handler = std::function<void (mouse_event)>;
+    using on_mouse_button_handler = std::function<void (mouse_event, kb_modifiers)>;
     virtual void on_mouse_button(on_mouse_button_handler handler) = 0;
 
-    using on_mouse_wheel_handler = std::function<void (int wy, int wx)>;
+    using on_mouse_wheel_handler = std::function<void (int wy, int wx, kb_modifiers)>;
     virtual void on_mouse_wheel(on_mouse_wheel_handler handler) = 0;
 
     virtual bool is_running() = 0;

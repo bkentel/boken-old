@@ -80,24 +80,6 @@ constexpr ResultType value_cast(ValueType const n) noexcept {
 }
 
 template <typename T, typename U, typename Tag>
-inline constexpr auto operator+(
-    tagged_integral_value<T, Tag> const a
-  , tagged_integral_value<U, Tag> const b
-) noexcept {
-    return tagged_integral_value<std::common_type_t<T, U>, Tag> {
-        value_cast(a) + value_cast(b)};
-}
-
-template <typename T, typename U, typename Tag>
-inline constexpr auto operator-(
-    tagged_integral_value<T, Tag> const a
-  , tagged_integral_value<U, Tag> const b
-) noexcept {
-    return tagged_integral_value<std::common_type_t<T, U>, Tag> {
-        value_cast(a) - value_cast(b)};
-}
-
-template <typename T, typename U, typename Tag>
 inline constexpr bool operator<(
     tagged_integral_value<T, Tag> const a
   , tagged_integral_value<U, Tag> const b
@@ -121,11 +103,11 @@ struct tag_size_type   {};
 struct tag_area_type   {};
 struct tag_offset_type {};
 
-struct tag_size_type_x {};
-struct tag_size_type_y {};
+struct tag_size_type_x : tag_size_type {};
+struct tag_size_type_y : tag_size_type {};
 
-struct tag_offset_type_x {};
-struct tag_offset_type_y {};
+struct tag_offset_type_x : tag_offset_type {};
+struct tag_offset_type_y : tag_offset_type {};
 
 template <typename T>
 using size_type = tagged_integral_value<T, tag_size_type>;

@@ -162,10 +162,14 @@ public:
           renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
     {
         handler_quit_         = [](    ) noexcept { return true; };
-        handler_key_          = [](auto) noexcept {};
-        handler_mouse_move_   = [](auto) noexcept {};
-        handler_mouse_button_ = [](auto) noexcept {};
-        handler_mouse_wheel_  = [](auto, auto) noexcept {};
+        handler_key_          = [](auto, auto) noexcept {};
+        handler_mouse_move_   = [](auto, auto) noexcept {};
+        handler_mouse_button_ = [](auto, auto) noexcept {};
+        handler_mouse_wheel_  = [](auto, auto, auto) noexcept {};
+    }
+
+    static kb_modifiers get_key_mods() noexcept {
+        return kb_modifiers {static_cast<uint32_t>(SDL_GetModState())};
     }
 
     void set_draw_color(uint32_t const c) noexcept {
@@ -201,7 +205,7 @@ public:
         last_mouse_event_.dx = 0;
         last_mouse_event_.dy = 0;
 
-        handler_mouse_button_(m);
+        handler_mouse_button_(m, get_key_mods());
     }
 
     void handle_event_mouse_move(SDL_MouseMotionEvent const& e) {
@@ -215,7 +219,7 @@ public:
         m.dx = e.xrel;
         m.dy = e.yrel;
 
-        handler_mouse_move_(m);
+        handler_mouse_move_(m, get_key_mods());
     }
 public:
     //
@@ -263,7 +267,7 @@ public:
                   , event.key.keysym.mod
                   , !!event.key.repeat
                   , event.key.state == SDL_PRESSED
-                });
+                }, kb_modifiers {event.key.keysym.mod});
                 break;
             case SDL_MOUSEMOTION :
                 handle_event_mouse_move(event.motion);
@@ -273,7 +277,7 @@ public:
                 handle_event_mouse_button(event.button);
                 break;
             case SDL_MOUSEWHEEL :
-                handler_mouse_wheel_(event.wheel.y, event.wheel.x);
+                handler_mouse_wheel_(event.wheel.y, event.wheel.x, get_key_mods());
                 break;
             }
         }

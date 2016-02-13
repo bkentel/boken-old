@@ -40,10 +40,10 @@ void text_layout::layout(text_renderer& trender) {
 
         data_.push_back(data_t {
             {static_cast<int16_t>(x + value_cast(position_.x))
-            , static_cast<int16_t>(y + value_cast(position_.y))}
-            , metrics.texture
-            , metrics.size
-            , 0xFFFFFFFFu
+           , static_cast<int16_t>(y + value_cast(position_.y))}
+           , metrics.texture
+           , metrics.size
+           , 0xFFFFFFFFu
         });
 
         line_h =  std::max<int32_t>(line_h, value_cast(metrics.size.y));
@@ -71,6 +71,17 @@ void text_layout::render(system& os, text_renderer& trender) {
         data_, BK_OFFSETOF(data_t, color)});
 
     os.render_data_n(data_.size());
+}
+
+void text_layout::move_to(int const x, int const y) {
+    auto const u = point2i {x, y} - position_;
+    auto const v = u.cast_to<int16_t>();
+
+    for (auto& glyph : data_) {
+        glyph.position += v;
+    }
+
+    position_ = point2i {x, y};
 }
 
 } //namespace boken
