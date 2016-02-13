@@ -53,7 +53,10 @@ public:
 
     void render(system& os, text_renderer& trender);
 
-    void move_to(int x, int y);
+    void move_to(int x, int y) noexcept;
+
+    bool is_visible() const noexcept;
+    bool visible(bool state) noexcept;
 private:
     struct data_t {
         point2<int16_t> position;
@@ -64,9 +67,10 @@ private:
 
     std::string          text_       {};
     std::vector<data_t>  data_       {};
-    point2<int>          position_   {0, 0};
+    point2i              position_   {0, 0};
     size_type_x<int16_t> max_width_  {std::numeric_limits<int16_t>::max()};
     size_type_y<int16_t> max_height_ {std::numeric_limits<int16_t>::max()};
+    bool                 is_visible_ {false};
 };
 
 } // namespace boken

@@ -355,6 +355,7 @@ struct game_state {
         cmd_translator.on_command([&](auto a, auto b) { on_command(a, b); });
 
         test_layout.layout(trender, "This is a test.");
+        test_layout.visible(true);
 
         generate();
     }

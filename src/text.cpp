@@ -52,6 +52,10 @@ void text_layout::layout(text_renderer& trender) {
 }
 
 void text_layout::render(system& os, text_renderer& trender) {
+    if (!is_visible_) {
+        return;
+    }
+
     auto const next_code_point = [&](char const*& p, char const* const last) -> uint32_t {
         return p != last ? *p++ : 0;
     };
@@ -73,7 +77,7 @@ void text_layout::render(system& os, text_renderer& trender) {
     os.render_data_n(data_.size());
 }
 
-void text_layout::move_to(int const x, int const y) {
+void text_layout::move_to(int const x, int const y) noexcept {
     auto const u = point2i {x, y} - position_;
     auto const v = u.cast_to<int16_t>();
 
@@ -82,6 +86,14 @@ void text_layout::move_to(int const x, int const y) {
     }
 
     position_ = point2i {x, y};
+}
+
+bool text_layout::is_visible() const noexcept {
+    return is_visible_;
+}
+
+bool text_layout::visible(bool state) noexcept {
+    return std::swap(is_visible_, state), state;
 }
 
 } //namespace boken
