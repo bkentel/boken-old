@@ -270,6 +270,127 @@ private:
     command_handler_t handler_;
 };
 
+class text_layout;
+
+class text_renderer {
+public:
+    struct glyph_data_t {
+        point2<int16_t> texture;
+        point2<int16_t> size;
+        point2<int16_t> offset;
+        point2<int16_t> advance;
+    };
+
+    glyph_data_t load_metrics(uint32_t const cp_prev, uint32_t const cp) {
+        return load_metrics(cp);
+    }
+
+    glyph_data_t load_metrics(uint32_t const cp) {
+        constexpr int16_t tiles_x = 16;
+        constexpr int16_t tiles_y = 16;
+        constexpr int16_t tile_w  = 18;
+        constexpr int16_t tile_h  = 18;
+
+        auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
+        auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
+
+        return {
+            {    tx,     ty}
+          , {tile_w, tile_h}
+          , {     0,      0}
+          , {tile_w,      0}
+        };
+    }
+private:
+};
+
+class text_layout {
+public:
+    text_layout() = default;
+
+    text_layout(text_renderer& trender, std::string text)
+      : text_ {std::move(text)}
+    {
+    }
+
+    void layout(text_renderer& trender, std::string text) {
+        text_ = std::move(text);
+        layout(trender);
+    }
+
+    void layout(text_renderer& trender) {
+        data_.clear();
+
+        auto const next_code_point = [&](char const*& p, char const* const last) -> uint32_t {
+            return p != last ? *p++ : 0;
+        };
+
+        auto     it      = text_.data();
+        auto     last    = text_.data() + text_.size();
+        uint32_t prev_cp = 0;
+        int32_t  line_h  = 0;
+        int32_t  x       = 0;
+        int32_t  y       = 0;
+
+        while (it != last) {
+            auto const cp = next_code_point(it, last);
+            auto const metrics = trender.load_metrics(prev_cp, cp);
+
+            if (x + value_cast(metrics.size.x) > value_cast(max_width_)) {
+                y      += line_h;
+                x      =  0;
+                line_h =  0;
+            }
+
+            data_.push_back(data_t {
+                {static_cast<int16_t>(x + value_cast(position_.x))
+               , static_cast<int16_t>(y + value_cast(position_.y))}
+              , metrics.texture
+              , metrics.size
+              , 0xFFFFFFFFu
+            });
+
+            line_h =  std::max<int32_t>(line_h, value_cast(metrics.size.y));
+            x      += value_cast(metrics.size.x);
+        }
+    }
+
+    void render(system& os, text_renderer& trender) {
+        auto const next_code_point = [&](char const*& p, char const* const last) -> uint32_t {
+            return p != last ? *p++ : 0;
+        };
+
+        auto it   = text_.data();
+        auto last = text_.data() + text_.size();
+
+        for (size_t i = 0; it != last; ++i) {
+            data_[i].texture = trender.load_metrics(next_code_point(it, last)).texture;
+        }
+
+        os.render_set_data(render_data::position, read_only_pointer_t {
+            data_, BK_OFFSETOF(data_t, position)});
+        os.render_set_data(render_data::texture, read_only_pointer_t {
+            data_, BK_OFFSETOF(data_t, texture)});
+        os.render_set_data(render_data::color, read_only_pointer_t {
+            data_, BK_OFFSETOF(data_t, color)});
+
+        os.render_data_n(data_.size());
+    }
+private:
+    struct data_t {
+        point2<int16_t> position;
+        point2<int16_t> texture;
+        point2<int16_t> size;
+        uint32_t        color;
+    };
+
+    std::string          text_       {};
+    std::vector<data_t>  data_       {};
+    point2<int16_t>      position_   {0, 0};
+    size_type_x<int16_t> max_width_  {std::numeric_limits<int16_t>::max()};
+    size_type_y<int16_t> max_height_ {std::numeric_limits<int16_t>::max()};
+};
+
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
@@ -286,6 +407,8 @@ struct game_state {
         os.on_mouse_wheel([&](auto a, auto b) { on_mouse_wheel(a, b); });
 
         cmd_translator.on_command([&](auto a, auto b) { on_command(a, b); });
+
+        test_layout.layout(trender, "This is a test.");
 
         generate();
     }
@@ -441,7 +564,9 @@ struct game_state {
 
         os.render_set_tile_size(render_data.tile_w, render_data.tile_h);
 
+        //
         // Map tiles
+        //
         os.render_set_data(render_data::position, read_only_pointer_t {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, position)});
         os.render_set_data(render_data::texture, read_only_pointer_t {
@@ -450,7 +575,9 @@ struct game_state {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, color)});
         os.render_data_n(render_data.w * render_data.h);
 
+        //
         // Player and entities.
+        //
         render_data.entity_data.clear();
         render_data.entity_data.push_back(render_t::data_t {
             {value_cast(player.position.x) * render_data.tile_w, value_cast(player.position.y) * render_data.tile_h}
@@ -465,6 +592,11 @@ struct game_state {
         os.render_set_data(render_data::color, read_only_pointer_t {
             render_data.entity_data, BK_OFFSETOF(render_t::data_t, color)});
         os.render_data_n(render_data.entity_data.size());
+
+        //
+        // text
+        //
+        test_layout.render(os, trender);
 
         os.render_present();
 
@@ -516,6 +648,10 @@ struct game_state {
         std::vector<data_t> tile_data;
         std::vector<data_t> entity_data;
     } render_data;
+
+    text_renderer trender;
+
+    text_layout test_layout;
 
     struct map_t {
         std::vector<uint8_t> flags;
