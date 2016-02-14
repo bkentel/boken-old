@@ -1,12 +1,46 @@
 #pragma once
 
 #include <type_traits>
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <cstddef>
 #include <cstdint>
 
 namespace boken {
+
+namespace container_algorithms {
+
+namespace detail {
+template <typename Container, typename Compare>
+void sort_impl(Container&& c, Compare comp) {
+    using std::sort;
+    using std::begin;
+    using std::end;
+
+    sort(begin(c), end(c), comp);
+}
+} //namespace detail
+
+template <typename Container, typename Compare>
+void sort(Container&& c, Compare comp) {
+    detail::sort_impl(std::forward<Container>(c), comp);
+}
+
+template <typename Container, typename Predicate>
+auto* find_if(Container&& c, Predicate pred) {
+    using std::begin;
+    using std::end;
+
+    using result_t = decltype(std::addressof(*it));
+
+    auto const it = std::find_if(begin(c), end(c), pred);
+    return (it == end(c))
+      ? result_t {nullptr}
+      : std::addressof(*it);
+}
+
+} // container_algorithms
 
 template <typename T, typename U>
 inline constexpr ptrdiff_t check_offsetof() noexcept {

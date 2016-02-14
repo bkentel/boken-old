@@ -4,26 +4,6 @@
 
 namespace boken {
 
-namespace container_algorithms {
-
-namespace detail {
-template <typename Container, typename Compare>
-void sort_impl(Container&& c, Compare comp) {
-    using std::sort;
-    using std::begin;
-    using std::end;
-
-    sort(begin(c), end(c), comp);
-}
-} //namespace detail
-
-template <typename Container, typename Compare>
-void sort(Container&& c, Compare comp) {
-    detail::sort_impl(std::forward<Container>(c), comp);
-}
-
-} // container_algorithms
-
 template <typename T>
 T&& choose_largest(random_state& rng, T&& a, T&& b) {
     return std::forward<T>(

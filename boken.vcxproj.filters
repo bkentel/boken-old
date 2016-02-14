@@ -32,6 +32,7 @@
     <ClInclude Include="src\utility.hpp" />
     <ClInclude Include="src\text.hpp" />
     <ClInclude Include="src\spatial_map.hpp" />
+    <ClInclude Include="src\config.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

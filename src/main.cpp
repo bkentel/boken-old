@@ -331,11 +331,90 @@ public:
     float scale_y = 1.0f;
 };
 
-struct level_state {
+struct tag_id_entity {};
+struct tag_id_instance_entity {};
+
+struct tag_id_item {};
+struct tag_id_instance_item {};
+
+using entity_id          = tagged_integral_value<uint32_t, tag_id_entity>;
+using entity_instance_id = tagged_integral_value<uint32_t, tag_id_instance_entity>;
+using item_id            = tagged_integral_value<uint32_t, tag_id_item>;
+using item_instance_id   = tagged_integral_value<uint32_t, tag_id_instance_item>;
+
+struct entity_definition {
+
+    std::string id_string;
+    entity_id   id;
 };
 
-struct world_state {
+struct entity {
+    entity_id          id;
+    entity_instance_id instance_id;
 };
+
+struct item_definition {
+    std::string id_string;
+    entity_id   id;
+};
+
+struct item {
+    item_id          id;
+    item_instance_id instance_id;
+};
+
+//====---
+// The database of all current game data.
+//====---
+class game_database {
+public:
+    virtual item_definition   const* find(item_id   id) const noexcept = 0;
+    virtual entity_definition const* find(entity_id id) const noexcept = 0;
+};
+
+std::unique_ptr<game_database> make_game_database();
+
+class game_database_impl final : public game_database {
+public:
+    item_definition   const* find(item_id   id) const noexcept final override {
+
+    }
+
+    entity_definition const* find(entity_id const id) const noexcept final override {
+        using namespace container_algorithms;
+        return find_if(entity_defs_, [id](entity_definition const& def) noexcept {
+            return id == def.id;
+        });
+    }
+private:
+    std::vector<item_definition>   item_defs_;
+    std::vector<entity_definition> entity_defs_;
+};
+
+//====---
+// A generic level concept
+//====---
+class level {
+public:
+    virtual item   const* find(item_instance_id   id) const noexcept = 0;
+    virtual entity const* find(entity_instance_id id) const noexcept = 0;
+};
+
+std::unique_ptr<level> make_level();
+
+//====---
+// (Singular) World state.
+//====---
+class world {
+public:
+    virtual item   const* find(item_instance_id   id) const noexcept = 0;
+    virtual entity const* find(entity_instance_id id) const noexcept = 0;
+
+    virtual item   create_item();
+    virtual entity create_entity();
+};
+
+std::unique_ptr<world> make_world();
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
