@@ -1,8 +1,5 @@
 #pragma once
 
-#include <boost/utility/string_ref.hpp>
-#include <boost/version.hpp>
-
 #if defined(BK_USE_BOOST_STRING_VIEW)
 #   include <boost/version.hpp>
 #   include <boost/utility/string_ref.hpp>

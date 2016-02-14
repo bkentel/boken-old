@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.hpp"
+
 #include <algorithm>
 #include <memory>
 #include <stdexcept>

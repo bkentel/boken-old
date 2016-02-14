@@ -342,25 +342,31 @@ using entity_instance_id = tagged_integral_value<uint32_t, tag_id_instance_entit
 using item_id            = tagged_integral_value<uint32_t, tag_id_item>;
 using item_instance_id   = tagged_integral_value<uint32_t, tag_id_instance_item>;
 
-struct entity_definition {
-
+struct basic_definition {
+    string_view source_name;
+    uint32_t    source_line;
     std::string id_string;
-    entity_id   id;
+    std::string name;
 };
+
+struct entity_definition : basic_definition {
+    entity_id id;
+};
+
+struct item_definition : basic_definition {
+    item_id id;
+};
+
 
 struct entity {
-    entity_id          id;
-    entity_instance_id instance_id;
+    entity_id          id          {0};
+    entity_instance_id instance_id {0};
 };
 
-struct item_definition {
-    std::string id_string;
-    entity_id   id;
-};
 
 struct item {
-    item_id          id;
-    item_instance_id instance_id;
+    item_id          id          {0};
+    item_instance_id instance_id {0};
 };
 
 //====---

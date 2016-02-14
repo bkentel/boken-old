@@ -46,10 +46,10 @@ public:
 
     static_assert(std::is_arithmetic<type>::value, "");
 
-    tagged_integral_value() = default;
+    constexpr tagged_integral_value() = default;
+    constexpr tagged_integral_value(tagged_integral_value const&) = default;
 
-    template <typename U, typename = std::enable_if_t<
-        std::is_same<std::common_type_t<type, U>, type>::value>>
+    template <typename U>
     constexpr explicit tagged_integral_value(U const n) noexcept
       : value_ {n}
     {

@@ -32,11 +32,11 @@ auto* find_if(Container&& c, Predicate pred) {
     using std::begin;
     using std::end;
 
-    using result_t = decltype(std::addressof(*it));
+    using result_t = decltype(std::addressof(*begin(c)));
 
     auto const it = std::find_if(begin(c), end(c), pred);
     return (it == end(c))
-      ? result_t {nullptr}
+      ? static_cast<result_t>(nullptr)
       : std::addressof(*it);
 }
 
