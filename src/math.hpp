@@ -66,6 +66,11 @@ constexpr basic_2_tuple<T, R> do_op(basic_2_tuple<T, Tag0> const a, basic_2_tupl
 } //namespace detail
 
 template <typename T> inline constexpr
+bool operator==(point2<T> const p, point2<T> const q) noexcept {
+    return p.x == q.x && p.y == q.y;
+}
+
+template <typename T> inline constexpr
 point2<T> operator+(point2<T> const p, vec2<T> const v) noexcept {
     return detail::do_op<tag_point>(p, v, std::plus<> {});
 }
@@ -98,6 +103,20 @@ point2<T>& operator-=(point2<T>& p, vec2<T> const v) noexcept {
 template <typename T, typename Tag> inline constexpr
 basic_2_tuple<T, Tag> operator*(basic_2_tuple<T, Tag> const a, T const n) noexcept {
     return {a.x * n, a.y * n};
+}
+
+template <typename T> inline constexpr
+auto square_of(T const n) noexcept {
+    return n * n;
+}
+
+template <typename T> inline constexpr
+size_type<T> distance2(point2<T> const p, point2<T> const q) noexcept {
+    static_assert(std::is_signed<T>::value, "TODO");
+
+    return size_type<T>{static_cast<T>(
+        square_of(value_cast(p.x) - value_cast(q.x))
+      + square_of(value_cast(p.y) - value_cast(q.y)))};
 }
 
 //! 2D axis-aligned rectangle (square).

@@ -2,57 +2,28 @@
 #include "catch.hpp"
 
 #include "bsp_generator.hpp"
+#include "random.hpp"
 
 namespace bk = ::boken;
 
-TEST_CASE("axis_aligned_rect") {
-    using bk::sz;
+TEST_CASE("bsp_generator") {
+    auto  rng_state = bk::make_random_state();
+    auto& rng = *rng_state;
 
-    SECTION("from points") {
-        constexpr bk::axis_aligned_rect<int> r {
-            bk::offset_type_x<int> {1}
-          , bk::offset_type_y<int> {2}
-          , bk::offset_type_x<int> {3}
-          , bk::offset_type_y<int> {4}
-        };
+    SECTION("default params") {
+        bk::bsp_generator::param_t p;
+        auto bsp = bk::make_bsp_generator(p);
 
-        REQUIRE(r.x0 == 1);
-        REQUIRE(r.y0 == 2);
-        REQUIRE(r.x1 == 3);
-        REQUIRE(r.y1 == 4);
-        REQUIRE(r.width()  == 2);
-        REQUIRE(r.height() == 2);
-    }
+        REQUIRE(bsp->size() == 0);
+        REQUIRE(bsp->empty());
+        REQUIRE(bsp->begin() == bsp->end());
 
-    SECTION("from point + size") {
-        constexpr bk::axis_aligned_rect<int> r {
-            bk::offset_type_x<int> {1}
-          , bk::offset_type_y<int> {2}
-          , bk::size_type_x<int>   {3}
-          , bk::size_type_y<int>   {4}
-        };
+        bsp->generate(rng);
 
-        REQUIRE(r.x0 == 1);
-        REQUIRE(r.y0 == 2);
-        REQUIRE(r.x1 == (r.x0 + 3));
-        REQUIRE(r.y1 == (r.y0 + 4));
-        REQUIRE(r.width()  == 3);
-        REQUIRE(r.height() == 4);
+        REQUIRE(bsp->size() > 0);
+        REQUIRE(!bsp->empty());
+        REQUIRE(bsp->begin() != bsp->end());
     }
 }
 
-TEST_CASE("clamp") {
-    constexpr int lo = 1;
-    constexpr int hi = 10;
-
-    REQUIRE(bk::clamp(lo - 1, lo, hi) == lo    );
-    REQUIRE(bk::clamp(lo    , lo, hi) == lo    );
-    REQUIRE(bk::clamp(lo + 1, lo, hi) == lo + 1);
-
-    REQUIRE(bk::clamp(hi - 1, lo, hi) == hi - 1);
-    REQUIRE(bk::clamp(hi    , lo, hi) == hi    );
-    REQUIRE(bk::clamp(hi + 1, lo, hi) == hi    );
-}
-
-
-#endif // BK_NO_TESTS
+#endif // !defined(BK_NO_TESTS)

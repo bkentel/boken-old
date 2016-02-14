@@ -81,6 +81,14 @@ public:
 
     void generate(random_state& rng) final override;
 
+    size_t size() const noexcept final override {
+        return leaf_nodes_.size();
+    }
+
+    bool empty() const noexcept final override {
+        return leaf_nodes_.empty();
+    }
+
     iterator begin() const noexcept final override {
         return std::begin(leaf_nodes_);
     }

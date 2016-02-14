@@ -87,6 +87,9 @@ public:
     virtual ~bsp_generator() = default;
     virtual void generate(random_state& rng) = 0;
 
+    virtual size_t size()  const noexcept = 0;
+    virtual bool   empty() const noexcept = 0;
+
     virtual iterator begin() const noexcept = 0;
     virtual iterator end()   const noexcept = 0;
 

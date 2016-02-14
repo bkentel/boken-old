@@ -11,6 +11,12 @@
     <ClCompile Include="src\catch.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\text.cpp" />
+    <ClCompile Include="src\test\spatial_map.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test\math.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -25,6 +31,7 @@
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\utility.hpp" />
     <ClInclude Include="src\text.hpp" />
+    <ClInclude Include="src\spatial_map.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

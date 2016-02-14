@@ -537,7 +537,7 @@ struct game_state {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, tex_coord)});
         os.render_set_data(render_data::color, read_only_pointer_t {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, color)});
-        os.render_data_n(render_data.w * render_data.h);
+        os.render_data_n(render_data.tile_data.size());
 
         //
         // Player and entities.
@@ -624,7 +624,16 @@ struct game_state {
 } // namespace boken
 
 int main(int const argc, char const* argv[]) try {
-    bk::run_unit_tests();
+    {
+        using namespace std::chrono;
+
+        auto const beg = high_resolution_clock::now();
+        bk::run_unit_tests();
+        auto const end = high_resolution_clock::now();
+
+        auto const us = duration_cast<microseconds>(end - beg);
+        std::printf("Tests took %lld microseconds.\n", us.count());
+    }
 
     bk::game_state game;
     game.run();
