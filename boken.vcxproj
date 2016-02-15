@@ -126,6 +126,8 @@
   <ItemGroup>
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\catch.cpp" />
+    <ClCompile Include="src\data.cpp" />
+    <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -141,7 +143,12 @@
     <ClInclude Include="src\bsp_generator.hpp" />
     <ClInclude Include="src\catch.hpp" />
     <ClInclude Include="src\config.hpp" />
+    <ClInclude Include="src\data.hpp" />
+    <ClInclude Include="src\definition.hpp" />
+    <ClInclude Include="src\entity_def.hpp" />
     <ClInclude Include="src\hash.hpp" />
+    <ClInclude Include="src\item_def.hpp" />
+    <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\map.hpp" />
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\pch.hpp" />

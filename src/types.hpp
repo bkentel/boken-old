@@ -135,6 +135,23 @@ using offset_type_x = tagged_integral_value<T, tag_offset_type_x>;
 template <typename T>
 using offset_type_y = tagged_integral_value<T, tag_offset_type_y>;
 
+using sizei  = size_type<int32_t>;
+using sizeix = size_type_x<int32_t>;
+using sizeiy = size_type_y<int32_t>;
+using offi   = offset_type<int32_t>;
+using offix  = offset_type_x<int32_t>;
+using offiy  = offset_type_y<int32_t>;
+
+struct tag_id_entity {};
+struct tag_id_instance_entity {};
+
+struct tag_id_item {};
+struct tag_id_instance_item {};
+
+using entity_id          = tagged_integral_value<uint32_t, tag_id_entity>;
+using entity_instance_id = tagged_integral_value<uint32_t, tag_id_instance_entity>;
+using item_id            = tagged_integral_value<uint32_t, tag_id_item>;
+using item_instance_id   = tagged_integral_value<uint32_t, tag_id_instance_item>;
 
 // size is used by the standard, so "sz" it is.
 template <typename T>
