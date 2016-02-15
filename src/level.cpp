@@ -70,8 +70,8 @@ public:
         bsp_generator::param_t p;
         p.width  = sizeix {width};
         p.height = sizeiy {height};
-        p.min_room_size = sizei {20};
-        p.room_chance_num = sizei {100};
+        p.min_room_size = sizei {3};
+        p.room_chance_num = sizei {80};
         bsp_gen_ = make_bsp_generator(p);
 
         generate(rng);
@@ -116,9 +116,22 @@ public:
         return std::make_pair(std::ref(data_.tile_indicies)
           , recti {offix {0}, offiy {0}, width_, height_});
     }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // implementation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    template <typename T, typename F>
+    void for_each_xy(axis_aligned_rect<T> const r, F f) {
+        for (auto y = r.y0; y < r.y1; ++y) {
+            bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
+            for (auto x = r.x0; x < r.x1; ++x) {
+                bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+                f(x, y, on_edge);
+            }
+        }
+    }
+
     void generate(random_state& rng) {
         auto& bsp = *bsp_gen_;
 
@@ -133,6 +146,23 @@ public:
         auto const room_gen_chance_num = p.room_chance_num;
         auto const room_gen_chance_den = p.room_chance_den;
 
+        std::vector<recti> room_rects;
+        room_rects.reserve((bsp.size() * value_cast(room_gen_chance_num))
+                         / value_cast(room_gen_chance_den));
+
+        auto const wall_t = std::make_tuple(
+            tile_id {uint16_t{1}}, tile_flags {1u}, uint16_t {11u * 16u});
+
+        auto const floor_t = std::make_tuple(
+            tile_id {uint16_t{0}}, tile_flags {0u}, uint16_t {7u});
+
+        auto const tie_data = [&](int const x, int const y) noexcept {
+            return std::tie(
+                data_at_(data_.ids, x, y, width_)
+              , data_at_(data_.flags, x, y, width_)
+              , data_at_(data_.tile_indicies, x, y, width_));
+        };
+
         for (auto const& region : bsp) {
             if (random_uniform_int(rng, 0, value_cast(room_gen_chance_den))
              > value_cast(room_gen_chance_num)
@@ -143,27 +173,111 @@ public:
             auto const room_rect = random_sub_rect(
                 rng, region.rect, room_min_size, room_max_size);
 
-            for (auto y = room_rect.y0; y < room_rect.y1; ++y) {
-                bool const on_edge_y = y == room_rect.y0
-                                    || y == room_rect.y1 - 1;
+            room_rects.push_back(room_rect);
 
-                for (auto x = room_rect.x0; x < room_rect.x1; ++x) {
-                    bool const on_edge = on_edge_y || x == room_rect.x0
-                                                   || x == room_rect.x1 - 1;
-
-                    auto const tid = tile_id {
-                        on_edge ? uint16_t {1} : uint16_t {0}};
-                    auto const tflags = tile_flags {
-                        on_edge ? 1u : 0u};
-                    auto const tidx = on_edge ? 11 * 16 : 7;
-
-                    data_at_(data_.ids, x, y, width_)           = tid;
-                    data_at_(data_.flags, x, y, width_)         = tflags;
-                    data_at_(data_.tile_indicies, x, y, width_) = tidx;
-                }
-            }
+            for_each_xy(room_rect, [&](int const x, int const y, bool const on_edge) noexcept {
+                tie_data(x, y) = on_edge ? wall_t : floor_t;
+            });
         }
 
+        using namespace container_algorithms;
+        sort(room_rects, [](recti r0, recti r1) noexcept {
+            return std::min(r0.width(), r0.height())
+                 < std::min(r1.width(), r1.height());
+        });
+
+        auto const is_wall = [&](int const x, int const y) noexcept {
+            return check_bounds_(x, y)
+                && data_at_(data_.ids, x, y, width_) == tile_id {uint16_t {1}};
+        };
+
+        for (auto r : room_rects) {
+            for_each_xy(r, [&](int const x, int const y, bool const on_edge) noexcept {
+                if (!on_edge) {
+                    return;
+                }
+
+                auto const type = ((x == r.x0)     ? 0b0001u : 0u)
+                                | ((x == r.x1 - 1) ? 0b0010u : 0u)
+                                | ((y == r.y0)     ? 0b0100u : 0u)
+                                | ((y == r.y1 - 1) ? 0b1000u : 0u);
+
+                switch (type) {
+                case 0b0001 : // left
+                    if (is_wall(x - 1, y - 1)
+                     && is_wall(x - 1, y    )
+                     && is_wall(x - 1, y + 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b0010 : // right
+                    if (is_wall(x + 1, y - 1)
+                     && is_wall(x + 1, y    )
+                     && is_wall(x + 1, y + 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b0100 : // top
+                    if (is_wall(x - 1, y - 1)
+                     && is_wall(x    , y - 1)
+                     && is_wall(x + 1, y - 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b1000 : // bottom
+                    if (is_wall(x - 1, y + 1)
+                     && is_wall(x    , y + 1)
+                     && is_wall(x + 1, y + 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b0101 : // top left
+                    if (is_wall(x - 1, y - 1)
+                     && is_wall(x - 1, y    )
+                     && is_wall(x - 1, y + 1)
+                     && is_wall(x    , y - 1)
+                     && is_wall(x + 1, y - 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b0110 : // top right
+                    if (is_wall(x + 1, y - 1)
+                     && is_wall(x + 1, y    )
+                     && is_wall(x + 1, y + 1)
+                     && is_wall(x    , y - 1)
+                     && is_wall(x - 1, y - 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b1001 : // bottom left
+                    if (is_wall(x - 1, y - 1)
+                     && is_wall(x - 1, y    )
+                     && is_wall(x - 1, y + 1)
+                     && is_wall(x    , y + 1)
+                     && is_wall(x + 1, y + 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                case 0b1010 : // bottom right
+                    if (is_wall(x + 1, y - 1)
+                     && is_wall(x + 1, y    )
+                     && is_wall(x + 1, y + 1)
+                     && is_wall(x    , y + 1)
+                     && is_wall(x - 1, y + 1)
+                    ) {
+                        tie_data(x, y) = floor_t;
+                    }
+                    break;
+                }
+            });
+        }
     }
 private:
     template <typename Vector>
