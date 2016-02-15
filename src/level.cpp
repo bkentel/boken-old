@@ -150,11 +150,15 @@ public:
         room_rects.reserve((bsp.size() * value_cast(room_gen_chance_num))
                          / value_cast(room_gen_chance_den));
 
-        auto const wall_t = std::make_tuple(
-            tile_id {uint16_t{1}}, tile_flags {1u}, uint16_t {11u * 16u});
+        auto const empty_t = std::make_tuple(
+            tile_id {uint16_t{0}}, tile_flags {1u}, uint16_t {11u + 13u * 16u});
 
         auto const floor_t = std::make_tuple(
-            tile_id {uint16_t{0}}, tile_flags {0u}, uint16_t {7u});
+            tile_id {uint16_t{1}}, tile_flags {0u}, uint16_t {7u});
+
+        auto const wall_t = std::make_tuple(
+            tile_id {uint16_t{2}}, tile_flags {1u}, uint16_t {11u * 16u});
+
 
         auto const tie_data = [&](int const x, int const y) noexcept {
             return std::tie(
@@ -164,6 +168,10 @@ public:
         };
 
         for (auto const& region : bsp) {
+            for_each_xy(region.rect, [&](int const x, int const y, bool const on_edge) {
+                tie_data(x, y) = empty_t;
+            });
+
             if (random_uniform_int(rng, 0, value_cast(room_gen_chance_den))
              > value_cast(room_gen_chance_num)
             ) {
@@ -186,95 +194,67 @@ public:
                  < std::min(r1.width(), r1.height());
         });
 
-        auto const is_wall = [&](int const x, int const y) noexcept {
-            return check_bounds_(x, y)
-                && data_at_(data_.ids, x, y, width_) == tile_id {uint16_t {1}};
+        auto const can_remove_shared_wall = [&](recti const r, int const x, int const y) noexcept {
+            auto const is_wall = [&](int const xi, int const yi) noexcept {
+                return check_bounds_(xi, yi)
+                    && data_at_(data_.ids, xi, yi, width_) == tile_id {uint16_t {2}};
+            };
+
+            auto const type = ((x == r.x0)     ? 0b0001u : 0u)
+                            | ((x == r.x1 - 1) ? 0b0010u : 0u)
+                            | ((y == r.y0)     ? 0b0100u : 0u)
+                            | ((y == r.y1 - 1) ? 0b1000u : 0u);
+
+            switch (type) {
+            case 0b0001 : // left
+                return is_wall(x - 1, y - 1)
+                    && is_wall(x - 1, y    )
+                    && is_wall(x - 1, y + 1);
+            case 0b0010 : // right
+                return is_wall(x + 1, y - 1)
+                    && is_wall(x + 1, y    )
+                    && is_wall(x + 1, y + 1);
+            case 0b0100 : // top
+                return is_wall(x - 1, y - 1)
+                    && is_wall(x    , y - 1)
+                    && is_wall(x + 1, y - 1);
+            case 0b1000 : // bottom
+                return is_wall(x - 1, y + 1)
+                    && is_wall(x    , y + 1)
+                    && is_wall(x + 1, y + 1);
+            case 0b0101 : // top left
+                return is_wall(x - 1, y - 1)
+                    && is_wall(x - 1, y    )
+                    && is_wall(x - 1, y + 1)
+                    && is_wall(x    , y - 1)
+                    && is_wall(x + 1, y - 1);
+            case 0b0110 : // top right
+                return is_wall(x + 1, y - 1)
+                    && is_wall(x + 1, y    )
+                    && is_wall(x + 1, y + 1)
+                    && is_wall(x    , y - 1)
+                    && is_wall(x - 1, y - 1);
+            case 0b1001 : // bottom left
+                return is_wall(x - 1, y - 1)
+                    && is_wall(x - 1, y    )
+                    && is_wall(x - 1, y + 1)
+                    && is_wall(x    , y + 1)
+                    && is_wall(x + 1, y + 1);
+            case 0b1010 : // bottom right
+                return is_wall(x + 1, y - 1)
+                    && is_wall(x + 1, y    )
+                    && is_wall(x + 1, y + 1)
+                    && is_wall(x    , y + 1)
+                    && is_wall(x - 1, y + 1);
+            }
+
+            return false;
         };
 
         for (auto r : room_rects) {
             for_each_xy(r, [&](int const x, int const y, bool const on_edge) noexcept {
-                if (!on_edge) {
-                    return;
-                }
-
-                auto const type = ((x == r.x0)     ? 0b0001u : 0u)
-                                | ((x == r.x1 - 1) ? 0b0010u : 0u)
-                                | ((y == r.y0)     ? 0b0100u : 0u)
-                                | ((y == r.y1 - 1) ? 0b1000u : 0u);
-
-                switch (type) {
-                case 0b0001 : // left
-                    if (is_wall(x - 1, y - 1)
-                     && is_wall(x - 1, y    )
-                     && is_wall(x - 1, y + 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b0010 : // right
-                    if (is_wall(x + 1, y - 1)
-                     && is_wall(x + 1, y    )
-                     && is_wall(x + 1, y + 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b0100 : // top
-                    if (is_wall(x - 1, y - 1)
-                     && is_wall(x    , y - 1)
-                     && is_wall(x + 1, y - 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b1000 : // bottom
-                    if (is_wall(x - 1, y + 1)
-                     && is_wall(x    , y + 1)
-                     && is_wall(x + 1, y + 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b0101 : // top left
-                    if (is_wall(x - 1, y - 1)
-                     && is_wall(x - 1, y    )
-                     && is_wall(x - 1, y + 1)
-                     && is_wall(x    , y - 1)
-                     && is_wall(x + 1, y - 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b0110 : // top right
-                    if (is_wall(x + 1, y - 1)
-                     && is_wall(x + 1, y    )
-                     && is_wall(x + 1, y + 1)
-                     && is_wall(x    , y - 1)
-                     && is_wall(x - 1, y - 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b1001 : // bottom left
-                    if (is_wall(x - 1, y - 1)
-                     && is_wall(x - 1, y    )
-                     && is_wall(x - 1, y + 1)
-                     && is_wall(x    , y + 1)
-                     && is_wall(x + 1, y + 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
-                case 0b1010 : // bottom right
-                    if (is_wall(x + 1, y - 1)
-                     && is_wall(x + 1, y    )
-                     && is_wall(x + 1, y + 1)
-                     && is_wall(x    , y + 1)
-                     && is_wall(x - 1, y + 1)
-                    ) {
-                        tie_data(x, y) = floor_t;
-                    }
-                    break;
+                if (on_edge && can_remove_shared_wall(r, x, y)) {
+                    tie_data(x, y) = floor_t;
                 }
             });
         }

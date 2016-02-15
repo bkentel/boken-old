@@ -312,18 +312,6 @@ public:
 
 std::unique_ptr<world> make_world();
 
-
-//auto const random_color_comp = [&] {
-//    return static_cast<uint8_t>(random_uniform_int(rng, 0, 255));
-//};
-//
-//auto const random_color = [&] {
-//    return 0xFFu               << 24
-//            | random_color_comp() << 16
-//            | random_color_comp() << 8
-//            | random_color_comp() << 0;
-//};
-
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
@@ -351,6 +339,17 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate() {
+        auto const random_color_comp = [&] {
+            return static_cast<uint8_t>(random_uniform_int(rng_superficial, 0, 255));
+        };
+
+        auto const random_color = [&] {
+            return 0xFFu                << 24
+                  | random_color_comp() << 16
+                  | random_color_comp() << 8
+                  | random_color_comp() << 0;
+        };
+
         current_level = make_level(rng_substantive, sizeix {100}, sizeiy {80});
         render_data.tile_data.resize(100 * 80);
 
@@ -367,7 +366,11 @@ struct game_state {
                 dst.position.first  = x * render_data.tile_w;
                 dst.position.second = y * render_data.tile_h;
 
-                dst.color = 0xFF0000FFu;
+                if (src == 11u + 13u * 16u) {
+                    dst.color = random_color();
+                } else {
+                    dst.color = 0xFF0000FFu;
+                }
 
                 dst.tex_coord.first  = (src % render_data.tiles_x) * render_data.tile_w;
                 dst.tex_coord.second = (src / render_data.tiles_x) * render_data.tile_h;
