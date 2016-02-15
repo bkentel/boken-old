@@ -174,6 +174,8 @@ private:
     }
 };
 
+using recti = axis_aligned_rect<int32_t>;
+
 //
 template <typename T>
 inline constexpr T clamp(T const n, T const lo, T const hi) noexcept {

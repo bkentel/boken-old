@@ -60,6 +60,10 @@ public:
     {
     }
 
+    param_t& params() noexcept final override {
+        return params_;
+    }
+
     void generate(random_state& rng) final override;
 
     size_t size() const noexcept final override {
@@ -76,6 +80,11 @@ public:
 
     iterator end() const noexcept final override {
         return std::end(leaf_nodes_);
+    }
+
+    void clear() noexcept final override {
+        nodes_.clear();
+        leaf_nodes_.clear();
     }
 private:
     node_t at_(size_t const i) const noexcept final override {
@@ -124,11 +133,11 @@ void bsp_generator_impl::generate(random_state& rnd) {
         node_t&     n = nodes_[i];
         auto const& r = n.rect;
 
-        if (must_slice_rect(r, p.max_size)
-         || can_slice_rect(r, p.min_size) && pass_split_chance(r)
+        if (must_slice_rect(r, p.max_region_size)
+         || can_slice_rect(r, p.min_region_size) && pass_split_chance(r)
         ) {
             n.child = i + 1;
-            add_children(slice_rect(rnd, r, p.min_size, p.split_variance), i);
+            add_children(slice_rect(rnd, r, p.min_region_size, p.split_variance), i);
         } else {
             leaf_nodes_.push_back(n);
         }

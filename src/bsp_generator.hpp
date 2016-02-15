@@ -57,16 +57,25 @@ public:
     using rect_t  = axis_aligned_rect<int>;
 
     struct param_t {
-        static constexpr int default_width      {100};
-        static constexpr int default_height     {100};
-        static constexpr int default_min_size   {3};
-        static constexpr int default_max_size   {20};
+        static constexpr int default_width           {100};
+        static constexpr int default_height          {100};
+        static constexpr int default_min_region_size {3};
+        static constexpr int default_max_region_size {20};
+        static constexpr int default_min_room_size   {3};
+        static constexpr int default_max_room_size   {20};
+        static constexpr int default_room_chance_num {60};
+        static constexpr int default_room_chance_den {100};
+
         static constexpr int default_max_weight {1000};
 
-        size_type_x<int> width    {default_width};
-        size_type_y<int> height   {default_height};
-        size_type<int>   min_size {default_min_size};
-        size_type<int>   max_size {default_max_size};
+        sizeix width           {default_width};
+        sizeiy height          {default_height};
+        sizei  min_region_size {default_min_region_size};
+        sizei  max_region_size {default_max_region_size};
+        sizei  min_room_size   {default_min_room_size};
+        sizei  max_room_size   {default_max_room_size};
+        sizei  room_chance_num {default_room_chance_num};
+        sizei  room_chance_den {default_room_chance_den};
 
         int              max_weight {default_max_weight};
         weight_list<int> weights    {{0, default_max_weight}};
@@ -85,6 +94,13 @@ public:
     using iterator = std::vector<node_t>::const_iterator;
 
     virtual ~bsp_generator() = default;
+
+    virtual param_t& params() noexcept = 0;
+
+    param_t const& params() const noexcept {
+        return const_cast<bsp_generator*>(this)->params();
+    }
+
     virtual void generate(random_state& rng) = 0;
 
     virtual size_t size()  const noexcept = 0;
@@ -92,6 +108,8 @@ public:
 
     virtual iterator begin() const noexcept = 0;
     virtual iterator end()   const noexcept = 0;
+
+    virtual void clear() noexcept = 0;
 
     node_t operator[](size_t const i) const noexcept {
         return at_(i);

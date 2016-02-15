@@ -1,11 +1,14 @@
 #pragma once
 
 #include "types.hpp"
+#include "math.hpp"
 #include <memory>
 #include <bitset>
 #include <type_traits>
 
 namespace boken {
+
+class random_state;
 
 class item;
 class entity;
@@ -58,8 +61,11 @@ public:
     virtual entity const* find(entity_instance_id id) const noexcept = 0;
 
     virtual tile_view at(int x, int y) const noexcept = 0;
+
+    virtual std::pair<std::vector<uint16_t> const&, recti>
+        tile_indicies(int block) const noexcept = 0;
 };
 
-std::unique_ptr<level> make_level(sizeix width, sizeiy height);
+std::unique_ptr<level> make_level(random_state& rng, sizeix width, sizeiy height);
 
 } //namespace boken

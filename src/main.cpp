@@ -8,6 +8,7 @@
 #include "hash.hpp"
 #include "utility.hpp"
 #include "text.hpp"
+#include "level.hpp"
 
 #include <fstream>
 
@@ -146,56 +147,6 @@ char const* load_keyboard_names() {
     return nullptr;
 }
 
-template <typename T>
-axis_aligned_rect<T> random_sub_rect(
-    random_state&              rng
-  , axis_aligned_rect<T> const r
-  , size_type<T>         const min_size
-  , size_type<T>         const max_size
-  , float                const variance = 2.0f
-) {
-    //BK_ASSERT(min_size <= max_size);
-    //BK_ASSERT(variance > 0.0f);
-
-    auto const w = r.width();
-    auto const h = r.height();
-
-    auto const new_size = [&](T const size) {
-        if (size <= value_cast(min_size)) {
-            return size;
-        }
-
-        auto const max_new_size = std::min(size, value_cast(max_size));
-        auto const size_range = max_new_size - value_cast(min_size);
-        if (size_range <= 0) {
-            return size;
-        }
-
-        return clamp(
-            round_as<T>(random_normal(
-                rng, size_range / 2.0, size_range / variance))
-          , value_cast(min_size)
-          , max_new_size);
-    };
-
-    auto const new_w = new_size(w);
-    auto const new_h = new_size(h);
-
-    auto const spare_x = w - new_w;
-    auto const spare_y = h - new_h;
-
-    auto const new_offset = [&](T const size) {
-        return (size <= 0)
-          ? T {0}
-          : static_cast<T>(random_uniform_int(rng, 0, static_cast<int>(size)));
-    };
-
-    return {offset_type_x<T> {r.x0 + new_offset(spare_x)}
-          , offset_type_y<T> {r.y0 + new_offset(spare_y)}
-          , size_type_x<T>   {new_w}
-          , size_type_y<T>   {new_h}};
-}
-
 enum class command_type {
     none
 
@@ -265,6 +216,9 @@ public:
         case 97 : // SDL_SCANCODE_KP_9 = 97
             handler_(command_type::move_ne, 0);
             break;
+        case 74 : // SDL_SCANCODE_HOME = 74
+            handler_(command_type::reset_view, 0);
+            break;
         }
     }
 private:
@@ -331,14 +285,15 @@ public:
     float scale_y = 1.0f;
 };
 
-
-struct entity {
+class entity {
+public:
     entity_id          id          {0};
     entity_instance_id instance_id {0};
 };
 
 
-struct item {
+class item {
+public:
     item_id          id          {0};
     item_instance_id instance_id {0};
 };
@@ -356,6 +311,18 @@ public:
 };
 
 std::unique_ptr<world> make_world();
+
+
+//auto const random_color_comp = [&] {
+//    return static_cast<uint8_t>(random_uniform_int(rng, 0, 255));
+//};
+//
+//auto const random_color = [&] {
+//    return 0xFFu               << 24
+//            | random_color_comp() << 16
+//            | random_color_comp() << 8
+//            | random_color_comp() << 0;
+//};
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -384,65 +351,26 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate() {
-        auto bsp_gen_ptr = [&] {
-            bsp_generator::param_t p;
-            p.width  = bk::size_type_x<int> {render_data.w};
-            p.height = bk::size_type_y<int> {render_data.h};
+        current_level = make_level(rng_substantive, sizeix {100}, sizeiy {80});
+        render_data.tile_data.resize(100 * 80);
 
-            return make_bsp_generator(p);
-        }();
+        auto const  tile_pair     = current_level->tile_indicies(0);
+        auto const& tile_indicies = tile_pair.first;
+        auto const  tile_rect     = tile_pair.second;
+        auto const  w             = tile_rect.width();
 
-        auto& bsp_gen   = *bsp_gen_ptr;
-        auto& tile_data = render_data.tile_data;
+        for (auto y = tile_rect.y0; y < tile_rect.y1; ++y) {
+            for (auto x = tile_rect.x0; x < tile_rect.x1; ++x) {
+                auto const& src = tile_indicies[x + y * w];
+                auto&       dst = render_data.tile_data[x + y * w];
 
-        tile_data.clear();
-        tile_data.resize(render_data.w * render_data.h, render_t::data_t {});
-        bsp_gen.generate(rng_substantive);
+                dst.position.first  = x * render_data.tile_w;
+                dst.position.second = y * render_data.tile_h;
 
-        for (auto const& room : bsp_gen) {
-            auto const r = room.rect;
+                dst.color = 0xFF0000FFu;
 
-            bool const gen_room =
-                random_uniform_int(rng_substantive, 0, 10) < 3;
-
-            uint32_t const color = 0xFF000000
-                | (static_cast<uint8_t>(random_uniform_int(rng_substantive, 0, 255)) <<  0)
-                | (static_cast<uint8_t>(random_uniform_int(rng_substantive, 0, 255)) <<  8)
-                | (static_cast<uint8_t>(random_uniform_int(rng_substantive, 0, 255)) << 16);
-
-            for (auto y = r.y0; y < r.y1; ++y) {
-                for (auto x = r.x0; x < r.x1; ++x) {
-                    auto& t = tile_data[x + y * render_data.w];
-
-                    t.position.first  = x * render_data.tile_w;
-                    t.position.second = y * render_data.tile_h;
-
-                    t.color = color;
-
-                    t.tex_coord.first  = 11 * render_data.tile_w;
-                    t.tex_coord.second = 13 * render_data.tile_h;
-                }
-            }
-
-            auto const r0 = random_sub_rect(
-                rng_substantive
-              , r
-              , size_type<int> {3}
-              , size_type<int> {20}
-            );
-
-            for (auto y = r0.y0; y < r0.y1; ++y) {
-                for (auto x = r0.x0; x < r0.x1; ++x) {
-                    auto& t = tile_data[x + y * render_data.w];
-
-                    t.position.first  = x * render_data.tile_w;
-                    t.position.second = y * render_data.tile_h;
-
-                    t.color = 0xFFFFFF00;
-
-                    t.tex_coord.first  = 0  * render_data.tile_w;
-                    t.tex_coord.second = 11 * render_data.tile_h;
-                }
+                dst.tex_coord.first  = (src % render_data.tiles_x) * render_data.tile_w;
+                dst.tex_coord.second = (src / render_data.tiles_x) * render_data.tile_h;
             }
         }
     }
@@ -491,29 +419,20 @@ struct game_state {
             break;
         case ct::move_here:
             break;
-        case ct::move_n:
-            player.position += vec2i {0, -1};
-            break;
-        case ct::move_ne:
-            break;
-        case ct::move_e:
-            player.position += vec2i {1, 0};
-            break;
-        case ct::move_se:
-            break;
-        case ct::move_s:
-            player.position += vec2i {0, 1};
-            break;
-        case ct::move_sw:
-            break;
-        case ct::move_w:
-            player.position += vec2i {-1, 0};
-            break;
-        case ct::move_nw:
-            break;
-        case ct::reset_zoom:
-            break;
+        case ct::move_n  : player.position += vec2i { 0, -1}; break;
+        case ct::move_ne : player.position += vec2i { 1, -1}; break;
+        case ct::move_e  : player.position += vec2i { 1,  0}; break;
+        case ct::move_se : player.position += vec2i { 1,  1}; break;
+        case ct::move_s  : player.position += vec2i { 0,  1}; break;
+        case ct::move_sw : player.position += vec2i {-1,  1}; break;
+        case ct::move_w  : player.position += vec2i {-1,  0}; break;
+        case ct::move_nw : player.position += vec2i {-1, -1}; break;
         case ct::reset_view:
+            current_view.x_off = 0.0f;
+            current_view.y_off = 0.0f;
+        case ct::reset_zoom:
+            current_view.scale_x = 1.0f;
+            current_view.scale_y = 1.0f;
             break;
         default:
             break;
@@ -636,9 +555,7 @@ struct game_state {
 
     text_layout test_layout;
 
-    struct map_t {
-        std::vector<uint8_t> flags;
-    } map_data;
+    std::unique_ptr<level> current_level;
 };
 
 } // namespace boken
