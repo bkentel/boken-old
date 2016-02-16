@@ -66,6 +66,7 @@ public:
         data_.ids.resize(n);
         data_.flags.resize(n);
         data_.tile_indicies.resize(n);
+        data_.region_ids.resize(n);
 
         bsp_generator::param_t p;
         p.width  = sizeix {width};
@@ -88,25 +89,32 @@ public:
         return nullptr;
     }
 
+    int region_count() const noexcept final override {
+        return bsp_gen_->size();
+    }
+
     tile_view at(int const x, int const y) const noexcept final override {
         if (!check_bounds_(x, y)) {
             static tile_id    const dummy_id         {};
             static tile_flags const dummy_flags      {};
             static uint16_t   const dummy_tile_index {};
+            static uint16_t   const dummy_region_id  {};
             static tile_data* const dummy_data       {};
 
             return {
                 dummy_id
               , dummy_flags
               , dummy_tile_index
+              , dummy_region_id
               , dummy_data
             };
         }
 
         return {
-            data_at_(data_.ids          , x, y, width_)
-          , data_at_(data_.flags        , x, y, width_)
+            data_at_(data_.ids,           x, y, width_)
+          , data_at_(data_.flags,         x, y, width_)
           , data_at_(data_.tile_indicies, x, y, width_)
+          , data_at_(data_.region_ids,    x, y, width_)
           , nullptr
         };
     }
@@ -114,6 +122,12 @@ public:
     std::pair<std::vector<uint16_t> const&, recti>
     tile_indicies(int const block) const noexcept final override {
         return std::make_pair(std::ref(data_.tile_indicies)
+          , recti {offix {0}, offiy {0}, width_, height_});
+    }
+
+    std::pair<std::vector<uint16_t> const&, recti>
+    region_ids(int const block) const noexcept final override {
+        return std::make_pair(std::ref(data_.region_ids)
           , recti {offix {0}, offiy {0}, width_, height_});
     }
 
@@ -129,6 +143,13 @@ public:
                 bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
                 f(x, y, on_edge);
             }
+        }
+    }
+
+    template <typename T, typename U>
+    void fill_rect(std::vector<T>& v, sizeix const width, axis_aligned_rect<U> const r, T const value) noexcept {
+        for (auto y = r.y0; y < r.y1; ++y) {
+            std::fill_n(v.data() + (r.x0 + y * value_cast(width)), r.width(), value);
         }
     }
 
@@ -150,27 +171,25 @@ public:
         room_rects.reserve((bsp.size() * value_cast(room_gen_chance_num))
                          / value_cast(room_gen_chance_den));
 
-        auto const empty_t = std::make_tuple(
-            tile_id {uint16_t{0}}, tile_flags {1u}, uint16_t {11u + 13u * 16u});
-
         auto const floor_t = std::make_tuple(
             tile_id {uint16_t{1}}, tile_flags {0u}, uint16_t {7u});
 
         auto const wall_t = std::make_tuple(
             tile_id {uint16_t{2}}, tile_flags {1u}, uint16_t {11u * 16u});
 
-
         auto const tie_data = [&](int const x, int const y) noexcept {
             return std::tie(
-                data_at_(data_.ids, x, y, width_)
-              , data_at_(data_.flags, x, y, width_)
+                data_at_(data_.ids,           x, y, width_)
+              , data_at_(data_.flags,         x, y, width_)
               , data_at_(data_.tile_indicies, x, y, width_));
         };
 
+        uint16_t region_id = 0;
         for (auto const& region : bsp) {
-            for_each_xy(region.rect, [&](int const x, int const y, bool const on_edge) {
-                tie_data(x, y) = empty_t;
-            });
+            fill_rect(data_.ids,           width_, region.rect, tile_id    {uint16_t{0}});
+            fill_rect(data_.flags,         width_, region.rect, tile_flags {1u});
+            fill_rect(data_.tile_indicies, width_, region.rect, uint16_t   {11u + 13u * 16u});
+            fill_rect(data_.region_ids,    width_, region.rect, uint16_t   {region_id++});
 
             if (random_uniform_int(rng, 0, value_cast(room_gen_chance_den))
              > value_cast(room_gen_chance_num)
@@ -282,6 +301,7 @@ private:
         std::vector<tile_id>    ids;
         std::vector<tile_flags> flags;
         std::vector<uint16_t>   tile_indicies;
+        std::vector<uint16_t>   region_ids;
     } data_;
 };
 

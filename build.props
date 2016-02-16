@@ -13,7 +13,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <CompileAs>CompileAsCpp</CompileAs>
       <AdditionalOptions>/Zc:strictStrings %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>_HAS_OLD_IOSTREAMS_MEMBERS=0;_HAS_FUNCTION_ASSIGN=0;_HAS_AUTO_PTR_ETC=1;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_OLD_IOSTREAMS_MEMBERS=0;_HAS_FUNCTION_ASSIGN=0;_HAS_AUTO_PTR_ETC=1;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.hpp</ForcedIncludeFiles>

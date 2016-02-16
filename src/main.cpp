@@ -339,6 +339,9 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate() {
+        current_level = make_level(rng_substantive, sizeix {100}, sizeiy {80});
+        render_data.tile_data.resize(100 * 80);
+
         auto const random_color_comp = [&] {
             return static_cast<uint8_t>(random_uniform_int(rng_superficial, 0, 255));
         };
@@ -350,13 +353,17 @@ struct game_state {
                   | random_color_comp() << 0;
         };
 
-        current_level = make_level(rng_substantive, sizeix {100}, sizeiy {80});
-        render_data.tile_data.resize(100 * 80);
+        std::vector<uint32_t> colors;
+        std::generate_n(back_inserter(colors), current_level->region_count(), [&] {
+            return random_color();
+        });
 
-        auto const  tile_pair     = current_level->tile_indicies(0);
-        auto const& tile_indicies = tile_pair.first;
-        auto const  tile_rect     = tile_pair.second;
-        auto const  w             = tile_rect.width();
+        auto const  region_id_pair = current_level->region_ids(0);
+        auto const& region_ids     = region_id_pair.first;
+        auto const  tile_pair      = current_level->tile_indicies(0);
+        auto const& tile_indicies  = tile_pair.first;
+        auto const  tile_rect      = tile_pair.second;
+        auto const  w              = tile_rect.width();
 
         for (auto y = tile_rect.y0; y < tile_rect.y1; ++y) {
             for (auto x = tile_rect.x0; x < tile_rect.x1; ++x) {
@@ -367,7 +374,7 @@ struct game_state {
                 dst.position.second = y * render_data.tile_h;
 
                 if (src == 11u + 13u * 16u) {
-                    dst.color = random_color();
+                    dst.color = colors[region_ids[x + y * w]];
                 } else {
                     dst.color = 0xFF0000FFu;
                 }
