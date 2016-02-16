@@ -176,6 +176,16 @@ private:
 
 using recti = axis_aligned_rect<int32_t>;
 
+template <typename T>
+inline constexpr bool rect_by_min_dimension(
+    axis_aligned_rect<T> const a
+  , axis_aligned_rect<T> const b
+) noexcept {
+    return (std::min(a.width(), a.height()) == std::min(b.width(), b.height()))
+      ? a.area() < b.area()
+      : std::min(a.width(), a.height()) < std::min(b.width(), b.height());
+}
+
 //
 template <typename T>
 inline constexpr T clamp(T const n, T const lo, T const hi) noexcept {

@@ -145,12 +145,7 @@ void bsp_generator_impl::generate(random_state& rnd) {
 
     using namespace container_algorithms;
     sort(leaf_nodes_, [](node_t const& a, node_t const& b) noexcept {
-        auto const am = std::min(a.rect.width(), a.rect.height());
-        auto const bm = std::min(b.rect.width(), b.rect.height());
-
-        return (am == bm)
-          ? b.rect.area() < a.rect.area()
-          : bm < am;
+        return rect_by_min_dimension(b.rect, a.rect);
     });
 }
 

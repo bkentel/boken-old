@@ -21,28 +21,24 @@ axis_aligned_rect<T> random_sub_rect(
     auto const h = r.height();
 
     auto const new_size = [&](T const size) {
-        if (size <= value_cast(min_size)) {
+        auto const min_s = value_cast(min_size);
+        if (min_s > size) {
             return size;
         }
 
-        auto const max_new_size = std::min(size, value_cast(max_size));
-        auto const size_range = max_new_size - value_cast(min_size);
-        if (size_range <= 0) {
+        auto const max_s = std::min(size, value_cast(max_size));
+        if (max_s - min_s <= 0) {
             return size;
         }
 
-        return clamp(
-            round_as<T>(random_normal(
-                rng, size_range / 2.0, size_range / variance))
-          , value_cast(min_size)
-          , max_new_size);
+        auto const range = max_s - min_s;
+        auto const roll = random_normal(rng, max_s, range / variance);
+
+        return clamp(round_as<T>(roll), min_s, max_s);
     };
 
     auto const new_w = new_size(w);
     auto const new_h = new_size(h);
-
-    auto const spare_x = w - new_w;
-    auto const spare_y = h - new_h;
 
     auto const new_offset = [&](T const size) {
         return (size <= 0)
@@ -50,8 +46,8 @@ axis_aligned_rect<T> random_sub_rect(
           : static_cast<T>(random_uniform_int(rng, 0, static_cast<int>(size)));
     };
 
-    return {offset_type_x<T> {r.x0 + new_offset(spare_x)}
-          , offset_type_y<T> {r.y0 + new_offset(spare_y)}
+    return {offset_type_x<T> {r.x0 + new_offset(w - new_w)}
+          , offset_type_y<T> {r.y0 + new_offset(h - new_h)}
           , size_type_x<T>   {new_w}
           , size_type_y<T>   {new_h}};
 }
@@ -208,10 +204,7 @@ public:
         }
 
         using namespace container_algorithms;
-        sort(room_rects, [](recti r0, recti r1) noexcept {
-            return std::min(r0.width(), r0.height())
-                 < std::min(r1.width(), r1.height());
-        });
+        sort(room_rects, rect_by_min_dimension<int>);
 
         auto const can_remove_shared_wall = [&](recti const r, int const x, int const y) noexcept {
             auto const is_wall = [&](int const xi, int const yi) noexcept {
