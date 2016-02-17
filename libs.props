@@ -8,7 +8,7 @@
       <AdditionalDependencies>SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
-      <AdditionalIncludeDirectories>src/;external/;external/boost/predef/include;external/pcg/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src/;external/;external/boost/assert/include/;external/boost/config/include/;external/boost/integer/include/;external/boost/mpl/include/;external/boost/predef/include/;external/boost/random/include/;external/boost/static_assert/include/;external/boost/type_traits/include/;external/boost/utility/include/;external/pcg/include/</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />

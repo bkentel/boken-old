@@ -44,11 +44,11 @@ public:
         return it == end(items_) ? nullptr : &it->first;
     }
 
-    template <typename T, typename BinaryF>
-    int near(Point const p, T const distance, BinaryF f) const {
+    template <typename U, typename BinaryF>
+    int near(Point const p, U const distance, BinaryF f) const {
         int count = 0;
 
-        auto const d2 = size_type<T>(distance * distance);
+        auto const d2 = size_type<U>(distance * distance);
         for (auto const& i : items_) {
             if (distance2(p, i.second) < d2) {
                 ++count;
@@ -59,11 +59,6 @@ public:
         return count;
     }
 private:
-    constexpr size_t position_to_cell_(point2i const p) const noexcept {
-        return (value_cast(p.x) / cells_x_)
-             + (value_cast(p.y) / cells_y_) * cells_x_;
-    }
-
     int width_;
     int height_;
     std::vector<std::pair<T, Point>> items_;

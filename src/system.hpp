@@ -7,6 +7,7 @@
 #include <array>
 #include <bitset>
 #include <type_traits>
+#include <vector>
 
 namespace boken {
 

@@ -24,6 +24,12 @@ public:
     {
     }
 
+    template <size_t Bit>
+    constexpr explicit tile_flags(flag_t<Bit>) noexcept
+      : tile_flags {Bit}
+    {
+    }
+
     bool none() const noexcept {
         return bits_.none();
     }

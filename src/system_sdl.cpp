@@ -1,5 +1,7 @@
 #include "system.hpp"
 
+#include "math.hpp"
+
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
@@ -325,14 +327,13 @@ public:
         auto cd = color_data_;
 
         SDL_Rect src {0, 0, tile_w_, tile_h_};
-        SDL_Rect dst {0, 0, static_cast<int>(std::ceil(tile_w_))
-                          , static_cast<int>(std::ceil(tile_h_))};
+        SDL_Rect dst {0, 0, ceil_as<int>(tile_w_), ceil_as<int>(tile_h_)};
 
         uint32_t last_color = 0;
         set_draw_color(last_color);
 
-        auto const tx = static_cast<int>(std::ceil(tx_ / sx_));
-        auto const ty = static_cast<int>(std::ceil(ty_ / sy_));
+        auto const tx = ceil_as<int>(tx_ / sx_);
+        auto const ty = ceil_as<int>(ty_ / sy_);
 
         for (int i = 0; i < n; ++i, ++pd, ++td, ++cd) {
             std::tie(src.x, src.y) = td.value<std::pair<uint16_t, uint16_t>>();

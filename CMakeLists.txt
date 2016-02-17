@@ -3,7 +3,15 @@ project(boken CXX)
 
 include_directories(src)
 include_directories(external)
+include_directories(external/boost/assert/include)
+include_directories(external/boost/config/include)
+include_directories(external/boost/integer/include)
+include_directories(external/boost/mpl/include)
 include_directories(external/boost/predef/include)
+include_directories(external/boost/random/include)
+include_directories(external/boost/static_assert/include)
+include_directories(external/boost/type_traits/include)
+include_directories(external/boost/utility/include)
 include_directories(external/pcg/include)
 
 set(SOURCES
@@ -22,6 +30,7 @@ set(SOURCES_TEST
     src/test/spatial_map.t.cpp)
 
 add_executable(boken ${SOURCES} ${SOURCES_TEST})
+target_link_libraries(boken SDL2)
 
 set_property(TARGET boken PROPERTY CXX_STANDARD 14)
 

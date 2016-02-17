@@ -2,12 +2,13 @@
 
 #if defined(BK_USE_BOOST_STRING_VIEW)
 #   include <boost/version.hpp>
-#   include <boost/utility/string_ref.hpp>
 #   if BOOST_VERSION > 106000
+#   include <boost/utility/string_view.hpp>
     namespace boken {
         using string_view = boost::string_view;
     }
 #   else
+#   include <boost/utility/string_ref.hpp>
     namespace boken {
         using string_view = boost::string_ref;
     }
