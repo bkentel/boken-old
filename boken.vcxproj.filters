@@ -40,6 +40,7 @@
     <ClInclude Include="src\item_def.hpp" />
     <ClInclude Include="src\definition.hpp" />
     <ClInclude Include="src\level.hpp" />
+    <ClInclude Include="src\tile.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

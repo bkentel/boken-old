@@ -157,6 +157,7 @@
     <ClInclude Include="src\spatial_map.hpp" />
     <ClInclude Include="src\system.hpp" />
     <ClInclude Include="src\text.hpp" />
+    <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\types.hpp" />
     <ClInclude Include="src\utility.hpp" />
   </ItemGroup>

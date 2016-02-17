@@ -49,6 +49,10 @@ int random_uniform_int(random_state& rs, int const lo, int const hi) noexcept {
     return r.dist_uniform(r.state);
 }
 
+bool random_chance_in_x(random_state& rng, int const num, int const den) noexcept {
+    return random_uniform_int(rng, 0, den) < num;
+}
+
 double random_normal(random_state& rs, double const m, double const v) noexcept {
     auto& r = reinterpret_cast<random_state_impl&>(rs);
 
