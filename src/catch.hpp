@@ -13,7 +13,7 @@
 #   define CATCH_CONFIG_VARIADIC_MACROS
 #endif
 
-#include <Catch/catch.hpp>
+#include <Catch/single_include/catch.hpp>
 
 #endif // BK_NO_TESTS
 

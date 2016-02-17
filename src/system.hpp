@@ -120,7 +120,7 @@ struct read_only_pointer_t {
     uint16_t    element_stride {};
 };
 
-enum class render_data {
+enum class render_data_type {
     position // x, y
   , texture  // x, y
   , color    // rgba
@@ -170,7 +170,7 @@ public:
     virtual void render_set_tile_size(int w, int h) = 0;
     virtual void render_set_transform(float sx, float sy, float tx, float ty) = 0;
 
-    virtual void render_set_data(render_data type, read_only_pointer_t data) = 0;
+    virtual void render_set_data(render_data_type type, read_only_pointer_t data) = 0;
     virtual void render_data_n(int n) = 0;
 };
 

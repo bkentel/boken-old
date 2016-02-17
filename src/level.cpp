@@ -333,7 +333,9 @@ public:
     }
 private:
     template <typename Vector>
-    static decltype(auto) data_at_(Vector&& v, int const x, int const y, sizeix const w) noexcept {
+    static auto data_at_(
+        Vector&& v, int const x, int const y, sizeix const w
+    ) noexcept -> decltype(v[0]) {
         auto const i = static_cast<size_t>(x)
                      + static_cast<size_t>(y) * value_cast<size_t>(w);
 

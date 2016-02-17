@@ -295,13 +295,13 @@ public:
     }
 
     void render_set_data(
-        render_data         const type
+        render_data_type    const type
       , read_only_pointer_t const data
     ) noexcept final override {
         switch (type) {
-        case render_data::position : position_data_ = data; break;
-        case render_data::texture  : texture_data_  = data; break;
-        case render_data::color    : color_data_    = data; break;
+        case render_data_type::position : position_data_ = data; break;
+        case render_data_type::texture  : texture_data_  = data; break;
+        case render_data_type::color    : color_data_    = data; break;
         }
     }
 

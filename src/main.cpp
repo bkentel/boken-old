@@ -11,6 +11,7 @@
 #include "level.hpp"
 
 #include <fstream>
+#include <chrono>
 
 namespace boken {};
 namespace bk = boken;
@@ -323,11 +324,11 @@ struct game_state {
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     game_state() {
-        os.on_key([&](auto a, auto b) { on_key(a, b); });
-        os.on_mouse_move([&](auto a, auto b) { on_mouse_move(a, b); });
-        os.on_mouse_wheel([&](auto a, auto b, auto c) { on_mouse_wheel(a, b, c); });
+        os.on_key([&](kb_event a, kb_modifiers b) { on_key(a, b); });
+        os.on_mouse_move([&](mouse_event a, kb_modifiers b) { on_mouse_move(a, b); });
+        os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
 
-        cmd_translator.on_command([&](auto a, auto b) { on_command(a, b); });
+        cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
 
         test_layout.layout(trender, "This is a test.");
         test_layout.visible(true);
@@ -480,11 +481,11 @@ struct game_state {
         //
         // Map tiles
         //
-        os.render_set_data(render_data::position, read_only_pointer_t {
+        os.render_set_data(render_data_type::position, read_only_pointer_t {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, position)});
-        os.render_set_data(render_data::texture, read_only_pointer_t {
+        os.render_set_data(render_data_type::texture, read_only_pointer_t {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, tex_coord)});
-        os.render_set_data(render_data::color, read_only_pointer_t {
+        os.render_set_data(render_data_type::color, read_only_pointer_t {
             render_data.tile_data, BK_OFFSETOF(render_t::data_t, color)});
         os.render_data_n(render_data.tile_data.size());
 
@@ -498,11 +499,11 @@ struct game_state {
           , 0xFF
         });
 
-        os.render_set_data(render_data::position, read_only_pointer_t {
+        os.render_set_data(render_data_type::position, read_only_pointer_t {
             render_data.entity_data, BK_OFFSETOF(render_t::data_t, position)});
-        os.render_set_data(render_data::texture, read_only_pointer_t {
+        os.render_set_data(render_data_type::texture, read_only_pointer_t {
             render_data.entity_data, BK_OFFSETOF(render_t::data_t, tex_coord)});
-        os.render_set_data(render_data::color, read_only_pointer_t {
+        os.render_set_data(render_data_type::color, read_only_pointer_t {
             render_data.entity_data, BK_OFFSETOF(render_t::data_t, color)});
         os.render_data_n(render_data.entity_data.size());
 

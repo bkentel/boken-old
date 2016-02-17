@@ -82,7 +82,6 @@ public:
     {
     }
 
-    template <typename = std::enable_if_t<(StackSize > 0)>>
     basic_buffer() noexcept
       : basic_buffer {StackSize}
     {
@@ -121,7 +120,7 @@ private:
     } data_;
 
     static char* init_storage_(storage_t& data, size_t const size) {
-        if (size <= StackSize) {
+        if (size && size <= StackSize) {
             new (&data.s_) static_t;
             return data.s_.data();
         } else {

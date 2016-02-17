@@ -3,6 +3,16 @@
 #include "entity_def.hpp"
 #include "utility.hpp"
 
+namespace {
+template <typename Container, typename Id>
+auto find_(Container&& c, Id const id) noexcept {
+    using namespace boken::container_algorithms;
+    return find_if(c, [id](auto const& def) noexcept {
+        return id == def.id;
+    });
+}
+} //namespace anonymous
+
 namespace boken {
 
 class game_database_impl final : public game_database {
@@ -15,14 +25,6 @@ public:
         return find_(entity_defs_, id);
     }
 private:
-    template <typename Container, typename Id>
-    static auto find_(Container&& c, Id const id) noexcept {
-        using namespace container_algorithms;
-        return find_if(c, [id](auto const& def) noexcept {
-            return id == def.id;
-        });
-    }
-
     std::vector<item_definition>   item_defs_;
     std::vector<entity_definition> entity_defs_;
 };

@@ -67,11 +67,11 @@ void text_layout::render(system& os, text_renderer& trender) {
         data_[i].texture = trender.load_metrics(next_code_point(it, last)).texture;
     }
 
-    os.render_set_data(render_data::position, read_only_pointer_t {
+    os.render_set_data(render_data_type::position, read_only_pointer_t {
         data_, BK_OFFSETOF(data_t, position)});
-    os.render_set_data(render_data::texture, read_only_pointer_t {
+    os.render_set_data(render_data_type::texture, read_only_pointer_t {
         data_, BK_OFFSETOF(data_t, texture)});
-    os.render_set_data(render_data::color, read_only_pointer_t {
+    os.render_set_data(render_data_type::color, read_only_pointer_t {
         data_, BK_OFFSETOF(data_t, color)});
 
     os.render_data_n(data_.size());
