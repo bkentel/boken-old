@@ -1,9 +1,12 @@
-[submodule ".\\external\\Catch"]
-	path = .\\external\\Catch
+[submodule "external\\Catch"]
+	path = external\\Catch
 	url = https://github.com/philsquared/Catch.git
-[submodule ".\\external\\bkassert"]
-	path = .\\external\\bkassert
+[submodule "external\\bkassert"]
+	path = external\\bkassert
 	url = https://github.com/bkentel/bkassert.git
-[submodule ".\\external\\boost\\predef"]
-	path = .\\external\\boost\\predef
+[submodule "external\\boost\\predef"]
+	path = external\\boost\\predef
 	url = https://github.com/boostorg/predef.git
+[submodule "external\\pcg"]
+	path = external\\pcg
+	url = https://github.com/bkentel/pcg-cpp.git
