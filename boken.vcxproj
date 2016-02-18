@@ -138,6 +138,7 @@
     <ClCompile Include="src\test\math.t.cpp" />
     <ClCompile Include="src\test\spatial_map.t.cpp" />
     <ClCompile Include="src\text.cpp" />
+    <ClCompile Include="src\world.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\bsp_generator.hpp" />
@@ -160,6 +161,7 @@
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\types.hpp" />
     <ClInclude Include="src\utility.hpp" />
+    <ClInclude Include="src\world.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

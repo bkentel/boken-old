@@ -45,7 +45,8 @@ set(SOURCES
     src/main.cpp
     src/random.cpp
     src/system_sdl.cpp
-    src/text.cpp)
+    src/text.cpp
+    src/world.cpp)
 
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp

@@ -292,26 +292,11 @@ public:
     entity_instance_id instance_id {0};
 };
 
-
 class item {
 public:
     item_id          id          {0};
     item_instance_id instance_id {0};
 };
-
-//====---
-// (Singular) World state.
-//====---
-class world {
-public:
-    virtual item   const* find(item_instance_id   id) const noexcept = 0;
-    virtual entity const* find(entity_instance_id id) const noexcept = 0;
-
-    virtual item   create_item();
-    virtual entity create_entity();
-};
-
-std::unique_ptr<world> make_world();
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
