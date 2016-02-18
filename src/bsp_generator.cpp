@@ -1,9 +1,12 @@
 #include "bsp_generator.hpp"
 #include "random.hpp"
 #include "utility.hpp"
+#include "types.hpp"
 #include <tuple>
 
 namespace boken {
+
+bsp_generator::~bsp_generator() = default;
 
 template <typename T>
 T&& choose_largest(random_state& rng, T&& a, T&& b) {

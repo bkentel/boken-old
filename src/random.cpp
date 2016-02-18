@@ -17,6 +17,8 @@
 
 namespace boken {
 
+random_state::~random_state() = default;
+
 class random_state_impl final : public random_state {
 public:
     random_state_impl() = default;

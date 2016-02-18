@@ -29,7 +29,7 @@ struct tile_view {
 //====---
 class level {
 public:
-    virtual ~level() = default;
+    virtual ~level();
 
     virtual item   const* find(item_instance_id   id) const noexcept = 0;
     virtual entity const* find(entity_instance_id id) const noexcept = 0;

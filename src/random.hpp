@@ -6,7 +6,7 @@ namespace boken {
 
 class random_state {
 public:
-    virtual ~random_state() = default;
+    virtual ~random_state();
 protected:
     random_state() = default;
 };

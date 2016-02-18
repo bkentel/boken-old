@@ -94,7 +94,7 @@ public:
 
     using iterator = std::vector<node_t>::const_iterator;
 
-    virtual ~bsp_generator() = default;
+    virtual ~bsp_generator();
 
     virtual param_t& params() noexcept = 0;
 

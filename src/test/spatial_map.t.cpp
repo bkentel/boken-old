@@ -52,7 +52,7 @@ TEST_CASE("spatial_map") {
         REQUIRE(smap.size() == data.size());
 
         // at
-        for (int i = 0; i < data.size(); ++i) {
+        for (int i = 0; i < static_cast<int>(data.size()); ++i) {
             id_t const* id = smap.at(id_to_pos(i + 1));
             REQUIRE(!!id);
             REQUIRE(*id == (i + 1));

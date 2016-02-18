@@ -7,6 +7,8 @@
 
 namespace boken {
 
+level::~level() = default;
+
 template <typename T>
 axis_aligned_rect<T> random_sub_rect(
     random_state&              rng

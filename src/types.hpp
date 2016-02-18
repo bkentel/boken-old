@@ -24,10 +24,14 @@ template <
 constexpr ResultType value_cast(
     tagged_integral_value<ValueType, Tag> n) noexcept;
 
+namespace detail {
+template <typename T, typename Tag>
+constexpr T value_cast_impl(tagged_integral_value<T, Tag> n) noexcept;
+} //namespace detail
+
 template <
     typename DesiredResultType = void
   , typename ValueType
-  , typename Tag
   , typename ResultType = choose_void_t<DesiredResultType, ValueType>>
 constexpr ResultType value_cast(ValueType n) noexcept;
 
@@ -38,8 +42,8 @@ constexpr ResultType value_cast(ValueType n) noexcept;
 //! A tagged wrapper around an integral data type.
 template <typename T, typename Tag>
 class tagged_integral_value {
-    template <typename U, typename V, typename W, typename X>
-    friend constexpr X boken::value_cast(tagged_integral_value<V, W>) noexcept;
+    template <typename T1, typename Tag1>
+    friend constexpr T1 detail::value_cast_impl(tagged_integral_value<T1, Tag1>) noexcept;
 public:
     using type = std::decay_t<T>;
     using tag  = Tag;
@@ -48,15 +52,27 @@ public:
 
     constexpr tagged_integral_value() = default;
     constexpr tagged_integral_value(tagged_integral_value const&) = default;
+    constexpr tagged_integral_value(tagged_integral_value&&) = default;
+    tagged_integral_value& operator=(tagged_integral_value const&) = default;
+    tagged_integral_value& operator=(tagged_integral_value&&) = default;
 
-    template <typename U>
+    template <typename U, typename =
+        std::enable_if_t<std::is_convertible<U, T>::value>>
     constexpr explicit tagged_integral_value(U const n) noexcept
-      : value_ {n}
+      : value_ {static_cast<T>(n)}
     {
+        //static_assert(std::is_convertible<U, T>::value, "");
     }
 private:
     T value_ {};
 };
+
+namespace detail {
+template <typename T, typename Tag>
+constexpr T value_cast_impl(tagged_integral_value<T, Tag> const n) noexcept {
+    return n.value_;
+}
+} //namespace detail
 
 //! The means of getting the underlying value out of a tagged integral type.
 template <
@@ -67,13 +83,12 @@ template <
 constexpr ResultType value_cast(
     tagged_integral_value<ValueType, Tag> const n
 ) noexcept {
-    return static_cast<ResultType>(n.value_);
+    return static_cast<ResultType>(detail::value_cast_impl(n));
 }
 
 template <
     typename DesiredResultType
   , typename ValueType
-  , typename Tag
   , typename ResultType>
 constexpr ResultType value_cast(ValueType const n) noexcept {
     return static_cast<ResultType>(n);

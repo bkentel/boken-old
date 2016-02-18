@@ -63,6 +63,7 @@ public:
 
     sdl& operator=(sdl&& rhs) noexcept {
         std::swap(cleanup_, rhs.cleanup_);
+        return *this;
     }
 
     ~sdl() {
@@ -155,6 +156,8 @@ private:
 } //namespace
 
 namespace boken {
+
+system::~system() = default;
 
 class sdl_system final : public system {
 public:

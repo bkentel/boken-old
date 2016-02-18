@@ -145,7 +145,7 @@ struct mouse_event {
 
 class system {
 public:
-    virtual ~system() = default;
+    virtual ~system();
 
     using on_request_quit_handler = std::function<bool ()>;
     virtual void on_request_quit(on_request_quit_handler handler) = 0;
