@@ -151,42 +151,10 @@ public:
         }
     }
 
-    //template <typename T>
-    //void fill_line(std::vector<T>& v, sizeix const width, point2i const p, sizeix const w, T const value) noexcept {
-    //    size_t const offset = value_cast<size_t>(p.x)
-    //                        + value_cast<size_t>(p.y) * value_cast(width));
-    //    std::fill_n(v.data() + offset, value_cast(w), value);
-    //}
-
-    //template <typename T>
-    //void fill_line(std::vector<T>& v, sizeix const width, point2i const p, sizeiy const h, T const value) noexcept {
-    //    for (auto y = value_cast<size_t>(p.y); y < value_cast(h); ++y) {
-    //        size_t const offset = value_cast<size_t>(p.x) + y * value_cast(width));
-    //        v[offset] = value;
-    //    }
-    //}
-
     void generate_floor_at(int const x, int const y) noexcept {
         data_at_(data_.types, x, y, width_) = tile_type::floor;
         data_at_(data_.flags, x, y, width_) = tile_flags {0};
     }
-
-    //void generate_floor_at(recti const r) noexcept {
-    //    fill_line(data_.types, width_, point2i {r.x0, r.y0},     sizeix {r.width()},      tile_type::floor);
-    //    fill_line(data_.types, width_, point2i {r.x0, r.y0 + 1}, sizeix {r.height() - 2}, tile_type::floor);
-    //    fill_line(data_.types, width_, point2i {r.x1, r.y0 + 1}, sizeix {r.height() - 2}, tile_type::floor);
-    //    fill_line(data_.types, width_, point2i {r.x0, r.y1},     sizeix {r.width()},      tile_type::floor);
-
-    //    fill_line(data_.flags, width_, point2i {r.x0, r.y0},     sizeix {r.width()},      tile_flags {0});
-    //    fill_line(data_.flags, width_, point2i {r.x0, r.y0 + 1}, sizeix {r.height() - 2}, tile_flags {0});
-    //    fill_line(data_.flags, width_, point2i {r.x1, r.y0 + 1}, sizeix {r.height() - 2}, tile_flags {0});
-    //    fill_line(data_.flags, width_, point2i {r.x0, r.y1},     sizeix {r.width()},      tile_flags {0});
-    //}
-
-    //void generate_wall_at(recti const r) noexcept {
-    //    fill_rect(data_.types, width_, r, tile_type::wall);
-    //    fill_rect(data_.flags, width_, r, tile_flags {tile_flags::f_solid});
-    //}
 
     template <typename T>
     void generate_room_data(std::vector<T>& v, recti const r, T const& floor, T const& wall) noexcept {
@@ -282,6 +250,17 @@ public:
     }
 
     void generate_select_ids(random_state& rng) {
+        recti const map_rect {offix {0}, offiy {0}, width_, height_};
+        for_each_xy(map_rect, [&](int const x, int const y, bool) noexcept {
+            auto const& type  = data_at_(data_.types, x, y, width_);
+            auto&       index = data_at_(data_.tile_indicies, x, y, width_);
+
+            switch (type) {
+            case tile_type::empty : index = 11 + 13 * 16; break;
+            case tile_type::floor : index = 7;            break;
+            case tile_type::wall  : index = 11 * 16;      break;
+            }
+        });
     }
 
     void generate(random_state& rng) {
@@ -332,6 +311,7 @@ public:
         }
 
         generate_merge_walls(rng);
+        generate_select_ids(rng);
     }
 private:
     template <typename Vector>
