@@ -9,8 +9,6 @@
 
 namespace boken {
 
-namespace container_algorithms {
-
 namespace detail {
 template <typename Container, typename Compare>
 void sort_impl(Container&& c, Compare comp) {
@@ -22,19 +20,28 @@ void sort_impl(Container&& c, Compare comp) {
 }
 } //namespace detail
 
+namespace container_algorithms {
+
 template <typename Container, typename Compare>
 void sort(Container&& c, Compare comp) {
     detail::sort_impl(std::forward<Container>(c), comp);
 }
 
 template <typename Container, typename Predicate>
-auto* find_if(Container&& c, Predicate pred) {
+auto find_if(Container&& c, Predicate pred) {
+    using std::begin;
+    using std::end;
+
+    return std::find_if(begin(c), end(c), pred);
+}
+
+template <typename Container, typename Predicate>
+auto* find_ptr_if(Container&& c, Predicate pred) {
     using std::begin;
     using std::end;
 
     using result_t = decltype(std::addressof(*begin(c)));
-
-    auto const it = std::find_if(begin(c), end(c), pred);
+    auto const it = find_if(std::forward<Container>(c), pred);
     return (it == end(c))
       ? static_cast<result_t>(nullptr)
       : std::addressof(*it);

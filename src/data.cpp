@@ -7,7 +7,7 @@ namespace {
 template <typename Container, typename Id>
 auto find_(Container&& c, Id const id) noexcept {
     using namespace boken::container_algorithms;
-    return find_if(c, [id](auto const& def) noexcept {
+    return find_ptr_if(c, [id](auto const& def) noexcept {
         return id == def.id;
     });
 }

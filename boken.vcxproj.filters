@@ -43,6 +43,7 @@
     <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\world.hpp" />
+    <ClInclude Include="src\entity.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

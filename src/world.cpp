@@ -19,11 +19,23 @@ public:
     }
 
     item_instance_id create_item_id() final override {
-        return item_instance_id{next_item_instance_id_++};
+        return item_instance_id {next_item_instance_id_++};
     }
 
     entity_instance_id create_entity_id() final override {
-        return entity_instance_id{next_entity_instance_id_++};
+        return entity_instance_id {next_entity_instance_id_++};
+    }
+
+    void free_item_id(item_instance_id const id) final override {
+        if (value_cast(id) == next_item_instance_id_ - 1) {
+            --next_item_instance_id_;
+        }
+    }
+
+    void free_entity_id(entity_instance_id const id) final override {
+        if (value_cast(id) == next_entity_instance_id_ - 1) {
+            --next_entity_instance_id_;
+        }
     }
 
     int total_levels() const noexcept final override {

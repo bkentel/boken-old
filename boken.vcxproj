@@ -146,6 +146,7 @@
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\definition.hpp" />
+    <ClInclude Include="src\entity.hpp" />
     <ClInclude Include="src\entity_def.hpp" />
     <ClInclude Include="src\hash.hpp" />
     <ClInclude Include="src\item_def.hpp" />

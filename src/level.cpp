@@ -3,6 +3,7 @@
 #include "bsp_generator.hpp"
 #include "random.hpp"
 #include "utility.hpp"
+#include "entity.hpp"
 #include <vector>
 
 namespace boken {
@@ -76,12 +77,68 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // level interface
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    sizeix width() const noexcept final override {
+        return width_;
+    }
+
+    sizeiy height() const noexcept final override {
+        return height_;
+    }
+
     item const* find(item_instance_id const id) const noexcept final override {
         return nullptr;
     }
 
     entity const* find(entity_instance_id const id) const noexcept final override {
         return nullptr;
+    }
+
+    move_result move_by(item_instance_id const id, vec2i const v) noexcept final override {
+        return move_result::ok;
+    }
+
+    move_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
+        using namespace container_algorithms;
+        auto const it = find_if(entities_.intances
+          , [id](entity const& e) noexcept { return id == e.instance_id; });
+
+        if (it == end(entities_.intances)) {
+            return move_result::failed_bad_id;
+        }
+
+        auto const i = std::distance(begin(entities_.intances), it);
+        auto const p1 = entities_.positions[i].cast_to<int>() + v;
+        if (!check_bounds_(p1)) {
+            return move_result::failed_bounds;
+        }
+
+        auto const p2 = p1.cast_to<uint16_t>();
+        if (end(entities_.positions) != find_if(entities_.positions
+          , [p2](auto const pos) noexcept { return pos == p2; })
+        ) {
+            return move_result::failed_entity;
+        }
+
+        if (data_at_(data_.types, value_cast(p1.x), value_cast(p1.y), width_)
+         == tile_type::wall
+        ) {
+            return move_result::failed_obstacle;
+        }
+
+        entities_.positions[i] = p2;
+        return move_result::ok;
+    }
+
+    placement_result add_item_at(item&& i, point2i p) final override {
+        return placement_result::failed_obstacle;
+    }
+
+    placement_result add_entity_at(entity&& e, point2i const p) final override {
+        entities_.ids.push_back(e.id);
+        entities_.positions.push_back(p.cast_to<uint16_t>());
+        entities_.intances.push_back(std::move(e));
+
+        return placement_result::ok;
     }
 
     int region_count() const noexcept final override {
@@ -115,6 +172,14 @@ public:
           , data_at_(data_.region_ids,    x, y, width_)
           , nullptr
         };
+    }
+
+    std::vector<point2<uint16_t>> const& entity_positions() const noexcept final override {
+        return entities_.positions;
+    }
+
+    std::vector<entity_id> const& entity_ids() const noexcept final override {
+        return entities_.ids;
     }
 
     std::pair<std::vector<uint16_t> const&, recti>
@@ -329,8 +394,18 @@ private:
            && (x <  value_cast(width_)) && (y <  value_cast(height_));
     }
 
+    bool check_bounds_(point2i const p) const noexcept {
+        return check_bounds_(value_cast(p.x), value_cast(p.y));
+    }
+
     sizeix width_;
     sizeiy height_;
+
+    struct entities_t {
+        std::vector<point2<uint16_t>> positions;
+        std::vector<entity_id>        ids;
+        std::vector<entity>           intances;
+    } entities_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
     std::vector<recti> room_rects_;

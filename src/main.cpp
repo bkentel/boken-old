@@ -1,14 +1,18 @@
-#include "catch.hpp"
-#include <bkassert/assert.hpp>
 #include "types.hpp"
 #include "system.hpp"
 #include "map.hpp"
 #include "random.hpp"
-#include "bsp_generator.hpp"
 #include "hash.hpp"
 #include "utility.hpp"
 #include "text.hpp"
 #include "level.hpp"
+#include "entity.hpp"
+#include "entity_def.hpp"
+#include "item_def.hpp"
+#include "world.hpp"
+
+#include "catch.hpp"
+#include <bkassert/assert.hpp>
 
 #include <fstream>
 #include <chrono>
@@ -48,7 +52,7 @@ struct keydef_t {
 };
 
 char const* load_keyboard_names() {
-    static constexpr char end_of_data = 0xFF;
+    static constexpr char end_of_data ='\xff';
 
     std::ifstream in {"./data/keyboard-names.dat", std::ios::binary};
     auto const last = in.seekg(0, std::ios::end).tellg();
@@ -286,17 +290,51 @@ public:
     float scale_y = 1.0f;
 };
 
-class entity {
-public:
-    entity_id          id          {0};
-    entity_instance_id instance_id {0};
-};
-
 class item {
 public:
-    item_id          id          {0};
+    item(item_instance_id const i_instance, item_id const i_id)
+      : instance_id {i_instance}
+      , id          {i_id}
+    {
+    }
+
     item_instance_id instance_id {0};
+    item_id          id          {0};
 };
+
+placement_result create_item_at(point2i const p, world& w, level& l, item_definition const& def) {
+    auto const id     = w.create_item_id();
+    auto const result = l.add_item_at(item {id, def.id}, p);
+
+    switch (result) {
+    case placement_result::ok :
+        break;
+    case placement_result::failed_bounds   :
+    case placement_result::failed_entity   :
+    case placement_result::failed_obstacle :
+        w.free_item_id(id);
+        break;
+    }
+
+    return result;
+}
+
+placement_result create_entity_at(point2i const p, world& w, level& l, entity_definition const& def) {
+    auto const id     = w.create_entity_id();
+    auto const result = l.add_entity_at(entity {id, def.id}, p);
+
+    switch (result) {
+    case placement_result::ok :
+        break;
+    case placement_result::failed_bounds   :
+    case placement_result::failed_entity   :
+    case placement_result::failed_obstacle :
+        w.free_entity_id(id);
+        break;
+    }
+
+    return result;
+}
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -325,7 +363,10 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate() {
-        current_level = make_level(rng_substantive, sizeix {100}, sizeiy {80});
+        auto& current_level = the_world.add_new_level(
+            nullptr
+          , make_level(rng_substantive, sizeix {100}, sizeiy {80}));
+
         render_data.tile_data.resize(100 * 80);
 
         auto const random_color_comp = [&] {
@@ -340,13 +381,13 @@ struct game_state {
         };
 
         std::vector<uint32_t> colors;
-        std::generate_n(back_inserter(colors), current_level->region_count(), [&] {
+        std::generate_n(back_inserter(colors), current_level.region_count(), [&] {
             return random_color();
         });
 
-        auto const  region_id_pair = current_level->region_ids(0);
+        auto const  region_id_pair = current_level.region_ids(0);
         auto const& region_ids     = region_id_pair.first;
-        auto const  tile_pair      = current_level->tile_indicies(0);
+        auto const  tile_pair      = current_level.tile_indicies(0);
         auto const& tile_indicies  = tile_pair.first;
         auto const  tile_rect      = tile_pair.second;
         auto const  w              = tile_rect.width();
@@ -368,6 +409,17 @@ struct game_state {
                 dst.tex_coord.first  = (src % render_data.tiles_x) * render_data.tile_w;
                 dst.tex_coord.second = (src / render_data.tiles_x) * render_data.tile_h;
             }
+        }
+
+        // player
+        create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
+
+        for (int i = 0; i < 10; ++i) {
+            point2i const p {
+                random_uniform_int(rng_substantive, 0, value_cast(current_level.width()))
+              , random_uniform_int(rng_substantive, 0, value_cast(current_level.height()))};
+
+            create_entity_at(p, the_world, current_level, entity_definition {entity_id {1}});
         }
     }
 
@@ -415,14 +467,14 @@ struct game_state {
             break;
         case ct::move_here:
             break;
-        case ct::move_n  : player.position += vec2i { 0, -1}; break;
-        case ct::move_ne : player.position += vec2i { 1, -1}; break;
-        case ct::move_e  : player.position += vec2i { 1,  0}; break;
-        case ct::move_se : player.position += vec2i { 1,  1}; break;
-        case ct::move_s  : player.position += vec2i { 0,  1}; break;
-        case ct::move_sw : player.position += vec2i {-1,  1}; break;
-        case ct::move_w  : player.position += vec2i {-1,  0}; break;
-        case ct::move_nw : player.position += vec2i {-1, -1}; break;
+        case ct::move_n  : move_player(vec2i { 0, -1}); break;
+        case ct::move_ne : move_player(vec2i { 1, -1}); break;
+        case ct::move_e  : move_player(vec2i { 1,  0}); break;
+        case ct::move_se : move_player(vec2i { 1,  1}); break;
+        case ct::move_s  : move_player(vec2i { 0,  1}); break;
+        case ct::move_sw : move_player(vec2i {-1,  1}); break;
+        case ct::move_w  : move_player(vec2i {-1,  0}); break;
+        case ct::move_nw : move_player(vec2i {-1, -1}); break;
         case ct::reset_view:
             current_view.x_off = 0.0f;
             current_view.y_off = 0.0f;
@@ -438,6 +490,10 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    void move_player(vec2i const v) {
+        the_world.current_level().move_by(entity_instance_id {}, v);
+    }
+
     void run() {
         while (os.is_running()) {
             os.do_events();
@@ -477,12 +533,19 @@ struct game_state {
         //
         // Player and entities.
         //
+        auto const& current_level = the_world.current_level();
+        auto const& epos = current_level.entity_positions();
+        auto const& eids = current_level.entity_ids();
+
         render_data.entity_data.clear();
-        render_data.entity_data.push_back(render_t::data_t {
-            {value_cast(player.position.x) * render_data.tile_w, value_cast(player.position.y) * render_data.tile_h}
-          , {1 * render_data.tile_w, 0}
-          , 0xFF
-        });
+        for (size_t i = 0; i < epos.size(); ++i) {
+            render_data.entity_data.push_back(render_t::data_t {
+                {value_cast(epos[i].x) * render_data.tile_w
+               , value_cast(epos[i].y) * render_data.tile_h}
+              , {1 * render_data.tile_w, 0}
+              , 0xFF
+            });
+        }
 
         os.render_set_data(render_data_type::position, read_only_pointer_t {
             render_data.entity_data, BK_OFFSETOF(render_t::data_t, position)});
@@ -510,17 +573,15 @@ struct game_state {
         std::unique_ptr<system>       system_ptr          = make_system();
         std::unique_ptr<random_state> rng_substantive_ptr = make_random_state();
         std::unique_ptr<random_state> rng_superficial_ptr = make_random_state();
+        std::unique_ptr<world>        world_ptr           = make_world();
     } state {};
 
     system&       os              = *state.system_ptr;
     random_state& rng_substantive = *state.rng_substantive_ptr;
     random_state& rng_superficial = *state.rng_superficial_ptr;
+    world&        the_world       = *state.world_ptr;
 
     command_translator cmd_translator {};
-
-    struct player_t {
-        point2i position {0, 0};
-    } player;
 
     view current_view;
 
@@ -550,8 +611,6 @@ struct game_state {
     text_renderer trender;
 
     text_layout test_layout;
-
-    std::unique_ptr<level> current_level;
 };
 
 } // namespace boken

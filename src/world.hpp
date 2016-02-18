@@ -21,6 +21,9 @@ public:
     virtual item_instance_id   create_item_id() = 0;
     virtual entity_instance_id create_entity_id() = 0;
 
+    virtual void free_item_id(item_instance_id id) = 0;
+    virtual void free_entity_id(entity_instance_id id) = 0;
+
     virtual int total_levels() const noexcept = 0;
 
     virtual level&       current_level()       noexcept = 0;
