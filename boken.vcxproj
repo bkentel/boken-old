@@ -124,6 +124,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="external\bkassert\assert.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\catch.cpp" />
     <ClCompile Include="src\data.cpp" />

@@ -48,6 +48,9 @@ set(SOURCES
     src/text.cpp
     src/world.cpp)
 
+set(SOURCES_EXTERNAL
+    external/bkassert/assert.cpp
+
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp
     src/test/math.t.cpp
@@ -55,7 +58,7 @@ set(SOURCES_TEST
 
 set_source_files_properties(${SOURCES_TEST} PROPERTIES COMPILE_FLAGS "-Wno-exit-time-destructors")
 
-add_executable(boken ${SOURCES} ${SOURCES_TEST})
+add_executable(boken ${SOURCES} ${SOURCES_EXTERNAL} ${SOURCES_TEST})
 set_property(TARGET boken PROPERTY CXX_STANDARD 14)
 
 target_link_libraries(boken SDL2)

@@ -46,6 +46,16 @@ struct tile_data {
     uint64_t data;
 };
 
+//should be sorted by alignment for packing
+struct tile_data_set {
+    tile_data  data;
+    tile_flags flags;
+    tile_id    id;
+    tile_type  type;
+    uint16_t   tile_index;
+    uint16_t   region_id;
+};
+
 struct tile_map {
     recti index_to_rect(int32_t const i) const noexcept {
         return {

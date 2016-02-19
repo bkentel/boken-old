@@ -20,6 +20,9 @@
     <ClCompile Include="src\data.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\world.cpp" />
+    <ClCompile Include="external\bkassert\assert.cpp">
+      <Filter>external</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -49,6 +52,9 @@
     <Filter Include="test">
       <UniqueIdentifier>{cf71eceb-a935-4f86-9d1c-3632f4849f35}</UniqueIdentifier>
       <Extensions>.t.cpp</Extensions>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{bb513ea0-b18f-4b40-8aa9-607b6a5c485e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

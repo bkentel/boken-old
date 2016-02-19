@@ -4,6 +4,7 @@
 #include "random.hpp"
 #include "utility.hpp"
 #include "entity.hpp"
+#include <bkassert/assert.hpp>
 #include <vector>
 
 namespace boken {
@@ -18,8 +19,8 @@ axis_aligned_rect<T> random_sub_rect(
   , size_type<T>         const max_size
   , float                const variance = 6.0f
 ) {
-    //BK_ASSERT(min_size <= max_size);
-    //BK_ASSERT(variance > 0.0f);
+    BK_ASSERT(min_size <= max_size);
+    BK_ASSERT(variance > 0.0f);
 
     auto const w = r.width();
     auto const h = r.height();
@@ -56,6 +57,52 @@ axis_aligned_rect<T> random_sub_rect(
           , size_type_x<T>   {new_w}
           , size_type_y<T>   {new_h}};
 }
+
+template <typename T, typename F>
+void for_each_xy(axis_aligned_rect<T> const r, F f) {
+    for (auto y = r.y0; y < r.y1; ++y) {
+        bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
+        for (auto x = r.x0; x < r.x1; ++x) {
+            bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+            f(x, y, on_edge);
+        }
+    }
+}
+
+
+struct generate_rect_room {
+    generate_rect_room(sizei const room_min_size, sizei const room_max_size) noexcept
+      : room_min_size_ {room_min_size}
+      , room_max_size_ {room_max_size}
+    {
+    }
+
+    void operator()(random_state& rng, recti const area, std::vector<tile_data_set>& out) {
+        auto const r = random_sub_rect(rng, area, room_min_size_, room_max_size_);
+        auto const area_w = area.width();
+        auto const room_w = r.width();
+        auto const step   = area_w - room_w;
+
+        auto it = begin(out);
+
+        for (auto y = r.y0; y < r.y1; ++y, it += step) {
+            bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
+            for (auto x = r.x0; x < r.x1; ++x, ++it) {
+                bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+                if (on_edge) {
+                    it->type  = tile_type::wall;
+                    it->flags = tile_flags {tile_flags::f_solid};
+                } else {
+                    it->type  = tile_type::floor;
+                    it->flags = tile_flags {};
+                }
+            }
+        }
+    }
+
+    sizei room_min_size_;
+    sizei room_max_size_;
+};
 
 class level_impl : public level {
 public:
@@ -198,17 +245,6 @@ public:
     // implementation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    template <typename T, typename F>
-    void for_each_xy(axis_aligned_rect<T> const r, F f) {
-        for (auto y = r.y0; y < r.y1; ++y) {
-            bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
-            for (auto x = r.x0; x < r.x1; ++x) {
-                bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
-                f(x, y, on_edge);
-            }
-        }
-    }
-
     template <typename T, typename U>
     void fill_rect(std::vector<T>& v, sizeix const width, axis_aligned_rect<U> const r, T const value) noexcept {
         for (auto y = r.y0; y < r.y1; ++y) {
@@ -328,6 +364,27 @@ public:
         });
     }
 
+    template <typename Field, typename T>
+    void copy_region(
+        std::vector<tile_data_set> const& src
+      , Field const src_field
+      , recti const src_rect
+      , std::vector<T>& dst
+    ) noexcept {
+        auto const src_w = src_rect.width();
+        auto const dst_w = value_cast(width_);
+        auto const step  = dst_w - src_w;
+
+        auto src_off = 0;
+        auto dst_off = src_rect.x0 + src_rect.y0 * dst_w;
+
+        for (auto y = src_rect.y0; y < src_rect.y1; ++y, dst_off += step) {
+            for (auto x = src_rect.x0; x < src_rect.x1; ++x, ++src_off, ++dst_off) {
+                dst[dst_off] = src[src_off].*src_field;
+            }
+        }
+    }
+
     void generate(random_state& rng) {
         {
             recti const map_rect {offix {0}, offiy {0}, width_, height_};
@@ -342,37 +399,44 @@ public:
 
         auto const& p = bsp.params();
 
-        auto const room_min_size       = p.min_room_size;
-        auto const room_max_size       = p.max_room_size;
-        auto const room_gen_chance_num = p.room_chance_num;
-        auto const room_gen_chance_den = p.room_chance_den;
-
         room_rects_.reserve(
-            (bsp.size() * value_cast(room_gen_chance_num))
-                        / value_cast(room_gen_chance_den));
+            (bsp.size() * value_cast(p.room_chance_num))
+                        / value_cast(p.room_chance_den));
 
         uint16_t region_id = 0;
+        std::vector<tile_data_set> buffer;
+        tile_data_set default_tile {
+            tile_data  {}
+          , tile_flags {tile_flags::f_solid}
+          , tile_id    {}
+          , tile_type  {tile_type::empty}
+          , uint16_t   {}
+          , uint16_t   {}
+        };
+
+        auto gen_rect = generate_rect_room {
+            p.min_room_size, p.max_room_size};
+
         for (auto const& region : bsp) {
             fill_rect(data_.region_ids, width_, region.rect, region_id++);
 
-            if (!random_chance_in_x(rng, value_cast(room_gen_chance_num)
-                                       , value_cast(room_gen_chance_den))
+            if (!random_chance_in_x(rng, value_cast(p.room_chance_num)
+                                       , value_cast(p.room_chance_den))
             ) {
                 continue;
             }
 
-            auto const room_rect = random_sub_rect(
-                rng, region.rect, room_min_size, room_max_size);
+            default_tile.region_id = region_id;
 
-            room_rects_.push_back(room_rect);
+            buffer.resize(region.rect.area(), default_tile);
+            gen_rect(rng, region.rect, buffer);
 
-            generate_room_data(data_.types, room_rect
-              , tile_type::floor
-              , tile_type::wall);
+            copy_region(buffer, &tile_data_set::id,         region.rect, data_.ids);
+            copy_region(buffer, &tile_data_set::type,       region.rect, data_.types);
+            copy_region(buffer, &tile_data_set::flags,      region.rect, data_.flags);
+            copy_region(buffer, &tile_data_set::tile_index, region.rect, data_.tile_indicies);
 
-            generate_room_data(data_.flags, room_rect
-              , tile_flags {0}
-              , tile_flags {tile_flags::f_solid});
+            buffer.resize(0);
         }
 
         generate_merge_walls(rng);
