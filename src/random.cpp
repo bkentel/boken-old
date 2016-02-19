@@ -23,9 +23,9 @@ class random_state_impl final : public random_state {
 public:
     random_state_impl() = default;
 
-    boost::random::uniform_smallint<int>         dist_coin    {0, 1};
-    boost::random::uniform_int_distribution<int> dist_uniform {};
-    boost::random::normal_distribution<>         dist_normal  {};
+    boost::random::uniform_smallint<int32_t>         dist_coin    {0, 1};
+    boost::random::uniform_int_distribution<int32_t> dist_uniform {};
+    boost::random::normal_distribution<>             dist_normal  {};
 
     pcg32 state {};
 };
@@ -35,13 +35,13 @@ std::unique_ptr<random_state> make_random_state() {
     return std::make_unique<random_state_impl>();
 }
 
-bool random_coin_flip(random_state& rs) noexcept {
-    auto& r = reinterpret_cast<random_state_impl&>(rs);
+bool random_coin_flip(random_state& rng) noexcept {
+    auto& r = reinterpret_cast<random_state_impl&>(rng);
     return !!r.dist_coin(r.state);
 }
 
-int random_uniform_int(random_state& rs, int const lo, int const hi) noexcept {
-    auto& r = reinterpret_cast<random_state_impl&>(rs);
+int random_uniform_int(random_state& rng, int32_t const lo, int32_t const hi) noexcept {
+    auto& r = reinterpret_cast<random_state_impl&>(rng);
 
     using param_t = decltype(r.dist_uniform)::param_type;
 
@@ -51,7 +51,7 @@ int random_uniform_int(random_state& rs, int const lo, int const hi) noexcept {
     return r.dist_uniform(r.state);
 }
 
-bool random_chance_in_x(random_state& rng, int const num, int const den) noexcept {
+bool random_chance_in_x(random_state& rng, int32_t const num, int32_t const den) noexcept {
     return random_uniform_int(rng, 0, den) < num;
 }
 

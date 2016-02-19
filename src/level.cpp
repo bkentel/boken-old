@@ -11,53 +11,6 @@ namespace boken {
 
 level::~level() = default;
 
-template <typename T>
-axis_aligned_rect<T> random_sub_rect(
-    random_state&              rng
-  , axis_aligned_rect<T> const r
-  , size_type<T>         const min_size
-  , size_type<T>         const max_size
-  , float                const variance = 6.0f
-) {
-    BK_ASSERT(min_size <= max_size);
-    BK_ASSERT(variance > 0.0f);
-
-    auto const w = r.width();
-    auto const h = r.height();
-
-    auto const new_size = [&](T const size) {
-        auto const min_s = value_cast(min_size);
-        if (min_s > size) {
-            return size;
-        }
-
-        auto const max_s = std::min(size, value_cast(max_size));
-        if (max_s - min_s <= 0) {
-            return size;
-        }
-
-        auto const range  = max_s - min_s;
-        auto const median = min_s + range / 2.0f;
-        auto const roll   = random_normal(rng, median, range / variance);
-
-        return clamp(round_as<T>(roll), min_s, max_s);
-    };
-
-    auto const new_w = new_size(w);
-    auto const new_h = new_size(h);
-
-    auto const new_offset = [&](T const size) {
-        return (size <= 0)
-          ? T {0}
-          : static_cast<T>(random_uniform_int(rng, 0, static_cast<int>(size)));
-    };
-
-    return {offset_type_x<T> {r.x0 + new_offset(w - new_w)}
-          , offset_type_y<T> {r.y0 + new_offset(h - new_h)}
-          , size_type_x<T>   {new_w}
-          , size_type_y<T>   {new_h}};
-}
-
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f) {
     for (auto y = r.y0; y < r.y1; ++y) {
@@ -69,7 +22,68 @@ void for_each_xy(axis_aligned_rect<T> const r, F f) {
     }
 }
 
+template <typename T, typename RowF, typename ColF>
+void for_each_xy(axis_aligned_rect<T> const r, RowF row, ColF col) {
+    for (auto y = r.y0; y < r.y1; ++y) {
+        bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
+
+        RowF(y, on_edge_y);
+
+        for (auto x = r.x0; x < r.x1; ++x) {
+            bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+
+            ColF(x, y, on_edge);
+        }
+    }
+}
+
 struct generate_rect_room {
+    template <typename T>
+    static axis_aligned_rect<T> random_sub_rect(
+        random_state&              rng
+      , axis_aligned_rect<T> const r
+      , size_type<T>         const min_size
+      , size_type<T>         const max_size
+      , float                const inverse_variance = 6.0f
+    ) noexcept {
+        BK_ASSERT(min_size <= max_size);
+        BK_ASSERT(inverse_variance > 0.0f);
+
+        auto const w = r.width();
+        auto const h = r.height();
+
+        auto const new_size = [&](T const size) noexcept {
+            auto const min_s = value_cast(min_size);
+            if (min_s > size) {
+                return size;
+            }
+
+            auto const max_s = std::min(size, value_cast(max_size));
+            if (max_s - min_s <= 0) {
+                return size;
+            }
+
+            auto const range  = max_s - min_s;
+            auto const median = min_s + range / 2.0;
+            auto const roll   = random_normal(rng, median, range / inverse_variance);
+
+            return clamp(round_as<T>(roll), min_s, max_s);
+        };
+
+        auto const new_w = new_size(w);
+        auto const new_h = new_size(h);
+
+        auto const new_offset = [&](T const size) noexcept {
+            return static_cast<T>((size <= 0)
+              ? 0 : random_uniform_int(rng, 0, size));
+        };
+
+        return {offset_type_x<T> {r.x0 + new_offset(w - new_w)}
+              , offset_type_y<T> {r.y0 + new_offset(h - new_h)}
+              , size_type_x<T>   {new_w}
+              , size_type_y<T>   {new_h}};
+    }
+
     generate_rect_room(sizei const room_min_size, sizei const room_max_size) noexcept
       : room_min_size_ {room_min_size}
       , room_max_size_ {room_max_size}
