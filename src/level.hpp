@@ -54,54 +54,54 @@ constexpr auto as_unsigned(T const n, convertion_type const type = convertion_ty
                              : as_unsigned(n, convertion_t<ct::clamp> {});
 }
 
-template <typename RandIt>
-class grid_view {
-public:
-    grid_view(RandIt const base, uint32_t const row_width, recti const rect) noexcept
-      : base_ {base}, row_width_ {row_width}, rect_ {rect}
-    {
-        BK_ASSERT(rect.x0 >= 0 && as_unsigned(rect.x0 + rect.width()) <= row_width);
-        BK_ASSERT(rect.y0 >= 0);
-    }
-
-    template <typename TernaryF>
-    void for_each_xy(TernaryF f) const {
-        auto const step = row_width_ - w;
-        auto       it   = base_ + (rect_.x0) + (rect_.y0 * row_width_);
-
-        for (auto y = rect_.y0; y < rect_.y1; ++y, it += step) {
-            for (auto x = rect_.x0; x < rect_.x1; ++x) {
-                f(x, y, *it++);
-            }
-        }
-    }
-
-    grid_view<RandIt> sub_view(recti const r) const {
-        BK_ASSERT(r.x0 >= 0 && rect_.x0 <= r.x0 && rect_.x1 <= r.x1);
-        BK_ASSERT(r.y0 >= 0 && rect_.y0 <= r.y0 && rect_.y1 <= r.y1);
-
-        return {base, row_width_, r};
-    }
-
-    template <typename T>
-    void fill(T const value) const noexcept {
-        auto const w    = rect_.width();
-        auto const step = row_width_ - w;
-        auto       it   = base_ + (rect_.x0) + (rect_.y0 * row_width_);
-
-        for (auto y = rect_.y0; y < rect_.y1; ++y) {
-            it = std::fill_n(it, w, value) + step;
-        }
-    }
-
-    auto&& at(uint32_t const x, uint32_t const y) const noexcept {
-        return *(base_ + (rect_.x0 + x) + ((rect_.y0 + y) * row_width_));
-    }
-private:
-    RandIt   base_;
-    uint32_t row_width_;
-    recti    rect_;
-};
+//template <typename RandIt>
+//class grid_view {
+//public:
+//    grid_view(RandIt const base, uint32_t const row_width, recti const rect) noexcept
+//      : base_ {base}, row_width_ {row_width}, rect_ {rect}
+//    {
+//        BK_ASSERT(rect.x0 >= 0 && as_unsigned(rect.x0 + rect.width()) <= row_width);
+//        BK_ASSERT(rect.y0 >= 0);
+//    }
+//
+//    template <typename TernaryF>
+//    void for_each_xy(TernaryF f) const {
+//        auto const step = row_width_ - w;
+//        auto       it   = base_ + (rect_.x0) + (rect_.y0 * row_width_);
+//
+//        for (auto y = rect_.y0; y < rect_.y1; ++y, it += step) {
+//            for (auto x = rect_.x0; x < rect_.x1; ++x) {
+//                f(x, y, *it++);
+//            }
+//        }
+//    }
+//
+//    grid_view<RandIt> sub_view(recti const r) const {
+//        BK_ASSERT(r.x0 >= 0 && rect_.x0 <= r.x0 && rect_.x1 <= r.x1);
+//        BK_ASSERT(r.y0 >= 0 && rect_.y0 <= r.y0 && rect_.y1 <= r.y1);
+//
+//        return {base, row_width_, r};
+//    }
+//
+//    template <typename T>
+//    void fill(T const value) const noexcept {
+//        auto const w    = rect_.width();
+//        auto const step = row_width_ - w;
+//        auto       it   = base_ + (rect_.x0) + (rect_.y0 * row_width_);
+//
+//        for (auto y = rect_.y0; y < rect_.y1; ++y) {
+//            it = std::fill_n(it, w, value) + step;
+//        }
+//    }
+//
+//    auto&& at(uint32_t const x, uint32_t const y) const noexcept {
+//        return *(base_ + (rect_.x0 + x) + ((rect_.y0 + y) * row_width_));
+//    }
+//private:
+//    RandIt   base_;
+//    uint32_t row_width_;
+//    recti    rect_;
+//};
 
 //====---
 // A generic level concept

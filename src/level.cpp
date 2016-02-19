@@ -69,7 +69,6 @@ void for_each_xy(axis_aligned_rect<T> const r, F f) {
     }
 }
 
-
 struct generate_rect_room {
     generate_rect_room(sizei const room_min_size, sizei const room_max_size) noexcept
       : room_min_size_ {room_min_size}

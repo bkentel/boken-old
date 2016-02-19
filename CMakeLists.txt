@@ -49,7 +49,7 @@ set(SOURCES
     src/world.cpp)
 
 set(SOURCES_EXTERNAL
-    external/bkassert/assert.cpp
+    external/bkassert/assert.cpp)
 
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp
