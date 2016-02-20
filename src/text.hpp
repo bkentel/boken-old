@@ -43,7 +43,7 @@ public:
 
 class text_layout {
 public:
-    text_layout() = default;
+    text_layout();
 
     text_layout(text_renderer& trender, std::string text);
 

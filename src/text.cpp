@@ -4,6 +4,11 @@
 
 namespace boken {
 
+text_layout::text_layout()
+  : is_visible_ {false}
+{
+}
+
 text_layout::text_layout(text_renderer& trender, std::string text)
   : text_ {std::move(text)}
 {

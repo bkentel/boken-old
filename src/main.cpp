@@ -266,25 +266,32 @@ public:
         return result;
     }
 
-    bool operator==(simple_circular_buffer_iterator const& other) noexcept {
+    bool operator<(this_t const& other) const noexcept {
+        return (!p_ && !other.p_) ? false
+             : (!p_)              ? false
+             : (!other.p_)        ? true
+                                  : p_ < other.p_;
+    }
+
+    bool operator==(this_t const& other) const noexcept {
         return (!p_ && !other.p_) ? true
              : (!p_)              ? compare_end_(other, *this)
              : (!other.p_)        ? compare_end_(*this, other)
                                   : compare_(*this, other);
     }
 
-    bool operator!=(simple_circular_buffer_iterator const& other) noexcept {
+    bool operator!=(this_t const& other) const noexcept {
         return !(*this == other);
     }
 private:
-    bool compare_(this_t const& it0, this_t const& it1) noexcept {
+    bool compare_(this_t const& it0, this_t const& it1) const noexcept {
         return (it0.p_        == it1.p_)
             && (it0.delta_    == it1.delta_)
             && (it0.front_    == it1.front_)
             && (it0.capacity_ == it1.capacity_);
     }
 
-    bool compare_end_(this_t const& it, this_t const& end) noexcept {
+    bool compare_end_(this_t const& it, this_t const& end) const noexcept {
         return it.delta_ && (it.front_    == end.front_)
                          && (it.capacity_ == end.capacity_);
     }
@@ -360,7 +367,6 @@ public:
     }
 
     void print(std::string msg) {
-
     }
 
     void println(std::string msg) {
@@ -368,12 +374,16 @@ public:
         messages_.push(std::move(msg));
     }
 
-    auto begin() const noexcept {
+    auto visible_begin() const noexcept {
         return visible_lines_.begin();
     }
 
-    auto end() const noexcept {
+    auto visible_end() const noexcept {
         return visible_lines_.end();
+    }
+
+    auto max_visible() const noexcept {
+        return visible_lines_.size();
     }
 private:
     text_renderer& trender_;
@@ -398,9 +408,6 @@ struct game_state {
         os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
 
         cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
-
-        test_layout.layout(trender, "This is a test.");
-        test_layout.visible(true);
 
         generate();
     }
@@ -469,12 +476,34 @@ struct game_state {
         }
     }
 
+    void show_tool_tip(point2i const p) {
+        tool_tip.move_to(value_cast(p.x), value_cast(p.y));
+
+        auto const q  = current_view.window_to_world(p);
+        auto const tx = floor_as<int>(value_cast(q.x) / 18);
+        auto const ty = floor_as<int>(value_cast(q.y) / 18);
+
+        if (tool_tip.visible(true) && tx == last_tile_x && ty == last_tile_y) {
+            return;
+        }
+
+        auto const& tile = the_world.current_level().at(tx, ty);
+        tool_tip.layout(trender, std::to_string(tile.region_id));
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
+            if (kmods.test(kb_modifiers::m_shift)) {
+                show_tool_tip(point2i {last_mouse_x, last_mouse_y});
+            }
             cmd_translator.translate(event);
+        } else {
+            if (!kmods.test(kb_modifiers::m_shift)) {
+                tool_tip.visible(false);
+            }
         }
     }
 
@@ -485,11 +514,16 @@ struct game_state {
         }
 
         if (kmods.test(kb_modifiers::m_shift)) {
-            test_layout.move_to(event.x, event.y);
+            show_tool_tip(point2i {event.x, event.y});
         }
 
         last_mouse_x = event.x;
         last_mouse_y = event.y;
+
+        auto const p = current_view.window_to_world(event.x, event.y);
+
+        last_tile_x = floor_as<int>(value_cast(p.x) / 18);
+        last_tile_y = floor_as<int>(value_cast(p.y) / 18);
     }
 
     void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
@@ -507,8 +541,6 @@ struct game_state {
     }
 
     void on_command(command_type const type, uintptr_t const data) {
-        message_window.println("command");
-
         using ct = command_type;
         switch (type) {
         case ct::none:
@@ -539,6 +571,8 @@ struct game_state {
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void move_player(vec2i const v) {
+        message_window.println(std::to_string(value_cast(v.x)) + " " + std::to_string(value_cast(v.y)));
+
         the_world.current_level().move_by(entity_instance_id {}, v);
     }
 
@@ -606,15 +640,17 @@ struct game_state {
         //
         // text
         //
-        //os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+
+        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+        tool_tip.render(os, trender);
 
         auto i = 0;
-        //test_layout.render(os, trender);
-
-        for (auto const& line : message_window) {
-            os.render_set_transform(1.0f, 1.0f, 0.0f, i++ * 18.0f);
-            line.render(os, trender);
-        }
+        std::for_each(
+            message_window.visible_begin(), message_window.visible_end()
+          , [&](auto const& line) {
+                os.render_set_transform(1.0f, 1.0f, 0.0f, i++ * 18.0f);
+                line.render(os, trender);
+            });
 
         os.render_present();
 
@@ -642,6 +678,8 @@ struct game_state {
 
     int last_mouse_x = 0;
     int last_mouse_y = 0;
+    int last_tile_x  = 0;
+    int last_tile_y  = 0;
 
     timepoint_t last_frame_time {};
 
@@ -667,7 +705,7 @@ struct game_state {
 
     message_log message_window {trender};
 
-    text_layout test_layout;
+    text_layout tool_tip;
 };
 
 } // namespace boken
