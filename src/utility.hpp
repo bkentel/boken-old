@@ -49,6 +49,26 @@ auto* find_ptr_if(Container&& c, Predicate pred) {
 
 } // container_algorithms
 
+enum class convertion_type {
+    unchecked, clamp, fail, modulo
+};
+
+template <convertion_type T>
+using convertion_t = std::integral_constant<convertion_type, T>;
+
+template <typename T>
+constexpr auto as_unsigned(T const n, convertion_t<convertion_type::clamp>) noexcept {
+    return static_cast<std::make_unsigned_t<T>>(n < 0 ? 0 : n);
+}
+
+template <typename T>
+constexpr auto as_unsigned(T const n, convertion_type const type = convertion_type::clamp) noexcept {
+    static_assert(std::is_arithmetic<T>::value, "");
+    using ct = convertion_type;
+    return type == ct::clamp ? as_unsigned(n, convertion_t<ct::clamp> {})
+                             : as_unsigned(n, convertion_t<ct::clamp> {});
+}
+
 template <typename T, typename U>
 inline constexpr ptrdiff_t check_offsetof() noexcept {
     static_assert(std::is_standard_layout<T>::value

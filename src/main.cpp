@@ -51,107 +51,6 @@ struct keydef_t {
     key_t       type;
 };
 
-char const* load_keyboard_names() {
-    static constexpr char end_of_data ='\xff';
-
-    std::ifstream in {"./data/keyboard-names.dat", std::ios::binary};
-    auto const last = in.seekg(0, std::ios::end).tellg();
-    auto const size = static_cast<size_t>(last - in.seekg(0).tellg());
-
-    dynamic_buffer buffer {size + 1};
-    in.read(buffer.data(), size);
-    buffer[size] = end_of_data;
-
-    std::vector<keydef_t> result;
-
-    char const* p         = buffer.begin();
-    char const* error     = nullptr;
-    auto        type      = keydef_t::key_t::none;
-    char const* name_beg  = nullptr;
-    char const* name_end  = nullptr;
-    char const* value_beg = nullptr;
-    char const* value_end = nullptr;
-
-    auto const parse_value = [&] {
-        for (bool in_string = false; ; ++p) switch (*p) {
-        case ' ' :
-        case '\t':
-        case '\r':
-            break;
-        case '\n':
-        case end_of_data:
-            return;
-        default:
-            if (!in_string && (in_string = true)) {
-                value_beg = value_end = p;
-            } else {
-                ++value_end;
-            }
-            break;
-        }
-    };
-
-    auto const parse_name = [&] {
-        for (bool in_string = false; ; ++p) switch (*p) {
-        case ' ' :
-        case '\t':
-            if (in_string) {
-                parse_value();
-                return;
-            }
-            break;
-        case end_of_data :
-            error = "Unexpected end of data.";
-            return;
-        default:
-            if (!in_string && (in_string = true)) {
-                name_beg = name_end = p;
-            } else {
-                ++name_end;
-            }
-            break;
-        }
-    };
-
-    auto const parse_type = [&] {
-        switch (std::tolower(*p++)) {
-        case 's' : type = keydef_t::key_t::scan_code;   break;
-        case 'v' : type = keydef_t::key_t::virtual_key; break;
-        case end_of_data :
-            error = "Unexpected end of data.";
-            return;
-        default  :
-            error = "Expected 's' or 'v'.";
-            return;
-        }
-
-        parse_name();
-    };
-
-    for ( ; ; ++p) switch (*p) {
-    case ' ':
-    case '\n':
-    case '\r':
-        break;
-    case end_of_data :
-        return nullptr;
-    default:
-        parse_type();
-        if (error) {
-            return error;
-        }
-
-        result.emplace_back(
-            std::string {name_beg, name_end + 1}
-          , std::stoul(std::string {value_beg, value_end + 1}, nullptr, 0)
-          , type);
-
-        break;
-    }
-
-    return nullptr;
-}
-
 enum class command_type {
     none
 
@@ -336,6 +235,153 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     return result;
 }
 
+template <typename T>
+class simple_circular_buffer_iterator : public std::iterator_traits<T*> {
+    using this_t = simple_circular_buffer_iterator<T>;
+public:
+    simple_circular_buffer_iterator(T* const front_p, size_t const front, size_t const capacity)
+      : p_        {front_p}
+      , delta_    {0}
+      , front_    {front}
+      , capacity_ {capacity}
+    {
+    }
+
+    reference operator*() const noexcept {
+        return *(p_ + (front_ % capacity_));
+    }
+
+    pointer operator->() const noexcept {
+        return &**this;
+    }
+
+    void operator++() noexcept {
+        front_ = (front_ + 1) % capacity_;
+        ++delta_;
+    }
+
+    simple_circular_buffer_iterator operator++(int) noexcept {
+        auto result = *this;
+        ++(*this);
+        return result;
+    }
+
+    bool operator==(simple_circular_buffer_iterator const& other) noexcept {
+        return (!p_ && !other.p_) ? true
+             : (!p_)              ? compare_end_(other, *this)
+             : (!other.p_)        ? compare_end_(*this, other)
+                                  : compare_(*this, other);
+    }
+
+    bool operator!=(simple_circular_buffer_iterator const& other) noexcept {
+        return !(*this == other);
+    }
+private:
+    bool compare_(this_t const& it0, this_t const& it1) noexcept {
+        return (it0.p_        == it1.p_)
+            && (it0.delta_    == it1.delta_)
+            && (it0.front_    == it1.front_)
+            && (it0.capacity_ == it1.capacity_);
+    }
+
+    bool compare_end_(this_t const& it, this_t const& end) noexcept {
+        return it.delta_ && (it.front_    == end.front_)
+                         && (it.capacity_ == end.capacity_);
+    }
+
+    T*        p_        {};
+    ptrdiff_t delta_    {};
+    size_t    front_    {};
+    size_t    capacity_ {};
+};
+
+template <typename T>
+class simple_circular_buffer {
+public:
+    using iterator       = simple_circular_buffer_iterator<T>;
+    using const_iterator = simple_circular_buffer_iterator<std::add_const_t<T>>;
+
+    explicit simple_circular_buffer(size_t const capacity)
+      : capacity_ {capacity}
+      , front_    {0}
+    {
+    }
+
+    template <typename U>
+    void push(U&& data) {
+        static_assert(std::is_same<T, std::decay_t<U>>::value, "");
+
+        if (data_.size() < capacity_) {
+            data_.push_back(std::forward<U>(data));
+            return;
+        }
+
+        data_[(front_ + data_.size()) % capacity_].~T();
+        new (&data_[(front_ + data_.size()) % capacity_]) T {std::forward<U>(data)};
+
+        front_ = (data_.size() < capacity_)
+          ? 0
+          : (front_ + 1) % capacity_;
+    }
+
+    T const& operator[](ptrdiff_t const where) const {
+        BK_ASSERT(std::abs(where) < data_.size());
+
+        auto const i = (where >= 0
+          ? (front_ + where)
+          : (front_ + data.size() - where)) % data_.size();
+
+        return data_[i];
+    }
+
+    size_t size() const noexcept {
+        return data_.size();
+    }
+
+    const_iterator begin() const noexcept {
+        return {data_.data(), front_, data_.size()};
+    }
+
+    const_iterator end() const noexcept {
+        return {nullptr, front_, data_.size()};
+    }
+private:
+    size_t         capacity_;
+    size_t         front_;
+    std::vector<T> data_;
+};
+
+//!
+class message_log {
+public:
+    explicit message_log(text_renderer& trender)
+      : trender_ {trender}
+    {
+    }
+
+    void print(std::string msg) {
+
+    }
+
+    void println(std::string msg) {
+        visible_lines_.push(text_layout {trender_, msg});
+        messages_.push(std::move(msg));
+    }
+
+    auto begin() const noexcept {
+        return visible_lines_.begin();
+    }
+
+    auto end() const noexcept {
+        return visible_lines_.end();
+    }
+private:
+    text_renderer& trender_;
+
+    simple_circular_buffer<text_layout> visible_lines_ {10};
+    simple_circular_buffer<std::string> messages_      {50};
+};
+
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
@@ -461,6 +507,8 @@ struct game_state {
     }
 
     void on_command(command_type const type, uintptr_t const data) {
+        message_window.println("command");
+
         using ct = command_type;
         switch (type) {
         case ct::none:
@@ -558,8 +606,15 @@ struct game_state {
         //
         // text
         //
-        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-        test_layout.render(os, trender);
+        //os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+
+        auto i = 0;
+        //test_layout.render(os, trender);
+
+        for (auto const& line : message_window) {
+            os.render_set_transform(1.0f, 1.0f, 0.0f, i++ * 18.0f);
+            line.render(os, trender);
+        }
 
         os.render_present();
 
@@ -609,6 +664,8 @@ struct game_state {
     } render_data;
 
     text_renderer trender;
+
+    message_log message_window {trender};
 
     text_layout test_layout;
 };

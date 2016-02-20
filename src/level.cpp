@@ -253,9 +253,16 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     template <typename T, typename U>
-    void fill_rect(std::vector<T>& v, sizeix const width, axis_aligned_rect<U> const r, T const value) noexcept {
+    void fill_rect(
+        std::vector<T>& v
+      , sizeix const width
+      , axis_aligned_rect<U> const r
+      , T const value
+    ) noexcept {
+        auto p = v.data() + r.x0 + r.y0 * value_cast(width);
+        auto const step = value_cast(width) - r.width();
         for (auto y = r.y0; y < r.y1; ++y) {
-            std::fill_n(v.data() + (r.x0 + y * value_cast(width)), r.width(), value);
+            p = std::fill_n(p, r.width(), value) + step;
         }
     }
 

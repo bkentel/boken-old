@@ -51,7 +51,7 @@ public:
 
     void layout(text_renderer& trender);
 
-    void render(system& os, text_renderer& trender);
+    void render(system& os, text_renderer& trender) const;
 
     void move_to(int x, int y) noexcept;
 
@@ -66,11 +66,11 @@ private:
     };
 
     std::string          text_       {};
-    std::vector<data_t>  data_       {};
+    std::vector<data_t>  mutable data_       {};
     point2i              position_   {0, 0};
     size_type_x<int16_t> max_width_  {std::numeric_limits<int16_t>::max()};
     size_type_y<int16_t> max_height_ {std::numeric_limits<int16_t>::max()};
-    bool                 is_visible_ {false};
+    bool                 is_visible_ {true};
 };
 
 } // namespace boken

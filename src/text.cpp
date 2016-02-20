@@ -5,8 +5,9 @@
 namespace boken {
 
 text_layout::text_layout(text_renderer& trender, std::string text)
-    : text_ {std::move(text)}
+  : text_ {std::move(text)}
 {
+    layout(trender);
 }
 
 void text_layout::layout(text_renderer& trender, std::string text) {
@@ -51,7 +52,7 @@ void text_layout::layout(text_renderer& trender) {
     }
 }
 
-void text_layout::render(system& os, text_renderer& trender) {
+void text_layout::render(system& os, text_renderer& trender) const {
     if (!is_visible_) {
         return;
     }
