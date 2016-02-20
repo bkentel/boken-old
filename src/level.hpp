@@ -2,7 +2,6 @@
 
 #include "types.hpp"
 #include "math.hpp"
-#include <bkassert/assert.hpp>
 #include <memory>
 #include <vector>
 #include <utility>

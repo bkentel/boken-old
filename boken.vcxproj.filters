@@ -13,7 +13,6 @@
     <ClCompile Include="external\bkassert\assert.cpp">
       <Filter>external</Filter>
     </ClCompile>
-
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp" />
     <ClCompile Include="src\system_sdl.cpp" />
@@ -25,14 +24,12 @@
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\world.cpp" />
   </ItemGroup>
-  
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
     <ClInclude Include="src\catch.hpp" />
     <ClInclude Include="src\system.hpp" />
     <ClInclude Include="src\types.hpp" />
     <ClInclude Include="src\hash.hpp" />
-    <ClInclude Include="src\map.hpp" />
     <ClInclude Include="src\bsp_generator.hpp" />
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\scope_guard.hpp" />
@@ -49,6 +46,8 @@
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\world.hpp" />
     <ClInclude Include="src\entity.hpp" />
+    <ClInclude Include="src\circular_buffer.hpp" />
+    <ClInclude Include="src\message_log.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

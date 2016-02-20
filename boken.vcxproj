@@ -122,6 +122,7 @@
   <ItemGroup>
     <ClInclude Include="src\bsp_generator.hpp" />
     <ClInclude Include="src\catch.hpp" />
+    <ClInclude Include="src\circular_buffer.hpp" />
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\definition.hpp" />
@@ -130,8 +131,8 @@
     <ClInclude Include="src\hash.hpp" />
     <ClInclude Include="src\item_def.hpp" />
     <ClInclude Include="src\level.hpp" />
-    <ClInclude Include="src\map.hpp" />
     <ClInclude Include="src\math.hpp" />
+    <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\pch.hpp" />
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\scope_guard.hpp" />
