@@ -174,7 +174,7 @@ public:
     virtual void render_set_transform(float sx, float sy, float tx, float ty) = 0;
 
     virtual void render_set_data(render_data_type type, read_only_pointer_t data) = 0;
-    virtual void render_data_n(int n) = 0;
+    virtual void render_data_n(size_t n) = 0;
 };
 
 std::unique_ptr<system> make_system();

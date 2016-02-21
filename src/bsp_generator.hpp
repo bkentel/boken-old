@@ -40,7 +40,7 @@ struct weight_list {
     }
 
     inline Value operator[](Key const k) const noexcept {
-        for (auto const p : weights) {
+        for (auto const& p : weights) {
             if (p.first < k) { return p.second; }
         }
         return Value {};

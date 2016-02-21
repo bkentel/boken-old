@@ -19,8 +19,10 @@ std::pair<point2<T>, bool> find_random_nearest(
   , std::vector<point2i>& points
   , Predicate             pred
 ) {
+    BK_ASSERT(max_distance >= 0);
+
     points.clear();
-    points.reserve(max_distance * 8);
+    points.reserve(static_cast<size_t>(max_distance * 8));
 
     auto const ox = value_cast(origin.x);
     auto const oy = value_cast(origin.y);
@@ -233,7 +235,8 @@ public:
             return placement_result::failed_bad_id;
         }
 
-        auto const i = std::distance(begin(entities_.intances), it);
+        auto const i = static_cast<size_t>(
+            std::distance(begin(entities_.intances), it));
         auto const p = entities_.positions[i].cast_to<int>() + v;
 
         auto const result = can_place_entity_at(p);
@@ -280,13 +283,13 @@ public:
         return {where.first, placement_result::ok};
     }
 
-    int region_count() const noexcept final override {
+    size_t region_count() const noexcept final override {
         return bsp_gen_->size();
     }
 
-    region_info region(int const i) const noexcept final override {
-        BK_ASSERT(i >= 0 && static_cast<size_t>(i) < regions_.size());
-        return regions_[static_cast<size_t>(i)];
+    region_info region(size_t const i) const noexcept final override {
+        BK_ASSERT(i < regions_.size());
+        return regions_[i];
     }
 
     tile_view at(point2i const p) const noexcept final override {
@@ -368,10 +371,12 @@ public:
     ) noexcept {
         auto const src_w = src_rect.width();
         auto const dst_w = value_cast(width_);
-        auto const step  = dst_w - src_w;
+        auto const step = static_cast<size_t>(dst_w - src_w);
 
-        auto src_off = 0;
-        auto dst_off = src_rect.x0 + src_rect.y0 * dst_w;
+        BK_ASSERT(src_w <= dst_w);
+
+        auto src_off = size_t {0};
+        auto dst_off = static_cast<size_t>(src_rect.x0 + src_rect.y0 * dst_w);
 
         for (auto y = src_rect.y0; y < src_rect.y1; ++y, dst_off += step) {
             for (auto x = src_rect.x0; x < src_rect.x1; ++x, ++src_off, ++dst_off) {
@@ -483,10 +488,14 @@ public:
             });
 
         std::vector<tile_data_set> buffer;
-        buffer.reserve(std::max_element(std::begin(bsp), std::end(bsp)
-          , [](auto const& node_a, auto const& node_b) noexcept {
-                return node_a.rect.area() < node_b.rect.area();
-            })->rect.area());
+        {
+            auto const size = std::max_element(std::begin(bsp), std::end(bsp)
+              , [](auto const& node_a, auto const& node_b) noexcept {
+                    return node_a.rect.area() < node_b.rect.area();
+                })->rect.area();
+
+            buffer.reserve(static_cast<size_t>(std::max(0, size)));
+        }
 
         tile_data_set default_tile {
             tile_data  {}
@@ -512,7 +521,7 @@ public:
                 continue;
             }
 
-            buffer.resize(rect.area(), default_tile);
+            buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
             region.tile_count = gen_rect(rng, rect, buffer);
 
             copy_region(buffer, &tile_data_set::id,         rect, data_.ids);

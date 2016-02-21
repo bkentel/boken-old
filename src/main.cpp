@@ -284,14 +284,15 @@ struct game_state {
         auto const tx = value_cast(render_data.base_tile_map.tiles_x);
 
         for_each_xy(tile_rect, [&](int const x, int const y) noexcept {
-            auto const& src = tile_indicies[x + y * w];
-            auto&       dst = render_data.tile_data[x + y * w];
+            auto const  i   = static_cast<size_t>(x + y * w);
+            auto const& src = tile_indicies[i];
+            auto&       dst = render_data.tile_data[i];
 
             dst.position = std::make_pair(static_cast<uint16_t>(x * tw)
                                         , static_cast<uint16_t>(y * th));
 
             if (src == 11u + 13u * 16u) {
-                dst.color = colors[region_ids[x + y * w]];
+                dst.color = colors[region_ids[i]];
             } else {
                 dst.color = 0xFF0000FFu;
             }
@@ -304,7 +305,7 @@ struct game_state {
         // player
         create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
 
-        for (int i = 0; i < current_level.region_count(); ++i) {
+        for (size_t i = 0; i < current_level.region_count(); ++i) {
             auto const& region = current_level.region(i);
             if (region.tile_count <= 0) {
                 continue;

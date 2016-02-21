@@ -15,6 +15,8 @@ auto find_(Container&& c, Id const id) noexcept {
 
 namespace boken {
 
+game_database::~game_database() = default;
+
 class game_database_impl final : public game_database {
 public:
     item_definition const* find(item_id const id) const noexcept final override {

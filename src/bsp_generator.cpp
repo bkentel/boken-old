@@ -114,13 +114,8 @@ void bsp_generator_impl::generate(random_state& rnd) {
     leaf_nodes_.clear();
 
     nodes_.push_back(node_t {
-        rect_t {
-            offset_type_x<int> {0}
-          , offset_type_y<int> {0}
-          , p.width
-          , p.height}
-      , 0
-      , 0
+        rect_t {offix {0}, offiy {0}, p.width, p.height}
+      , 0, 0, 0
     });
 
     auto const pass_split_chance = [&](rect_t const& r) {
@@ -128,8 +123,8 @@ void bsp_generator_impl::generate(random_state& rnd) {
     };
 
     auto const add_children = [&](auto const& pair, uint16_t const i) {
-        nodes_.push_back(node_t {pair.first,  i, 0});
-        nodes_.push_back(node_t {pair.second, i, 0});
+        nodes_.push_back(node_t {pair.first,  i, 0, 0});
+        nodes_.push_back(node_t {pair.second, i, 0, 0});
     };
 
     for (uint16_t i = 0; i != static_cast<uint16_t>(nodes_.size()); ++i) {
@@ -137,7 +132,7 @@ void bsp_generator_impl::generate(random_state& rnd) {
         auto const& r = n.rect;
 
         if (must_slice_rect(r, p.max_region_size)
-         || can_slice_rect(r, p.min_region_size) && pass_split_chance(r)
+         || (can_slice_rect(r, p.min_region_size) && pass_split_chance(r))
         ) {
             n.child = i + 1;
             add_children(slice_rect(rnd, r, p.min_region_size, p.split_variance), i);

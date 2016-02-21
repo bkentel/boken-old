@@ -67,8 +67,8 @@ public:
     virtual placement_result can_place_entity_at(point2i p) const noexcept = 0;
     virtual placement_result can_place_item_at(point2i p) const noexcept = 0;
 
-    virtual int region_count() const noexcept = 0;
-    virtual region_info region(int i) const noexcept = 0;
+    virtual size_t region_count() const noexcept = 0;
+    virtual region_info region(size_t i) const noexcept = 0;
 
     virtual tile_view at(point2i) const noexcept = 0;
     tile_view at(int x, int y) const noexcept {

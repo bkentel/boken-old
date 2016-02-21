@@ -13,6 +13,8 @@ struct entity_definition;
 //====---
 class game_database {
 public:
+    virtual ~game_database();
+
     virtual item_definition   const* find(item_id   id) const noexcept = 0;
     virtual entity_definition const* find(entity_id id) const noexcept = 0;
 };

@@ -386,7 +386,7 @@ public:
         SDL_RenderSetScale(renderer_, sx_, sy_);
     }
 
-    void render_data_n(int const n) noexcept final override {
+    void render_data_n(size_t const n) noexcept final override {
         auto pd = position_data_;
         auto td = texture_data_;
         auto cd = color_data_;
@@ -400,7 +400,7 @@ public:
         auto const tx = ceil_as<int>(tx_ / sx_);
         auto const ty = ceil_as<int>(ty_ / sy_);
 
-        for (int i = 0; i < n; ++i, ++pd, ++td, ++cd) {
+        for (size_t i = 0; i < n; ++i, ++pd, ++td, ++cd) {
             std::tie(src.x, src.y) = td.value<std::pair<uint16_t, uint16_t>>();
             std::tie(dst.x, dst.y) = pd.value<std::pair<uint16_t, uint16_t>>();
 
