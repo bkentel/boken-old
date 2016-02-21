@@ -15,7 +15,7 @@
 #include "catch.hpp"
 #include <bkassert/assert.hpp>
 
-#include <fstream>
+#include <algorithm>
 #include <chrono>
 
 namespace boken {};

@@ -14,6 +14,7 @@ class random_state;
 class tile_flags;
 struct tile_data;
 enum class tile_type : uint16_t;
+enum class tile_id : uint32_t;
 
 struct tile_view {
     tile_id    const&       id;

@@ -168,9 +168,6 @@ using entity_instance_id = tagged_integral_value<uint32_t, tag_id_instance_entit
 using item_id            = tagged_integral_value<uint32_t, tag_id_item>;
 using item_instance_id   = tagged_integral_value<uint32_t, tag_id_instance_item>;
 
-struct tag_tile_id {};
-using tile_id = tagged_integral_value<uint16_t, tag_tile_id>;
-
 // size is used by the standard, so "sz" it is.
 template <typename T>
 inline constexpr size_type<T> sz(T const n) noexcept {

@@ -1,12 +1,50 @@
 #pragma once
 
+#include "config.hpp"
 #include "types.hpp"
 #include "math.hpp"
+#include "hash.hpp"
 #include <bitset>
 #include <type_traits>
 #include <cstdint>
 
 namespace boken {
+
+#if defined(_MSC_VER)
+#   pragma warning(push)
+#   pragma warning(disable : 4307) // integral constant overflow
+#endif
+
+enum class tile_id : uint32_t {
+    invalid = 0
+  , empty = djb2_hash_32c("empty")
+  , floor = djb2_hash_32c("floor")
+  , wall_0000 = djb2_hash_32c("wall_0000")
+  , wall_0001 = djb2_hash_32c("wall_0001")
+  , wall_0010 = djb2_hash_32c("wall_0010")
+  , wall_0011 = djb2_hash_32c("wall_0011")
+  , wall_0100 = djb2_hash_32c("wall_0100")
+  , wall_0101 = djb2_hash_32c("wall_0101")
+  , wall_0110 = djb2_hash_32c("wall_0110")
+  , wall_0111 = djb2_hash_32c("wall_0111")
+  , wall_1000 = djb2_hash_32c("wall_1000")
+  , wall_1001 = djb2_hash_32c("wall_1001")
+  , wall_1010 = djb2_hash_32c("wall_1010")
+  , wall_1011 = djb2_hash_32c("wall_1011")
+  , wall_1100 = djb2_hash_32c("wall_1100")
+  , wall_1101 = djb2_hash_32c("wall_1101")
+  , wall_1110 = djb2_hash_32c("wall_1110")
+  , wall_1111 = djb2_hash_32c("wall_1111")
+};
+
+template <typename Enum>
+Enum string_to_enum(string_view str) noexcept;
+
+string_view enum_to_string(tile_id id) noexcept;
+
+#if defined(_MSC_VER)
+#   pragma warning(pop)
+#endif
 
 enum class tile_type : uint16_t {
     empty, wall, floor, door, stair
@@ -66,9 +104,7 @@ struct tile_map {
         };
     }
 
-    uint16_t id_to_index(tile_id const id) const noexcept {
-        return value_cast(id);
-    }
+    uint16_t id_to_index(tile_id const id) const noexcept;
 
     sizeix tile_w  {18};
     sizeiy tile_h  {18};

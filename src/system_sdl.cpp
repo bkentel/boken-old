@@ -175,13 +175,13 @@ public:
       , background_{SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
     {
+        SDL_GetWindowSize(window_, &window_w_, &window_h_);
+
         handler_quit_         = [](    ) noexcept { return true; };
         handler_key_          = [](auto, auto) noexcept {};
         handler_mouse_move_   = [](auto, auto) noexcept {};
         handler_mouse_button_ = [](auto, auto) noexcept {};
         handler_mouse_wheel_  = [](auto, auto, auto) noexcept {};
-
-        SDL_GetWindowSize(window_, &window_w_, &window_h_);
     }
 
     static kb_modifiers get_key_mods() noexcept {

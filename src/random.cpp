@@ -26,7 +26,7 @@ class random_state_impl final : public random_state {
 public:
     random_state_impl() = default;
 
-    result_type generate()  noexcept final override { return state(); }
+    result_type generate() noexcept final override;
 
     boost::random::uniform_smallint<int32_t>         dist_coin    {0, 1};
     boost::random::uniform_int_distribution<int32_t> dist_uniform {};
@@ -35,6 +35,9 @@ public:
     pcg32 state {};
 };
 
+random_state::result_type random_state_impl::generate() noexcept {
+    return state();
+}
 
 std::unique_ptr<random_state> make_random_state() {
     return std::make_unique<random_state_impl>();
@@ -73,13 +76,13 @@ double random_normal(random_state& rs, double const m, double const v) noexcept 
 
 uint32_t random_color(random_state& rng) noexcept {
     auto const random_color_comp = [&]() noexcept {
-        return static_cast<uint8_t>(random_uniform_int(rng, 0, 255));
+        return static_cast<uint32_t>(random_uniform_int(rng, 0, 255));
     };
 
     return 0xFFu               << 24
          | random_color_comp() << 16
          | random_color_comp() << 8
          | random_color_comp() << 0;
-};
+}
 
 } //namespace boken

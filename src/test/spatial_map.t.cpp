@@ -55,7 +55,7 @@ TEST_CASE("spatial_map") {
         for (int i = 0; i < static_cast<int>(data.size()); ++i) {
             id_t const* id = smap.at(id_to_pos(i + 1));
             REQUIRE(!!id);
-            REQUIRE(*id == (i + 1));
+            REQUIRE(*id == static_cast<uint32_t>(i + 1));
         }
 
         // near
@@ -67,7 +67,7 @@ TEST_CASE("spatial_map") {
     }
 
     SECTION("update") {
-        smap.update_all([](id_t const id, point_t const p) noexcept {
+        smap.update_all([](id_t, point_t const p) noexcept {
             return p + bk::vec2i {-1, 1};
         });
     }

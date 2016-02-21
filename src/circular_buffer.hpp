@@ -12,6 +12,9 @@ template <typename T>
 class simple_circular_buffer_iterator : public std::iterator_traits<T*> {
     using this_t = simple_circular_buffer_iterator<T>;
 public:
+    using reference = typename std::iterator_traits<T*>::reference;
+    using pointer   = typename std::iterator_traits<T*>::pointer;
+
     simple_circular_buffer_iterator(T* const front_p, size_t const front, size_t const capacity)
       : p_        {front_p}
       , delta_    {0}
@@ -109,7 +112,7 @@ public:
 
         auto const i = (where >= 0
           ? (front_ + where)
-          : (front_ + data.size() - where)) % data_.size();
+          : (front_ + data_.size() - where)) % data_.size();
 
         return data_[i];
     }

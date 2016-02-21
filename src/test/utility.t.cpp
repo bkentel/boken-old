@@ -3,7 +3,6 @@
 #include "utility.hpp"
 
 namespace boken {
-
 }
 
 #endif // !defined(BK_NO_TESTS)
