@@ -10,6 +10,7 @@
 #include "item_def.hpp"
 #include "world.hpp"
 #include "message_log.hpp"
+#include "tile.hpp"
 
 #include "catch.hpp"
 #include <bkassert/assert.hpp>
@@ -288,24 +289,27 @@ struct game_state {
         auto const  tile_rect      = tile_pair.second;
         auto const  w              = tile_rect.width();
 
-        for (auto y = tile_rect.y0; y < tile_rect.y1; ++y) {
-            for (auto x = tile_rect.x0; x < tile_rect.x1; ++x) {
-                auto const& src = tile_indicies[x + y * w];
-                auto&       dst = render_data.tile_data[x + y * w];
+        auto const tw = value_cast(render_data.base_tile_map.tile_w);
+        auto const th = value_cast(render_data.base_tile_map.tile_h);
+        auto const tx = value_cast(render_data.base_tile_map.tiles_x);
 
-                dst.position.first  = x * render_data.tile_w;
-                dst.position.second = y * render_data.tile_h;
+        for_each_xy(tile_rect, [&](int const x, int const y) {
+            auto const& src = tile_indicies[x + y * w];
+            auto&       dst = render_data.tile_data[x + y * w];
 
-                if (src == 11u + 13u * 16u) {
-                    dst.color = colors[region_ids[x + y * w]];
-                } else {
-                    dst.color = 0xFF0000FFu;
-                }
+            dst.position = std::make_pair(static_cast<uint16_t>(x * tw)
+                                        , static_cast<uint16_t>(y * th));
 
-                dst.tex_coord.first  = (src % render_data.tiles_x) * render_data.tile_w;
-                dst.tex_coord.second = (src / render_data.tiles_x) * render_data.tile_h;
+            if (src == 11u + 13u * 16u) {
+                dst.color = colors[region_ids[x + y * w]];
+            } else {
+                dst.color = 0xFF0000FFu;
             }
-        }
+
+            dst.tex_coord = std::make_pair(
+                static_cast<uint16_t>((src % tx) * tw)
+              , static_cast<uint16_t>((src / tx) * tw));
+        });
 
         // player
         create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
@@ -441,12 +445,15 @@ struct game_state {
             return;
         }
 
+        auto const tw = value_cast(render_data.base_tile_map.tile_w);
+        auto const th = value_cast(render_data.base_tile_map.tile_h);
+
         os.render_clear();
 
         os.render_set_transform(current_view.scale_x, current_view.scale_y
                               , current_view.x_off,   current_view.y_off);
 
-        os.render_set_tile_size(render_data.tile_w, render_data.tile_h);
+        os.render_set_tile_size(tw, th);
 
         //
         // Map tiles
@@ -469,9 +476,9 @@ struct game_state {
         render_data.entity_data.clear();
         for (size_t i = 0; i < epos.size(); ++i) {
             render_data.entity_data.push_back(render_t::data_t {
-                {value_cast(epos[i].x) * render_data.tile_w
-               , value_cast(epos[i].y) * render_data.tile_h}
-              , {1 * render_data.tile_w, 0}
+                {value_cast(epos[i].x) * tw
+               , value_cast(epos[i].y) * th}
+              , {1 * tw, 0}
               , 0xFF
             });
         }
@@ -531,14 +538,7 @@ struct game_state {
     timepoint_t last_frame_time {};
 
     struct render_t {
-
-
-        static constexpr int w       = 100;
-        static constexpr int h       = 80;
-        static constexpr int tile_w  = 18;
-        static constexpr int tile_h  = 18;
-        static constexpr int tiles_x = 16;
-        static constexpr int tiles_y = 16;
+        tile_map base_tile_map;
 
         struct data_t {
             std::pair<uint16_t, uint16_t> position;

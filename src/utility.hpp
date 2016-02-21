@@ -9,6 +9,32 @@
 
 namespace boken {
 
+template <typename F>
+struct arity_of;
+
+template <typename R, typename... Args>
+struct arity_of<R (*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...) const> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename F>
+struct arity_of : std::conditional_t<
+    std::is_class<std::decay_t<F>>::value
+  , arity_of<decltype(&F::operator())>
+  , std::false_type>
+{
+};
+
 namespace detail {
 template <typename Container, typename Compare>
 void sort_impl(Container&& c, Compare comp) {

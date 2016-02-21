@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "utility.hpp"
 #include <type_traits>
 #include <functional>
 #include <cmath>
@@ -218,6 +219,32 @@ private:
 };
 
 using recti = axis_aligned_rect<int32_t>;
+
+template <typename T, typename F>
+void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 3>) {
+    for (auto y = r.y0; y < r.y1; ++y) {
+        bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
+        for (auto x = r.x0; x < r.x1; ++x) {
+            bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+            f(x, y, on_edge);
+        }
+    }
+}
+
+template <typename T, typename F>
+void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 2>) {
+    for (auto y = r.y0; y < r.y1; ++y) {
+        for (auto x = r.x0; x < r.x1; ++x) {
+            f(x, y);
+        }
+    }
+}
+
+template <typename T, typename F>
+void for_each_xy(axis_aligned_rect<T> const r, F f) {
+    constexpr int n = arity_of<F>::value;
+    for_each_xy(r, f, std::integral_constant<int, n> {});
+}
 
 template <typename T>
 inline constexpr bool rect_by_min_dimension(

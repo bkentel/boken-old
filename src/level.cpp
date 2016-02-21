@@ -53,17 +53,6 @@ auto find_random_nearest(random_state& rng, point2<T> const origin, T const max_
     return find_random_nearest(rng, origin, max_distance, points, pred);
 }
 
-template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f) {
-    for (auto y = r.y0; y < r.y1; ++y) {
-        bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
-        for (auto x = r.x0; x < r.x1; ++x) {
-            bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
-            f(x, y, on_edge);
-        }
-    }
-}
-
 template <typename T>
 constexpr axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
     return axis_aligned_rect<T> {
