@@ -18,10 +18,15 @@
 namespace boken {
 
 random_state::~random_state() = default;
+uint32_t random_state::min() noexcept { return pcg32::min(); }
+uint32_t random_state::max() noexcept { return pcg32::max(); }
+
 
 class random_state_impl final : public random_state {
 public:
     random_state_impl() = default;
+
+    result_type generate()  noexcept final override { return state(); }
 
     boost::random::uniform_smallint<int32_t>         dist_coin    {0, 1};
     boost::random::uniform_int_distribution<int32_t> dist_uniform {};

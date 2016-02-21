@@ -310,10 +310,14 @@ struct game_state {
         // player
         create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
 
-        for (int i = 0; i < 10; ++i) {
-            point2i const p {
-                random_uniform_int(rng_substantive, 0, value_cast(current_level.width()))
-              , random_uniform_int(rng_substantive, 0, value_cast(current_level.height()))};
+        for (int i = 0; i < current_level.region_count(); ++i) {
+            auto const& region = current_level.region(i);
+            if (region.tile_count <= 0) {
+                continue;
+            }
+
+            point2i const p {region.bounds.x0 + region.bounds.width()  / 2
+                           , region.bounds.y0 + region.bounds.height() / 2};
 
             create_entity_at(p, the_world, current_level, entity_definition {entity_id {1}});
         }
@@ -527,6 +531,8 @@ struct game_state {
     timepoint_t last_frame_time {};
 
     struct render_t {
+
+
         static constexpr int w       = 100;
         static constexpr int h       = 80;
         static constexpr int tile_w  = 18;

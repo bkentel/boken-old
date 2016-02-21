@@ -8,6 +8,48 @@
 
 namespace boken {
 
+template <size_t N>
+using sized_signed_t =
+    std::conditional_t<N < 1, void,
+    std::conditional_t<N < 2, int8_t,
+    std::conditional_t<N < 3, int16_t,
+    std::conditional_t<N < 5, int32_t,
+    std::conditional_t<N < 9, int64_t, void>>>>>;
+
+namespace detail {
+template <typename T, typename U, typename Op>
+constexpr bool compare_integral(T const a, U const b, Op op, std::true_type, std::false_type) noexcept {
+    using R = sized_signed_t<std::max(sizeof(T) + 1, sizeof(U))>;
+    static_assert(!std::is_void<R>::value, "Unsafe implicit conversion.");
+
+    return op(static_cast<R>(a), static_cast<R>(b));
+}
+
+template <typename T, typename U, typename Op>
+constexpr bool compare_integral(T const a, U const b, Op op, std::false_type, std::true_type) noexcept {
+    return compare_integral(b, a, op, std::true_type {}, std::false_type {});
+}
+
+template <typename T, typename U, typename Op>
+constexpr bool compare_integral(T const a, U const b, Op op, std::true_type, std::true_type) noexcept {
+    return op(a, b);
+}
+
+template <typename T, typename U, typename Op>
+constexpr bool compare_integral(T const a, U const b, Op op, std::false_type, std::false_type) noexcept {
+    return op(a, b);
+}
+} //namespace detail
+
+template <typename T, typename U, typename Op>
+constexpr bool compare_integral(T const a, U const b, Op op) noexcept {
+    static_assert(std::is_integral<T>::value, "");
+    static_assert(std::is_integral<U>::value, "");
+
+    return detail::compare_integral(a, b, op
+      , std::is_signed<T> {}, std::is_signed<U> {});
+}
+
 struct tag_point  {};
 struct tag_vector {};
 
@@ -65,9 +107,10 @@ constexpr basic_2_tuple<T, R> do_op(basic_2_tuple<T, Tag0> const a, basic_2_tupl
 
 } //namespace detail
 
-template <typename T> inline constexpr
-bool operator==(point2<T> const p, point2<T> const q) noexcept {
-    return p.x == q.x && p.y == q.y;
+template <typename T, typename U> inline constexpr
+bool operator==(point2<T> const p, point2<U> const q) noexcept {
+    return compare_integral(value_cast(p.x), value_cast(q.x), std::equal_to<> {})
+        && compare_integral(value_cast(p.y), value_cast(q.y), std::equal_to<> {});
 }
 
 template <typename T> inline constexpr

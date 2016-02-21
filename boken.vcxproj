@@ -116,6 +116,7 @@
     <ClCompile Include="src\test\bsp_generator.t.cpp" />
     <ClCompile Include="src\test\math.t.cpp" />
     <ClCompile Include="src\test\spatial_map.t.cpp" />
+    <ClCompile Include="src\test\utility.t.cpp" />
     <ClCompile Include="src\text.cpp" />
     <ClCompile Include="src\world.cpp" />
   </ItemGroup>

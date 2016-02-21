@@ -11,6 +11,48 @@ namespace boken {
 
 level::~level() = default;
 
+template <typename T, typename Predicate>
+std::pair<point2<T>, bool> find_random_nearest(
+    random_state&         rng
+  , point2<T> const       origin
+  , T const               max_distance
+  , std::vector<point2i>& points
+  , Predicate             pred
+) {
+    points.clear();
+    points.reserve(max_distance * 8);
+
+    auto const ox = value_cast(origin.x);
+    auto const oy = value_cast(origin.y);
+
+    for (T d = 0; d <= max_distance; ++d) {
+        for (T i = 0; i < d * 2; ++i) {
+            points.push_back({ox - d, 0 - d + i});
+            points.push_back({ox + d, 0 - d + i});
+        }
+
+        for (T i = 1; i < d * 2 - 1; ++i) {
+            points.push_back({0 - d + i, oy - d});
+            points.push_back({0 - d + i, oy + d});
+        }
+
+        std::shuffle(begin(points), end(points), rng);
+
+        auto const it = std::find_if(begin(points), end(points), pred);
+        if (it != std::end(points)) {
+            return {*it, true};
+        }
+    }
+
+    return {origin, false};
+}
+
+template <typename T, typename Predicate>
+auto find_random_nearest(random_state& rng, point2<T> const origin, T const max_distance, Predicate pred) {
+    std::vector<point2i> points;
+    return find_random_nearest(rng, origin, max_distance, points, pred);
+}
+
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f) {
     for (auto y = r.y0; y < r.y1; ++y) {
@@ -85,7 +127,9 @@ struct generate_rect_room {
     {
     }
 
-    void operator()(random_state& rng, recti const area, std::vector<tile_data_set>& out) {
+    int32_t operator()(random_state& rng, recti const area, std::vector<tile_data_set>& out) {
+        int32_t count = 0;
+
         auto const r = random_sub_rect(rng, move_to_origin(area), room_min_size_, room_max_size_);
         auto const area_w = area.width();
         auto const room_w = r.width();
@@ -103,8 +147,11 @@ struct generate_rect_room {
                     it->type  = tile_type::floor;
                     it->flags = tile_flags {};
                 }
+                ++count;
             }
         }
+
+        return count;
     }
 
     sizei room_min_size_;
@@ -128,6 +175,15 @@ public:
         generate(rng);
     }
 
+    auto entity_at_(point2i const p) const noexcept {
+        return std::find_if(
+            begin(entities_.positions)
+          , end(entities_.positions)
+          , [p](auto const& q) {
+                return q == p;
+            });
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // level interface
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,40 +203,56 @@ public:
         return nullptr;
     }
 
-    move_result move_by(item_instance_id const id, vec2i const v) noexcept final override {
-        return move_result::ok;
+    entity const* entity_at(point2i const p) const noexcept final override {
+        auto const it = entity_at_(p);
+        if (it == end(entities_.positions)) {
+            return nullptr;
+        }
+
+        auto const i = std::distance(begin(entities_.positions), it);
+        return entities_.intances.data() + i;
     }
 
-    move_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
+    item const* item_at(point2i const p) const noexcept final override {
+        return nullptr;
+    }
+
+    placement_result can_place_entity_at(point2i const p) const noexcept final override {
+        return !check_bounds_(p)
+                 ? placement_result::failed_bounds
+             : data_at_(data_.flags, p, width_).test(tile_flags::f_solid)
+                 ? placement_result::failed_obstacle
+             : is_entity_at(p)
+                 ? placement_result::failed_entity
+                 : placement_result::ok;
+    }
+
+    placement_result can_place_item_at(point2i p) const noexcept final override {
+        return placement_result::failed_obstacle;
+    }
+
+    placement_result move_by(item_instance_id const id, vec2i const v) noexcept final override {
+        return placement_result::ok;
+    }
+
+    placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
         using namespace container_algorithms;
         auto const it = find_if(entities_.intances
           , [id](entity const& e) noexcept { return id == e.instance_id; });
 
         if (it == end(entities_.intances)) {
-            return move_result::failed_bad_id;
+            return placement_result::failed_bad_id;
         }
 
         auto const i = std::distance(begin(entities_.intances), it);
-        auto const p1 = entities_.positions[i].cast_to<int>() + v;
-        if (!check_bounds_(p1)) {
-            return move_result::failed_bounds;
+        auto const p = entities_.positions[i].cast_to<int>() + v;
+
+        auto const result = can_place_entity_at(p);
+        if (result == placement_result::ok) {
+            entities_.positions[i] = p.cast_to<uint16_t>();
         }
 
-        auto const p2 = p1.cast_to<uint16_t>();
-        if (end(entities_.positions) != find_if(entities_.positions
-          , [p2](auto const pos) noexcept { return pos == p2; })
-        ) {
-            return move_result::failed_entity;
-        }
-
-        if (data_at_(data_.types, value_cast(p1.x), value_cast(p1.y), width_)
-         == tile_type::wall
-        ) {
-            return move_result::failed_obstacle;
-        }
-
-        entities_.positions[i] = p2;
-        return move_result::ok;
+        return result;
     }
 
     placement_result add_item_at(item&& i, point2i p) final override {
@@ -188,6 +260,11 @@ public:
     }
 
     placement_result add_entity_at(entity&& e, point2i const p) final override {
+        auto const result = can_place_entity_at(p);
+        if (result != placement_result::ok) {
+            return result;
+        }
+
         entities_.ids.push_back(e.id);
         entities_.positions.push_back(p.cast_to<uint16_t>());
         entities_.intances.push_back(std::move(e));
@@ -195,11 +272,38 @@ public:
         return placement_result::ok;
     }
 
+    std::pair<point2i, placement_result>
+    add_item_nearest_random(random_state& rng, item&& i, point2i p, int max_distance) final override {
+        return {p, placement_result::failed_obstacle};
+    }
+
+    std::pair<point2i, placement_result>
+    add_entity_nearest_random(random_state& rng, entity&& e, point2i const p, int const max_distance) final override {
+        auto const where = find_random_nearest(rng, p, max_distance
+          , [&](auto const q) {
+                return add_entity_at(std::move(e), q) == placement_result::ok;
+            });
+
+        if (!where.second) {
+            return {p, placement_result::failed_obstacle};
+        }
+
+        return {where.first, placement_result::ok};
+    }
+
     int region_count() const noexcept final override {
         return bsp_gen_->size();
     }
 
-    tile_view at(int const x, int const y) const noexcept final override {
+    region_info region(int const i) const noexcept final override {
+        BK_ASSERT(i >= 0 && static_cast<size_t>(i) < regions_.size());
+        return regions_[static_cast<size_t>(i)];
+    }
+
+    tile_view at(point2i const p) const noexcept final override {
+        auto const x = value_cast(p.x);
+        auto const y = value_cast(p.y);
+
         if (!check_bounds_(x, y)) {
             static tile_id    const dummy_id         {};
             static tile_type  const dummy_type       {tile_type::empty};
@@ -289,7 +393,7 @@ public:
 
     void generate_merge_walls(random_state& rng) {
         using namespace container_algorithms;
-        sort(room_rects_, rect_by_min_dimension<int>);
+        //sort(room_rects_, rect_by_min_dimension<int>);
 
         auto const can_remove_shared_wall = [&](recti const r, int const x, int const y) noexcept {
             auto const is_wall = [&](int const xi, int const yi) noexcept {
@@ -348,14 +452,14 @@ public:
             return false;
         };
 
-        for (auto r : room_rects_) {
-            for_each_xy(r, [&](int const x, int const y, bool const on_edge) noexcept {
-                if (on_edge && can_remove_shared_wall(r, x, y)) {
-                    data_at_(data_.types, x, y, width_) = tile_type::floor;
-                    data_at_(data_.flags, x, y, width_) = tile_flags {0};
-                }
-            });
-        }
+        //for (auto r : room_rects_) {
+        //    for_each_xy(r, [&](int const x, int const y, bool const on_edge) noexcept {
+        //        if (on_edge && can_remove_shared_wall(r, x, y)) {
+        //            data_at_(data_.types, x, y, width_) = tile_type::floor;
+        //            data_at_(data_.flags, x, y, width_) = tile_flags {0};
+        //        }
+        //    });
+        //}
     }
 
     void generate_select_ids(random_state& rng) {
@@ -382,6 +486,13 @@ public:
         bsp.clear();
         bsp.generate(rng);
 
+        regions_.clear();
+        regions_.reserve(bsp.size());
+        std::transform(std::begin(bsp), std::end(bsp), back_inserter(regions_)
+          , [](auto const& node) noexcept {
+                return region_info {node.rect, 0, 0, 0};
+            });
+
         std::vector<tile_data_set> buffer;
         buffer.reserve(std::max_element(std::begin(bsp), std::end(bsp)
           , [](auto const& node_a, auto const& node_b) noexcept {
@@ -404,8 +515,8 @@ public:
                                          , value_cast(p.room_chance_den));
         };
 
-        for (auto const& region : bsp) {
-            auto const rect = region.rect;
+        for (auto& region : regions_) {
+            auto const rect = region.bounds;
             fill_rect(data_.region_ids, width_, rect, default_tile.region_id++);
 
             if (!roll_room_chance()) {
@@ -413,7 +524,7 @@ public:
             }
 
             buffer.resize(rect.area(), default_tile);
-            gen_rect(rng, rect, buffer);
+            region.tile_count = gen_rect(rng, rect, buffer);
 
             copy_region(buffer, &tile_data_set::id,         rect, data_.ids);
             copy_region(buffer, &tile_data_set::type,       rect, data_.types);
@@ -428,13 +539,20 @@ public:
     }
 private:
     template <typename Vector>
-    static auto data_at_(
-        Vector&& v, int const x, int const y, sizeix const w
-    ) noexcept -> decltype(v[0]) {
+    static auto data_at_(Vector&& v, int const x, int const y, sizeix const w)
+        noexcept -> decltype(v[0])
+    {
         auto const i = static_cast<size_t>(x)
                      + static_cast<size_t>(y) * value_cast<size_t>(w);
 
         return v[i];
+    }
+
+    template <typename Vector>
+    static auto data_at_(Vector&& v, point2i const p, sizeix const w) noexcept
+        -> decltype(v[0])
+    {
+        return data_at_(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
     }
 
     bool check_bounds_(int const x, int const y) const noexcept {
@@ -456,7 +574,7 @@ private:
     } entities_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
-    std::vector<recti> room_rects_;
+    std::vector<region_info> regions_;
 
     struct data_t {
         explicit data_t(size_t const size)
