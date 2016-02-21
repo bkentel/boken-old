@@ -35,6 +35,6 @@ double random_normal(random_state& rng, double mean, double variance = 1.0) noex
 //===------------------------------------------------------------------------===
 //                          Derivative algorithms
 //===------------------------------------------------------------------------===
-
+uint32_t random_color(random_state& rng) noexcept;
 
 } //namespace boken

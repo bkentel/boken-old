@@ -260,27 +260,17 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate() {
-        auto& current_level = the_world.add_new_level(
-            nullptr
-          , make_level(rng_substantive, sizeix {100}, sizeiy {80}));
+        auto const level_w = 100;
+        auto const level_h = 80;
 
-        render_data.tile_data.resize(100 * 80);
+        auto& current_level = the_world.add_new_level(nullptr
+          , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
 
-        auto const random_color_comp = [&] {
-            return static_cast<uint8_t>(random_uniform_int(rng_superficial, 0, 255));
-        };
-
-        auto const random_color = [&] {
-            return 0xFFu                << 24
-                  | random_color_comp() << 16
-                  | random_color_comp() << 8
-                  | random_color_comp() << 0;
-        };
+        render_data.tile_data.resize(level_w * level_h);
 
         std::vector<uint32_t> colors;
-        std::generate_n(back_inserter(colors), current_level.region_count(), [&] {
-            return random_color();
-        });
+        std::generate_n(back_inserter(colors), current_level.region_count()
+          , [&] { return random_color(rng_superficial); });
 
         auto const  region_id_pair = current_level.region_ids(0);
         auto const& region_ids     = region_id_pair.first;
@@ -293,7 +283,7 @@ struct game_state {
         auto const th = value_cast(render_data.base_tile_map.tile_h);
         auto const tx = value_cast(render_data.base_tile_map.tiles_x);
 
-        for_each_xy(tile_rect, [&](int const x, int const y) {
+        for_each_xy(tile_rect, [&](int const x, int const y) noexcept {
             auto const& src = tile_indicies[x + y * w];
             auto&       dst = render_data.tile_data[x + y * w];
 
@@ -449,6 +439,9 @@ struct game_state {
         auto const th = value_cast(render_data.base_tile_map.tile_h);
 
         os.render_clear();
+        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+
+        os.render_background();
 
         os.render_set_transform(current_view.scale_x, current_view.scale_y
                               , current_view.x_off,   current_view.y_off);

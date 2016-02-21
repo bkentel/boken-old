@@ -168,6 +168,8 @@ public:
     virtual void render_clear()   = 0;
     virtual void render_present() = 0;
 
+    virtual void render_background() = 0;
+
     virtual void render_set_tile_size(int w, int h) = 0;
     virtual void render_set_transform(float sx, float sy, float tx, float ty) = 0;
 

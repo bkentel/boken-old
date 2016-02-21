@@ -71,4 +71,15 @@ double random_normal(random_state& rs, double const m, double const v) noexcept 
     return r.dist_normal(r.state);
 }
 
+uint32_t random_color(random_state& rng) noexcept {
+    auto const random_color_comp = [&]() noexcept {
+        return static_cast<uint8_t>(random_uniform_int(rng, 0, 255));
+    };
+
+    return 0xFFu               << 24
+         | random_color_comp() << 16
+         | random_color_comp() << 8
+         | random_color_comp() << 0;
+};
+
 } //namespace boken

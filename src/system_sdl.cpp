@@ -140,7 +140,9 @@ public:
     explicit sdl_texture(SDL_Texture* const ptr)
       : handle_ {ptr}
     {
-        if (!handle_) {
+        if (!handle_
+         || SDL_QueryTexture(*this, nullptr, nullptr, &width_, &height_)
+        ) {
             throw sdl_error {SDL_GetError()};
         }
     }
@@ -148,8 +150,13 @@ public:
     operator SDL_Texture*() const noexcept {
         return handle_.get();
     }
+
+    auto width()  const noexcept { return width_; }
+    auto height() const noexcept { return height_; }
 private:
     std::unique_ptr<SDL_Texture, sdl_deleter_texture> handle_;
+    int width_  {};
+    int height_ {};
 };
 
 
@@ -165,12 +172,16 @@ public:
       : renderer_ {window_}
       , tiles_ {SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
+      , background_{SDL_CreateTextureFromSurface(
+          renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
     {
         handler_quit_         = [](    ) noexcept { return true; };
         handler_key_          = [](auto, auto) noexcept {};
         handler_mouse_move_   = [](auto, auto) noexcept {};
         handler_mouse_button_ = [](auto, auto) noexcept {};
         handler_mouse_wheel_  = [](auto, auto, auto) noexcept {};
+
+        SDL_GetWindowSize(window_, &window_w_, &window_h_);
     }
 
     static kb_modifiers get_key_mods() noexcept {
@@ -226,6 +237,37 @@ public:
 
         handler_mouse_move_(m, get_key_mods());
     }
+
+    void handle_window_event(SDL_WindowEvent const& e) {
+        //SDL_WINDOWEVENT_NONE,           /**< Never used */
+        //SDL_WINDOWEVENT_SHOWN,          /**< Window has been shown */
+        //SDL_WINDOWEVENT_HIDDEN,         /**< Window has been hidden */
+        //SDL_WINDOWEVENT_EXPOSED,        /**< Window has been exposed and should be
+        //                                     redrawn */
+        //SDL_WINDOWEVENT_MOVED,          /**< Window has been moved to data1, data2
+        //                                 */
+        //SDL_WINDOWEVENT_RESIZED,        /**< Window has been resized to data1xdata2 */
+        //SDL_WINDOWEVENT_SIZE_CHANGED,   /**< The window size has changed, either as a result of an API call or through the system or user changing the window size. */
+        //SDL_WINDOWEVENT_MINIMIZED,      /**< Window has been minimized */
+        //SDL_WINDOWEVENT_MAXIMIZED,      /**< Window has been maximized */
+        //SDL_WINDOWEVENT_RESTORED,       /**< Window has been restored to normal size
+        //                                     and position */
+        //SDL_WINDOWEVENT_ENTER,          /**< Window has gained mouse focus */
+        //SDL_WINDOWEVENT_LEAVE,          /**< Window has lost mouse focus */
+        //SDL_WINDOWEVENT_FOCUS_GAINED,   /**< Window has gained keyboard focus */
+        //SDL_WINDOWEVENT_FOCUS_LOST,     /**< Window has lost keyboard focus */
+        //SDL_WINDOWEVENT_CLOSE           /**< The window manager requests that the
+        //                                     window be closed */
+
+        switch (e.event) {
+        case SDL_WINDOWEVENT_SIZE_CHANGED :
+            break;
+        case SDL_WINDOWEVENT_RESIZED :
+            window_w_ = e.data1;
+            window_h_ = e.data2;
+            break;
+        }
+    }
 public:
     //
     // overridden functions
@@ -260,6 +302,9 @@ public:
 
         for (SDL_Event event; SDL_PollEvent(&event); ++count) {
             switch (event.type) {
+            case SDL_WINDOWEVENT :
+                handle_window_event(event.window);
+                break;
             case SDL_QUIT:
                 running_ = !handler_quit_();
                 break;
@@ -297,6 +342,23 @@ public:
 
     void render_present() final override {
         SDL_RenderPresent(renderer_);
+    }
+
+    void render_background() final override {
+        auto const w = background_.width();
+        auto const h = background_.height();
+
+        auto const tx  = (window_w_ + w - 1) / w;
+        auto const ty  = (window_h_ + h - 1) / h;
+
+        SDL_Rect r {0, 0, w, h};
+
+        for (int y = 0; y < ty; ++y, r.y += h) {
+            r.x = 0;
+            for (int x = 0; x < tx; ++x, r.x += w) {
+                SDL_RenderCopy(renderer_, background_, nullptr, &r);
+            }
+        }
     }
 
     void render_set_data(
@@ -368,10 +430,14 @@ private:
     sdl_window   window_;
     sdl_renderer renderer_;
     sdl_texture  tiles_;
+    sdl_texture  background_;
 
     read_only_pointer_t position_data_;
     read_only_pointer_t texture_data_;
     read_only_pointer_t color_data_;
+
+    int window_w_ {};
+    int window_h_ {};
 
     int tile_w_ {};
     int tile_h_ {};
