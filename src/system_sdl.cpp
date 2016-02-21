@@ -1,12 +1,16 @@
-#include "system.hpp"
-
-#include "math.hpp"
+#include "system.hpp"           // for read_only_pointer_t, etc
+#include "math.hpp"             // for ceil_as
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
-#include <stdexcept>
-#include <memory>
+#include <functional>           // for function
+#include <memory>               // for unique_ptr
+#include <stdexcept>            // for runtime_error
+#include <tuple>                // for tie, tuple
+#include <utility>              // for move, pair, swap
+
+#include <cstdint>              // for uint16_t, uint8_t, uint32_t
 
 namespace {
 

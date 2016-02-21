@@ -1,11 +1,13 @@
 #pragma once
 
 #include "config.hpp"
-#include "types.hpp"
-#include "math.hpp"
 #include "hash.hpp"
+#include "math.hpp"
+#include "types.hpp"
+
 #include <bitset>
 #include <type_traits>
+
 #include <cstdint>
 
 namespace boken {

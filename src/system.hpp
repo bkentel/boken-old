@@ -8,6 +8,7 @@
 #include <bitset>
 #include <type_traits>
 #include <vector>
+#include <cstdint>
 
 namespace boken {
 

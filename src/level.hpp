@@ -1,20 +1,20 @@
 #pragma once
 
-#include "types.hpp"
-#include "math.hpp"
-#include <memory>
-#include <vector>
-#include <utility>
+#include "math.hpp"   // for point2i, recti, vec2i, axis_aligned_rect, etc
+#include "types.hpp"  // for entity_instance_id, item_instance_id, sizeix, etc
+#include <memory>     // for unique_ptr
+#include <utility>    // for pair
+#include <vector>     // for vector
+#include <cstdint>    // for uint16_t, int32_t
+namespace boken { class entity; }
+namespace boken { class item; }
+namespace boken { class random_state; }
+namespace boken { class tile_flags; }
+namespace boken { struct tile_data; }
+namespace boken { enum class tile_type : uint16_t; }
+namespace boken { enum class tile_id : uint32_t; }
 
 namespace boken {
-
-class entity;
-class item;
-class random_state;
-class tile_flags;
-struct tile_data;
-enum class tile_type : uint16_t;
-enum class tile_id : uint32_t;
 
 struct tile_view {
     tile_id    const&       id;

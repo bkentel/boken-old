@@ -1,6 +1,13 @@
 #include "text.hpp"
-#include "system.hpp"
-#include "utility.hpp"
+#include "system.hpp"   // for system
+#include "utility.hpp"  // for BK_OFFSETOF
+#include <algorithm>    // for move, max, swap
+
+namespace {
+inline uint32_t next_code_point(char const*& p, char const* const last) noexcept {
+    return p != last ? static_cast<uint8_t>(*p++) : 0u;
+}
+} //namespace anonymous
 
 namespace boken {
 
@@ -22,10 +29,6 @@ void text_layout::layout(text_renderer& trender, std::string text) {
 
 void text_layout::layout(text_renderer& trender) {
     data_.clear();
-
-    auto const next_code_point = [&](char const*& p, char const* const last) -> uint32_t {
-        return p != last ? *p++ : 0;
-    };
 
     auto     it      = text_.data();
     auto     last    = text_.data() + text_.size();
@@ -61,10 +64,6 @@ void text_layout::render(system& os, text_renderer& trender) const {
     if (!is_visible_) {
         return;
     }
-
-    auto const next_code_point = [&](char const*& p, char const* const last) -> uint32_t {
-        return p != last ? *p++ : 0;
-    };
 
     auto it   = text_.data();
     auto last = text_.data() + text_.size();

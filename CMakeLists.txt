@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
 project(boken CXX)
 
+set(NO_WARN_PADDING 1)
+
 include_directories(src)
 include_directories(SYSTEM external)
 include_directories(SYSTEM external/boost/assert/include)
@@ -14,29 +16,29 @@ include_directories(SYSTEM external/boost/type_traits/include)
 include_directories(SYSTEM external/boost/utility/include)
 include_directories(SYSTEM external/pcg/include)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(
-        "-Weverything"
-        "-Wno-c++98-compat"
-        "-Wno-c++98-c++11-compat-pedantic")
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    add_compile_options(
-        "-Wall"
-        "-Wextra"
-        "-Wodr"
-        "-Wredundant-decls"
-        "-Wcast-align"
-        "-Wmissing-declarations"
-        "-Wmissing-include-dirs"
-        "-Wswitch-enum"
-        "-Wswitch-default"
-        "-Winvalid-pch"
-        "-Wredundant-decls"
-        "-Wformat=2"
-        "-Wmissing-format-attribute"
-        "-Wformat-nonliteral")
-endif()
+set(CLANG_WARNINGS
+    "-Weverything"
+    "-Wno-c++98-compat"
+    "-Wno-c++98-c++11-compat-pedantic"
+    "-Wno-missing-prototypes"
+    "-Wno-date-time")
 
+set(GCC_WARNINGS
+    "-Wall"
+    "-Wextra"
+    "-Wodr"
+    "-Wredundant-decls"
+    "-Wcast-align"
+    "-Wmissing-declarations"
+    "-Wmissing-include-dirs"
+    "-Wswitch-enum"
+    "-Wswitch-default"
+    "-Winvalid-pch"
+    "-Wredundant-decls"
+    "-Wformat=2"
+    "-Wmissing-format-attribute"
+    "-Wformat-nonliteral")
+   
 set(SOURCES
     src/bsp_generator.cpp
     src/catch.cpp
@@ -64,6 +66,13 @@ add_executable(boken ${SOURCES} ${SOURCES_EXTERNAL} ${SOURCES_TEST})
 set_property(TARGET boken PROPERTY CXX_STANDARD 14)
 
 target_link_libraries(boken SDL2)
+
+target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:${CLANG_WARNINGS}>)
+target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:GNU>:${GCC_WARNINGS}>)
+
+if(${NO_WARN_PADDING})
+    target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:-Wno-padded>)
+endif()
 
 # Include file configuration checks
 include(CheckIncludeFileCXX)

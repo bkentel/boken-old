@@ -1,18 +1,19 @@
 #pragma once
 
-#include "types.hpp"
-#include "math.hpp"
+#include "math.hpp"          // for axis_aligned_rect
+#include "types.hpp"         // for sizei, sizeix, sizeiy
+#include <algorithm>         // for sort
+#include <initializer_list>  // for initializer_list
+#include <iterator>          // for begin, end
+#include <memory>            // for unique_ptr
+#include <type_traits>       // for is_enum, underlying_type_t
+#include <utility>           // for pair
+#include <vector>            // for vector, vector<>::const_iterator
+#include <cstdint>           // for uint16_t
 
-#include <type_traits>
-#include <initializer_list>
-#include <algorithm>
-#include <vector>
-#include <utility>
-#include <memory>
+namespace boken { class random_state; }
 
 namespace boken {
-
-class random_state;
 
 template <typename T>
 inline constexpr auto enum_value(T const e) noexcept {

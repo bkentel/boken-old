@@ -1,11 +1,19 @@
 #include "level.hpp"
-#include "tile.hpp"
-#include "bsp_generator.hpp"
-#include "random.hpp"
-#include "utility.hpp"
-#include "entity.hpp"
-#include <bkassert/assert.hpp>
-#include <vector>
+
+#include "bsp_generator.hpp"    // for bsp_generator, etc
+#include "entity.hpp"           // for entity
+#include "random.hpp"           // for random_state (ptr only), etc
+#include "tile.hpp"             // for tile_data_set, tile_type, tile_flags, etc
+#include "utility.hpp"          // for find_if
+
+#include <bkassert/assert.hpp>  // for BK_ASSERT
+
+#include <algorithm>            // for max, find_if, fill, max_element, min, etc
+#include <functional>           // for reference_wrapper, ref
+#include <iterator>             // for begin, end, back_insert_iterator, etc
+#include <vector>               // for vector
+
+#include <cstdint>              // for uint16_t, int32_t
 
 namespace boken {
 

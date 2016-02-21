@@ -1,7 +1,8 @@
 #include "data.hpp"
-#include "item_def.hpp"
-#include "entity_def.hpp"
-#include "utility.hpp"
+#include "entity_def.hpp"  // for entity_definition
+#include "item_def.hpp"    // for item_definition
+#include "utility.hpp"     // for find_ptr_if
+#include <vector>          // for vector
 
 namespace {
 template <typename Container, typename Id>

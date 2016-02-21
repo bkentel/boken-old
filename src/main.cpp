@@ -1,22 +1,30 @@
-#include "types.hpp"
-#include "system.hpp"
-#include "random.hpp"
-#include "hash.hpp"
-#include "utility.hpp"
-#include "text.hpp"
-#include "level.hpp"
-#include "entity.hpp"
-#include "entity_def.hpp"
-#include "item_def.hpp"
-#include "world.hpp"
-#include "message_log.hpp"
-#include "tile.hpp"
+#include "catch.hpp"        // for run_unit_tests
+#include "entity.hpp"       // for entity
+#include "entity_def.hpp"   // for entity_definition
+#include "hash.hpp"         // for djb2_hash_32
+#include "item_def.hpp"     // for item_definition
+#include "level.hpp"        // for level, placement_result, make_level, etc
+#include "math.hpp"         // for vec2i, floor_as, point2f, basic_2_tuple, etc
+#include "message_log.hpp"  // for message_log
+#include "random.hpp"       // for random_state, make_random_state
+#include "system.hpp"       // for system, kb_modifiers, mouse_event, etc
+#include "text.hpp"         // for text_layout, text_renderer
+#include "tile.hpp"         // for tile_map
+#include "types.hpp"        // for value_cast, tag_size_type_x, etc
+#include "utility.hpp"      // for BK_OFFSETOF
+#include "world.hpp"        // for world, make_world
 
-#include "catch.hpp"
-#include <bkassert/assert.hpp>
+#include <algorithm>        // for move
+#include <chrono>           // for microseconds, operator-, duration, etc
+#include <functional>       // for function
+#include <memory>           // for unique_ptr, allocator
+#include <ratio>            // for ratio
+#include <string>           // for string, to_string
+#include <utility>          // for pair, make_pair
+#include <vector>           // for vector
 
-#include <algorithm>
-#include <chrono>
+#include <cstdint>          // for uint16_t, uint32_t, uintptr_t
+#include <cstdio>           // for printf
 
 namespace boken {};
 namespace bk = boken;

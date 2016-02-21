@@ -1,14 +1,16 @@
 #pragma once
+#include "math.hpp"   // for basic_2_tuple, point2i
+#include "types.hpp"  // for tagged_integral_value
 
-#include "math.hpp" // point
-#include <string>
-#include <vector>
-#include <limits>
-#include <cstdint>
+#include <limits>     // for numeric_limits
+#include <string>     // for string
+#include <vector>     // for vector
+
+#include <cstdint>    // for int16_t, uint32_t
+
+namespace boken { class system; }
 
 namespace boken {
-
-class system;
 
 class text_renderer {
 public:

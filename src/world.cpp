@@ -1,5 +1,8 @@
 #include "world.hpp"
-#include "level.hpp"
+#include "level.hpp"           // for level
+
+#include <algorithm>           // for move
+#include <vector>              // for vector
 
 namespace boken {
 
