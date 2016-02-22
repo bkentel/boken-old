@@ -6,8 +6,6 @@
 
 namespace boken {
 
-class text_renderer;
-
 //!
 class message_log {
 public:
@@ -22,6 +20,15 @@ public:
     void println(std::string msg) {
         visible_lines_.push(text_layout {trender_, msg});
         messages_.push(std::move(msg));
+
+        auto const line_h = trender_.line_gap();
+        auto x = int {0};
+        auto y = int {0};
+
+        for (auto& line : visible_lines_) {
+            line.move_to(x, y);
+            y += line_h;
+        }
     }
 
     auto visible_begin() const noexcept {

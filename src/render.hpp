@@ -1,9 +1,13 @@
 #pragma once
 
 #include "math.hpp"
+#include <chrono>
 
 namespace boken { class level; }
+namespace boken { class message_log; }
 namespace boken { class system; }
+namespace boken { class text_renderer; }
+namespace boken { class tile_map; }
 
 namespace boken {
 
@@ -75,12 +79,20 @@ public:
 
     virtual ~game_renderer();
 
+    virtual tile_map const& base_tile_map() const noexcept = 0;
+
     virtual void update_map_data(level const& lvl) = 0;
     virtual void update_entity_data(level const& lvl) = 0;
+
+    virtual void update_tool_tip_text(std::string text) = 0;
+    virtual void update_tool_tip_visible(bool show) noexcept = 0;
+    virtual void update_tool_tip_position(point2i p) noexcept = 0;
+
+    virtual void set_message_window(message_log const* window) noexcept = 0;
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
 };
 
-std::unique_ptr<game_renderer> make_game_renderer(system& os);
+std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender);
 
 } //namespace boken

@@ -128,6 +128,14 @@ public:
     const_iterator end() const noexcept {
         return {nullptr, front_, data_.size()};
     }
+
+    iterator begin() noexcept {
+        return {data_.data(), front_, data_.size()};
+    }
+
+    iterator end() noexcept {
+        return {nullptr, front_, data_.size()};
+    }
 private:
     size_t         capacity_;
     size_t         front_;

@@ -280,7 +280,7 @@ public:
     std::pair<point2i, placement_result>
     add_entity_nearest_random(random_state& rng, entity&& e, point2i const p, int const max_distance) final override {
         auto const where = find_random_nearest(rng, p, max_distance
-          , [&](auto const q) {
+          , [&](point2i const q) {
                 return add_entity_at(std::move(e), q) == placement_result::ok;
             });
 

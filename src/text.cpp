@@ -97,11 +97,10 @@ void text_layout::layout(text_renderer& trender) {
         }
 
         data_.push_back(data_t {
-            {static_cast<int16_t>(x + value_cast(position_.x))
-           , static_cast<int16_t>(y + value_cast(position_.y))}
-           , metrics.texture
-           , metrics.size
-           , 0xFFFFFFFFu
+            point2i {x, y}.cast_to<int16_t>()
+          , metrics.texture
+          , metrics.size
+          , 0xFFFFFFFFu
         });
 
         line_h =  std::max<int32_t>(line_h, value_cast(metrics.size.y));
@@ -109,32 +108,27 @@ void text_layout::layout(text_renderer& trender) {
     }
 }
 
-void text_layout::render(system& os, text_renderer& trender) const {
-    if (!is_visible_) {
-        return;
-    }
-
+void text_layout::update(text_renderer& trender) const noexcept {
     auto it   = text_.data();
     auto last = text_.data() + text_.size();
 
     for (size_t i = 0; it != last; ++i) {
         data_[i].texture = trender.load_metrics(next_code_point(it, last)).texture;
     }
+}
 
-    os.render_set_data(render_data_type::position, read_only_pointer_t {
-        data_, BK_OFFSETOF(data_t, position)});
-    os.render_set_data(render_data_type::texture, read_only_pointer_t {
-        data_, BK_OFFSETOF(data_t, texture)});
-    os.render_set_data(render_data_type::color, read_only_pointer_t {
-        data_, BK_OFFSETOF(data_t, color)});
-
-    os.render_data_n(data_.size());
+std::vector<text_layout::data_t> const& text_layout::data() const noexcept {
+    return data_;
 }
 
 void text_layout::move_to(int const x, int const y) noexcept {
     position_ = point2<int16_t> {
         clamp_as<int16_t>(x)
       , clamp_as<int16_t>(y)};
+}
+
+point2i text_layout::position() const noexcept {
+    return position_.cast_to<int32_t>();
 }
 
 bool text_layout::is_visible() const noexcept {

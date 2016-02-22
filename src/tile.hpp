@@ -96,7 +96,8 @@ struct tile_data_set {
     uint16_t   region_id;
 };
 
-struct tile_map {
+class tile_map {
+public:
     recti index_to_rect(int32_t const i) const noexcept {
         return {
             offix {i % value_cast(tiles_x)}

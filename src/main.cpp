@@ -202,7 +202,24 @@ struct game_state {
 
         cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
 
+        renderer.set_message_window(&message_window);
+
         generate();
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Utility / Helpers
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    point2i window_to_world(point2i const p) const noexcept {
+        auto const& tile_map = renderer.base_tile_map();
+        auto const tw = value_cast(tile_map.tile_w);
+        auto const th = value_cast(tile_map.tile_h);
+
+        auto const q  = current_view.window_to_world(p);
+        auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
+        auto const ty = floor_as<int32_t>(value_cast(q.y) / th);
+
+        return {tx, ty};
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -214,8 +231,6 @@ struct game_state {
 
         auto& current_level = the_world.add_new_level(nullptr
           , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
-
-        renderer.update_map_data(current_level);
 
         // player
         create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
@@ -231,21 +246,24 @@ struct game_state {
 
             create_entity_at(p, the_world, current_level, entity_definition {entity_id {1}});
         }
+
+        renderer.update_map_data(current_level);
+        renderer.update_entity_data(current_level);
     }
 
     void show_tool_tip(point2i const p) {
-        tool_tip.move_to(value_cast(p.x), value_cast(p.y));
+        renderer.update_tool_tip_visible(true);
+        renderer.update_tool_tip_position(p);
 
-        auto const q  = current_view.window_to_world(p);
-        auto const tx = floor_as<int>(value_cast(q.x) / 18);
-        auto const ty = floor_as<int>(value_cast(q.y) / 18);
-
-        if (tool_tip.visible(true) && tx == last_tile_x && ty == last_tile_y) {
+        auto const q = window_to_world(p);
+        if (q == point2i {last_tile_x, last_tile_y}) {
             return;
         }
 
-        auto const& tile = the_world.current_level().at(tx, ty);
-        tool_tip.layout(trender, std::to_string(tile.region_id));
+        auto const& tile      = the_world.current_level().at(q);
+        auto const& region_id = tile.region_id;
+
+        renderer.update_tool_tip_text(std::to_string(region_id));
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -254,13 +272,9 @@ struct game_state {
     void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
             if (kmods.test(kb_modifiers::m_shift)) {
-                show_tool_tip(point2i {last_mouse_x, last_mouse_y});
+                show_tool_tip({last_mouse_x, last_mouse_y});
             }
             cmd_translator.translate(event);
-        } else {
-            if (!kmods.test(kb_modifiers::m_shift)) {
-                tool_tip.visible(false);
-            }
         }
     }
 
@@ -271,16 +285,15 @@ struct game_state {
         }
 
         if (kmods.test(kb_modifiers::m_shift)) {
-            show_tool_tip(point2i {event.x, event.y});
+            show_tool_tip({event.x, event.y});
         }
 
         last_mouse_x = event.x;
         last_mouse_y = event.y;
 
-        auto const p = current_view.window_to_world(event.x, event.y);
-
-        last_tile_x = floor_as<int>(value_cast(p.x) / 18);
-        last_tile_y = floor_as<int>(value_cast(p.y) / 18);
+        auto const p = window_to_world({event.x, event.y});
+        last_tile_x = value_cast(p.x);
+        last_tile_y = value_cast(p.y);
     }
 
     void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
@@ -351,34 +364,13 @@ struct game_state {
     void render(timepoint_t const last_frame) {
         using namespace std::chrono_literals;
 
-        auto const delta = clock_t::now() - last_frame;
-        auto const now = clock_t::now();
-        if (now - last_frame < 1s / 60) {
+        auto const now   = clock_t::now();
+        auto const delta = now - last_frame;
+        if (delta < 1s / 60) {
             return;
         }
 
-        auto const tw = value_cast(render_data.base_tile_map.tile_w);
-        auto const th = value_cast(render_data.base_tile_map.tile_h);
-
-        os.render_clear();
         renderer.render(delta, current_view);
-
-        //
-        // text
-        //
-
-        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-        tool_tip.render(os, trender);
-
-        auto i = 0;
-        std::for_each(
-            message_window.visible_begin(), message_window.visible_end()
-          , [&](auto const& line) {
-                os.render_set_transform(1.0f, 1.0f, 0.0f, i++ * 18.0f);
-                line.render(os, trender);
-            });
-
-        os.render_present();
 
         last_frame_time = now;
     }
@@ -394,8 +386,8 @@ struct game_state {
         up<random_state>  rng_substantive_ptr = make_random_state();
         up<random_state>  rng_superficial_ptr = make_random_state();
         up<world>         world_ptr           = make_world();
-        up<game_renderer> renderer_ptr        = make_game_renderer(*system_ptr);
         up<text_renderer> trender_ptr         = make_text_renderer();
+        up<game_renderer> renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
     } state {};
 
     system&        os              = *state.system_ptr;
@@ -416,22 +408,7 @@ struct game_state {
 
     timepoint_t last_frame_time {};
 
-    struct render_t {
-        tile_map base_tile_map;
-
-        struct data_t {
-            std::pair<uint16_t, uint16_t> position;
-            std::pair<uint16_t, uint16_t> tex_coord;
-            uint32_t                      color;
-        };
-
-        std::vector<data_t> tile_data;
-        std::vector<data_t> entity_data;
-    } render_data;
-
     message_log message_window {trender};
-
-    text_layout tool_tip;
 };
 
 } // namespace boken

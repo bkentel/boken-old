@@ -8,8 +8,6 @@
 
 #include <cstdint>    // for int16_t, uint32_t
 
-namespace boken { class system; }
-
 namespace boken {
 
 class text_renderer {
@@ -36,6 +34,13 @@ std::unique_ptr<text_renderer> make_text_renderer();
 
 class text_layout {
 public:
+    struct data_t {
+        point2<int16_t> position;
+        point2<int16_t> texture;
+        point2<int16_t> size;
+        uint32_t        color;
+    };
+
     text_layout();
 
     text_layout(text_renderer& trender, std::string text);
@@ -44,22 +49,18 @@ public:
 
     void layout(text_renderer& trender);
 
-    void render(system& os, text_renderer& trender) const;
-
     void move_to(int x, int y) noexcept;
+    point2i position() const noexcept;
 
     bool is_visible() const noexcept;
     bool visible(bool state) noexcept;
-private:
-    struct data_t {
-        point2<int16_t> position;
-        point2<int16_t> texture;
-        point2<int16_t> size;
-        uint32_t        color;
-    };
 
-    // Glyph data can change between render to render, but this is conceptually
-    // const
+    // ensure all required glyphs are still cached at the same locations
+    void update(text_renderer& trender) const noexcept;
+
+    std::vector<data_t> const& data() const noexcept;
+private:
+    // glyph texture locations can change
     std::vector<data_t> mutable data_;
 
     std::string          text_;
