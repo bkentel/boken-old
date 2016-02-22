@@ -26,19 +26,29 @@ set(CLANG_WARNINGS
 set(GCC_WARNINGS
     "-Wall"
     "-Wextra"
-    "-Wodr"
-    "-Wredundant-decls"
     "-Wcast-align"
-    "-Wmissing-declarations"
-    "-Wmissing-include-dirs"
-    "-Wswitch-enum"
-    "-Wswitch-default"
-    "-Winvalid-pch"
-    "-Wredundant-decls"
+    "-Wcast-qual"
+    "-Wconversion"
+#    "-Wduplicated-cond"
+    "-Wfloat-equal"
+    "-Wformat-nonliteral"
     "-Wformat=2"
+    "-Winvalid-pch"
+    "-Wmissing-declarations"
     "-Wmissing-format-attribute"
-    "-Wformat-nonliteral")
-   
+    "-Wmissing-include-dirs"
+    "-Wodr"
+    "-Wpointer-arith"
+    "-Wredundant-decls"
+    "-Wsuggest-final-methods"
+    "-Wsuggest-final-types"
+    "-Wsuggest-override"
+    "-Wswitch-default"
+    "-Wswitch-enum"
+    "-Wunsafe-loop-optimizations"
+    "-Wuseless-cast"
+    "-Wzero-as-null-pointer-constant")
+
 set(SOURCES
     src/bsp_generator.cpp
     src/catch.cpp
