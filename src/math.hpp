@@ -74,6 +74,8 @@ struct basic_2_tuple {
                                     , static_cast<U>(value_cast(y))};
     }
 
+    constexpr basic_2_tuple() noexcept = default;
+
     constexpr basic_2_tuple(T const x_, T const y_) noexcept
       : x {x_}, y {y_}
     {
@@ -84,8 +86,8 @@ struct basic_2_tuple {
     {
     }
 
-    type_x x;
-    type_y y;
+    type_x x {};
+    type_y y {};
 };
 
 template <typename T>
@@ -220,6 +222,16 @@ private:
 
 using recti = axis_aligned_rect<int32_t>;
 
+template <typename T, typename U> inline constexpr
+bool operator==(axis_aligned_rect<T> const& lhs, axis_aligned_rect<U> const& rhs) noexcept {
+    using eq = std::equal_to<>;
+
+    return compare_integral(lhs.x0, rhs.x0, eq {})
+        && compare_integral(lhs.y0, rhs.y0, eq {})
+        && compare_integral(lhs.x1, rhs.x1, eq {})
+        && compare_integral(lhs.y1, rhs.y1, eq {});
+}
+
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 3>) {
     for (auto y = r.y0; y < r.y1; ++y) {
@@ -262,6 +274,19 @@ inline constexpr T clamp(T const n, T const lo, T const hi) noexcept {
     return (n < lo)
       ? lo
       : (hi < n ? hi : n);
+}
+
+template <typename R, typename T>
+inline constexpr R clamp_as(T const n, T const lo, T const hi) noexcept {
+    //TODO this could be more intelligent
+    return static_cast<R>(clamp(n, lo, hi));
+}
+
+template <typename R, typename T>
+inline constexpr R clamp_as(T const n) noexcept {
+    //TODO this could be more intelligent
+    return static_cast<R>(clamp<T>(n, std::numeric_limits<R>::min()
+                                    , std::numeric_limits<R>::max()));
 }
 
 //! type-casted ceil

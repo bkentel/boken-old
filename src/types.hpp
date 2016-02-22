@@ -61,6 +61,7 @@ public:
     constexpr explicit tagged_integral_value(U const n) noexcept
       : value_ {static_cast<T>(n)}
     {
+        // TODO unsafe conversion could happen here
         //static_assert(std::is_convertible<U, T>::value, "");
     }
 private:

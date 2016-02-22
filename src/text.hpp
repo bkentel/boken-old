@@ -2,7 +2,7 @@
 #include "math.hpp"   // for basic_2_tuple, point2i
 #include "types.hpp"  // for tagged_integral_value
 
-#include <limits>     // for numeric_limits
+#include <memory>     // for unique_ptr
 #include <string>     // for string
 #include <vector>     // for vector
 
@@ -21,27 +21,18 @@ public:
         point2<int16_t> advance;
     };
 
-    glyph_data_t load_metrics(uint32_t const cp_prev, uint32_t const cp) {
-        return load_metrics(cp);
-    }
+    virtual ~text_renderer();
 
-    glyph_data_t load_metrics(uint32_t const cp) {
-        constexpr int16_t tiles_x = 16;
-        constexpr int16_t tiles_y = 16;
-        constexpr int16_t tile_w  = 18;
-        constexpr int16_t tile_h  = 18;
+    virtual glyph_data_t load_metrics(uint32_t cp_prev, uint32_t cp) noexcept = 0;
+    virtual glyph_data_t load_metrics(uint32_t cp) noexcept = 0;
 
-        auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
-        auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
-
-        return {
-            {    tx,     ty}
-          , {tile_w, tile_h}
-          , {     0,      0}
-          , {tile_w,      0}
-        };
-    }
+    virtual int pixel_size() const noexcept = 0;
+    virtual int ascender()   const noexcept = 0;
+    virtual int descender()  const noexcept = 0;
+    virtual int line_gap()   const noexcept = 0;
 };
+
+std::unique_ptr<text_renderer> make_text_renderer();
 
 class text_layout {
 public:
@@ -67,12 +58,15 @@ private:
         uint32_t        color;
     };
 
-    std::string          text_       {};
-    std::vector<data_t>  mutable data_       {};
-    point2i              position_   {0, 0};
-    size_type_x<int16_t> max_width_  {std::numeric_limits<int16_t>::max()};
-    size_type_y<int16_t> max_height_ {std::numeric_limits<int16_t>::max()};
-    bool                 is_visible_ {true};
+    // Glyph data can change between render to render, but this is conceptually
+    // const
+    std::vector<data_t> mutable data_;
+
+    std::string          text_;
+    point2<int16_t>      position_;
+    size_type_x<int16_t> max_width_;
+    size_type_y<int16_t> max_height_;
+    bool                 is_visible_;
 };
 
 } // namespace boken

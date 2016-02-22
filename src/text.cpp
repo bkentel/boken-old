@@ -11,15 +11,64 @@ inline uint32_t next_code_point(char const*& p, char const* const last) noexcept
 
 namespace boken {
 
+//===------------------------------------------------------------------------===
+//                             text_renderer
+//===------------------------------------------------------------------------===
+
+text_renderer::~text_renderer() = default;
+
+class text_renderer_impl final : public text_renderer {
+public:
+    glyph_data_t load_metrics(uint32_t const cp_prev, uint32_t const cp) noexcept final override {
+        return load_metrics(cp);
+    }
+
+    glyph_data_t load_metrics(uint32_t const cp) noexcept final override {
+        constexpr int16_t tiles_x = 16;
+        constexpr int16_t tiles_y = 16;
+        constexpr int16_t tile_w  = 18;
+        constexpr int16_t tile_h  = 18;
+
+        auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
+        auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
+
+        return {
+            {    tx,     ty}
+          , {tile_w, tile_h}
+          , {     0,      0}
+          , {tile_w,      0}
+        };
+    }
+
+    int pixel_size() const noexcept final override { return 18; }
+    int ascender()   const noexcept final override { return 18; }
+    int descender()  const noexcept final override { return 0; }
+    int line_gap()   const noexcept final override { return 18; }
+};
+
+std::unique_ptr<text_renderer> make_text_renderer() {
+    return std::make_unique<text_renderer_impl>();
+}
+
+//===------------------------------------------------------------------------===
+//                             text_layout
+//===------------------------------------------------------------------------===
+
 text_layout::text_layout()
-  : is_visible_ {false}
+  : data_       {}
+  , text_       {}
+  , position_   {0, 0}
+  , max_width_  {std::numeric_limits<int16_t>::max()}
+  , max_height_ {std::numeric_limits<int16_t>::max()}
+  , is_visible_ {false}
 {
 }
 
 text_layout::text_layout(text_renderer& trender, std::string text)
-  : text_ {std::move(text)}
+  : text_layout {}
 {
-    layout(trender);
+    is_visible_ = true;
+    layout(trender, std::move(text));
 }
 
 void text_layout::layout(text_renderer& trender, std::string text) {
@@ -83,14 +132,9 @@ void text_layout::render(system& os, text_renderer& trender) const {
 }
 
 void text_layout::move_to(int const x, int const y) noexcept {
-    auto const u = point2i {x, y} - position_;
-    auto const v = u.cast_to<int16_t>();
-
-    for (auto& glyph : data_) {
-        glyph.position += v;
-    }
-
-    position_ = point2i {x, y};
+    position_ = point2<int16_t> {
+        clamp_as<int16_t>(x)
+      , clamp_as<int16_t>(y)};
 }
 
 bool text_layout::is_visible() const noexcept {

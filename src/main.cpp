@@ -7,6 +7,7 @@
 #include "math.hpp"         // for vec2i, floor_as, point2f, basic_2_tuple, etc
 #include "message_log.hpp"  // for message_log
 #include "random.hpp"       // for random_state, make_random_state
+#include "render.hpp"       // for game_renderer
 #include "system.hpp"       // for system, kb_modifiers, mouse_event, etc
 #include "text.hpp"         // for text_layout, text_renderer
 #include "tile.hpp"         // for tile_map
@@ -138,66 +139,6 @@ private:
     command_handler_t handler_;
 };
 
-class view {
-public:
-    view() = default;
-
-    template <typename T>
-    point2f world_to_window(T const x, T const y) const noexcept {
-        return {scale_x * x + x_off
-              , scale_y * y + y_off};
-    }
-
-    template <typename T>
-    point2f world_to_window(vec2<T> const v) const noexcept {
-        return {scale_x * value_cast(v.x)
-              , scale_y * value_cast(v.y)};
-    }
-
-    template <typename T>
-    point2f world_to_window(offset_type_x<T> const x, offset_type_y<T> const y) const noexcept {
-        return window_to_world(value_cast(x), value_cast(y));
-    }
-
-    template <typename T>
-    point2f world_to_window(point2<T> const p) const noexcept {
-        return window_to_world(p.x, p.y);
-    }
-
-    template <typename T>
-    point2f window_to_world(T const x, T const y) const noexcept {
-        return {(1.0f / scale_x) * x - (x_off / scale_x)
-              , (1.0f / scale_y) * y - (y_off / scale_y)};
-    }
-
-    template <typename T>
-    vec2f window_to_world(vec2<T> const v) const noexcept {
-        return {(1.0f / scale_x) * value_cast(v.x)
-              , (1.0f / scale_y) * value_cast(v.y)};
-    }
-
-    template <typename T>
-    point2f window_to_world(offset_type_x<T> const x, offset_type_y<T> const y) const noexcept {
-        return world_to_window(value_cast(x), value_cast(y));
-    }
-
-    template <typename T>
-    point2f window_to_world(point2<T> const p) const noexcept {
-        return world_to_window(p.x, p.y);
-    }
-
-
-    template <typename T>
-    void center_on_world(T const wx, T const wy) const noexcept {
-
-    }
-
-    float x_off   = 0.0f;
-    float y_off   = 0.0f;
-    float scale_x = 1.0f;
-    float scale_y = 1.0f;
-};
-
 class item {
 public:
     item(item_instance_id const i_instance, item_id const i_id)
@@ -274,41 +215,7 @@ struct game_state {
         auto& current_level = the_world.add_new_level(nullptr
           , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
 
-        render_data.tile_data.resize(level_w * level_h);
-
-        std::vector<uint32_t> colors;
-        std::generate_n(back_inserter(colors), current_level.region_count()
-          , [&] { return random_color(rng_superficial); });
-
-        auto const  region_id_pair = current_level.region_ids(0);
-        auto const& region_ids     = region_id_pair.first;
-        auto const  tile_pair      = current_level.tile_indicies(0);
-        auto const& tile_indicies  = tile_pair.first;
-        auto const  tile_rect      = tile_pair.second;
-        auto const  w              = tile_rect.width();
-
-        auto const tw = value_cast(render_data.base_tile_map.tile_w);
-        auto const th = value_cast(render_data.base_tile_map.tile_h);
-        auto const tx = value_cast(render_data.base_tile_map.tiles_x);
-
-        for_each_xy(tile_rect, [&](int const x, int const y) noexcept {
-            auto const  i   = static_cast<size_t>(x + y * w);
-            auto const& src = tile_indicies[i];
-            auto&       dst = render_data.tile_data[i];
-
-            dst.position = std::make_pair(static_cast<uint16_t>(x * tw)
-                                        , static_cast<uint16_t>(y * th));
-
-            if (src == 11u + 13u * 16u) {
-                dst.color = colors[region_ids[i]];
-            } else {
-                dst.color = 0xFF0000FFu;
-            }
-
-            dst.tex_coord = std::make_pair(
-                static_cast<uint16_t>((src % tx) * tw)
-              , static_cast<uint16_t>((src / tx) * tw));
-        });
+        renderer.update_map_data(current_level);
 
         // player
         create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
@@ -439,6 +346,7 @@ struct game_state {
     void render(timepoint_t const last_frame) {
         using namespace std::chrono_literals;
 
+        auto const delta = clock_t::now() - last_frame;
         auto const now = clock_t::now();
         if (now - last_frame < 1s / 60) {
             return;
@@ -448,25 +356,7 @@ struct game_state {
         auto const th = value_cast(render_data.base_tile_map.tile_h);
 
         os.render_clear();
-        os.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-
-        os.render_background();
-
-        os.render_set_transform(current_view.scale_x, current_view.scale_y
-                              , current_view.x_off,   current_view.y_off);
-
-        os.render_set_tile_size(tw, th);
-
-        //
-        // Map tiles
-        //
-        os.render_set_data(render_data_type::position, read_only_pointer_t {
-            render_data.tile_data, BK_OFFSETOF(render_t::data_t, position)});
-        os.render_set_data(render_data_type::texture, read_only_pointer_t {
-            render_data.tile_data, BK_OFFSETOF(render_t::data_t, tex_coord)});
-        os.render_set_data(render_data_type::color, read_only_pointer_t {
-            render_data.tile_data, BK_OFFSETOF(render_t::data_t, color)});
-        os.render_data_n(render_data.tile_data.size());
+        renderer.render(delta, current_view);
 
         //
         // Player and entities.
@@ -517,16 +407,23 @@ struct game_state {
     // Data
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     struct state_t {
-        std::unique_ptr<system>       system_ptr          = make_system();
-        std::unique_ptr<random_state> rng_substantive_ptr = make_random_state();
-        std::unique_ptr<random_state> rng_superficial_ptr = make_random_state();
-        std::unique_ptr<world>        world_ptr           = make_world();
+        template <typename T>
+        using up = std::unique_ptr<T>;
+
+        up<system>        system_ptr          = make_system();
+        up<random_state>  rng_substantive_ptr = make_random_state();
+        up<random_state>  rng_superficial_ptr = make_random_state();
+        up<world>         world_ptr           = make_world();
+        up<game_renderer> renderer_ptr        = make_game_renderer(*system_ptr);
+        up<text_renderer> trender_ptr         = make_text_renderer();
     } state {};
 
-    system&       os              = *state.system_ptr;
-    random_state& rng_substantive = *state.rng_substantive_ptr;
-    random_state& rng_superficial = *state.rng_superficial_ptr;
-    world&        the_world       = *state.world_ptr;
+    system&        os              = *state.system_ptr;
+    random_state&  rng_substantive = *state.rng_substantive_ptr;
+    random_state&  rng_superficial = *state.rng_superficial_ptr;
+    world&         the_world       = *state.world_ptr;
+    game_renderer& renderer        = *state.renderer_ptr;
+    text_renderer& trender         = *state.trender_ptr;
 
     command_translator cmd_translator {};
 
@@ -551,8 +448,6 @@ struct game_state {
         std::vector<data_t> tile_data;
         std::vector<data_t> entity_data;
     } render_data;
-
-    text_renderer trender;
 
     message_log message_window {trender};
 

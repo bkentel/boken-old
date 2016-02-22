@@ -46,6 +46,7 @@ set(SOURCES
     src/level.cpp
     src/main.cpp
     src/random.cpp
+    src/render.cpp
     src/system_sdl.cpp
     src/text.cpp
     src/tile.cpp

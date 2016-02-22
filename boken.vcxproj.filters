@@ -27,6 +27,7 @@
       <Filter>test</Filter>
     </ClCompile>
     <ClCompile Include="src\tile.cpp" />
+    <ClCompile Include="src\render.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -52,6 +53,7 @@
     <ClInclude Include="src\entity.hpp" />
     <ClInclude Include="src\circular_buffer.hpp" />
     <ClInclude Include="src\message_log.hpp" />
+    <ClInclude Include="src\render.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
