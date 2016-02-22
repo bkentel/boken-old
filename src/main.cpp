@@ -331,6 +331,11 @@ struct game_state {
         message_window.println(std::to_string(value_cast(v.x)) + " " + std::to_string(value_cast(v.y)));
 
         the_world.current_level().move_by(entity_instance_id {}, v);
+        advance(1);
+    }
+
+    void advance(int const steps) {
+        renderer.update_entity_data(the_world.current_level());
     }
 
     void run() {
@@ -357,31 +362,6 @@ struct game_state {
 
         os.render_clear();
         renderer.render(delta, current_view);
-
-        //
-        // Player and entities.
-        //
-        auto const& current_level = the_world.current_level();
-        auto const& epos = current_level.entity_positions();
-        auto const& eids = current_level.entity_ids();
-
-        render_data.entity_data.clear();
-        for (size_t i = 0; i < epos.size(); ++i) {
-            render_data.entity_data.push_back(render_t::data_t {
-                {value_cast(epos[i].x) * tw
-               , value_cast(epos[i].y) * th}
-              , {1 * tw, 0}
-              , 0xFF
-            });
-        }
-
-        os.render_set_data(render_data_type::position, read_only_pointer_t {
-            render_data.entity_data, BK_OFFSETOF(render_t::data_t, position)});
-        os.render_set_data(render_data_type::texture, read_only_pointer_t {
-            render_data.entity_data, BK_OFFSETOF(render_t::data_t, tex_coord)});
-        os.render_set_data(render_data_type::color, read_only_pointer_t {
-            render_data.entity_data, BK_OFFSETOF(render_t::data_t, color)});
-        os.render_data_n(render_data.entity_data.size());
 
         //
         // text

@@ -22,6 +22,7 @@ public:
     }
 
     void update_map_data(level const& lvl) final override;
+    void update_entity_data(level const& lvl) final override;
 
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
@@ -92,6 +93,32 @@ void game_renderer_impl::update_map_data(level const& lvl) {
     });
 }
 
+void game_renderer_impl::update_entity_data(level const& lvl) {
+    auto const& epos = lvl.entity_positions();
+    auto const& eids = lvl.entity_ids();
+
+    BK_ASSERT(epos.size() == eids.size());
+
+    auto const tw = value_cast(base_tile_map.tile_w);
+    auto const th = value_cast(base_tile_map.tile_h);
+
+    entity_data.clear();
+    entity_data.reserve(epos.size());
+
+    std::transform(begin(epos), end(epos), back_inserter(entity_data)
+      , [&, i = size_t {0}](auto const p) mutable noexcept {
+            ++i;
+            auto const px = static_cast<uint16_t>(value_cast(p.x) * tw);
+            auto const py = static_cast<uint16_t>(value_cast(p.y) * th);
+            auto const tx = static_cast<uint16_t>(1 * tw);
+            auto const ty = static_cast<uint16_t>(0 * th);
+
+            return data_t {point2<uint16_t> {px, py}
+                         , point2<uint16_t> {tx, ty}
+                         , 0xFFu};
+        });
+}
+
 void game_renderer_impl::render(duration_t const delta, view const& v) const noexcept {
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
 
@@ -113,6 +140,18 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     os_.render_set_data(render_data_type::color
       , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, color)});
     os_.render_data_n(tile_data.size());
+
+    //
+    // Entities
+    //
+    os_.render_set_data(render_data_type::position
+      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, position)});
+    os_.render_set_data(render_data_type::texture
+      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, tex_coord)});
+    os_.render_set_data(render_data_type::color
+      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, color)});
+    os_.render_data_n(entity_data.size());
+
 }
 
 } //namespace boken

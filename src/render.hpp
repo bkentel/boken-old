@@ -76,6 +76,7 @@ public:
     virtual ~game_renderer();
 
     virtual void update_map_data(level const& lvl) = 0;
+    virtual void update_entity_data(level const& lvl) = 0;
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
 };
