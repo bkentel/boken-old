@@ -11,6 +11,7 @@ namespace boken { class item; }
 namespace boken { class random_state; }
 namespace boken { class tile_flags; }
 namespace boken { struct tile_data; }
+namespace boken { struct tile_data_set; }
 namespace boken { enum class tile_type : uint16_t; }
 namespace boken { enum class tile_id : uint32_t; }
 
@@ -45,7 +46,6 @@ public:
     //===--------------------------------------------------------------------===
     //                               Queries
     //===--------------------------------------------------------------------===
-
     virtual sizeix width()  const noexcept = 0;
     virtual sizeiy height() const noexcept = 0;
 
@@ -87,6 +87,8 @@ public:
 
     virtual placement_result move_by(item_instance_id   id, vec2i v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i v) noexcept = 0;
+
+    virtual void update_tile_at(point2i p, tile_data_set const& data) noexcept = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access

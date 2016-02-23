@@ -426,6 +426,10 @@ public:
         };
     }
 
+    void update_tile_at(point2i const p, tile_data_set const& data) noexcept final override {
+
+    }
+
     std::vector<point2<uint16_t>> const& entity_positions() const noexcept final override {
         return entities_.positions;
     }
@@ -667,38 +671,53 @@ std::unique_ptr<level> make_level(random_state& rng, sizeix const width, sizeiy 
     return std::make_unique<level_impl>(rng, width, height);
 }
 
+bool can_remove_wall_code(
+    unsigned const wall_type
+  , unsigned const other_type
+) noexcept {
+    // north
+    if (
+        ((wall_type & 0b111'00'000) == 0b111'00'000) && (other_type & 0b000'00'010)
+    ) {
+        return true;
+    }
+
+    // east
+    if (
+        ((wall_type & 0b001'01'001) == 0b001'01'001) && (other_type & 0b000'10'000)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+template <typename Read, typename Check>
+bool can_remove_wall_at(int const x, int const y, Read read, Check check) noexcept {
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
+    auto const wall_type =
+        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::wall;
+        });
+
+    auto const other_type =
+        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::floor;
+        });
+
+    return can_remove_wall_code(wall_type, other_type);
+}
+
 void level_impl::generate_merge_walls(random_state& rng) {
-    auto const can_remove_shared_wall = [&](int const x, int const y, auto check) noexcept {
-        auto const wall_type = fold_neighbors9(x, y, check
-            , [&](int const x0, int const y0) noexcept {
-                return data_at_(data_.types, x0, y0) == tile_type::wall;
-            });
-
-        auto const floor_type = fold_neighbors9(x, y, check
-            , [&](int const x0, int const y0) noexcept {
-                return data_at_(data_.types, x0, y0) == tile_type::floor;
-            });
-
-        // north
-        if (
-            ((wall_type & 0b111'00'000) == 0b111'00'000) && (floor_type & 0b000'00'010)
-        ) {
-            return true;
-        }
-
-        // east
-        if (
-            ((wall_type & 0b001'01'001) == 0b001'01'001) && (floor_type & 0b000'10'000)
-        ) {
-            return true;
-        }
-
-        return false;
+    auto const read = [&](int const x, int const y) noexcept {
+        return data_at_(data_.types, x, y);
     };
 
     auto const transform = [&](int const x, int const y, auto check) noexcept {
         auto& type = data_at_(data_.types, x, y);
-        if (type != tile_type::wall || !can_remove_shared_wall(x, y, check)) {
+        if (type != tile_type::wall || !can_remove_wall_at(x, y, read, check)) {
             return;
         }
 
@@ -718,52 +737,61 @@ void level_impl::generate_merge_walls(random_state& rng) {
     );
 }
 
-void level_impl::generate_select_ids(random_state& rng) {
+tile_id wall_code_to_id(unsigned const code) noexcept {
+    using ti = tile_id;
+    switch (code) {
+    case 0b0000 : return ti::wall_0000;
+    case 0b0001 : return ti::wall_0001;
+    case 0b0010 : return ti::wall_0010;
+    case 0b0011 : return ti::wall_0011;
+    case 0b0100 : return ti::wall_0100;
+    case 0b0101 : return ti::wall_0101;
+    case 0b0110 : return ti::wall_0110;
+    case 0b0111 : return ti::wall_0111;
+    case 0b1000 : return ti::wall_1000;
+    case 0b1001 : return ti::wall_1001;
+    case 0b1010 : return ti::wall_1010;
+    case 0b1011 : return ti::wall_1011;
+    case 0b1100 : return ti::wall_1100;
+    case 0b1101 : return ti::wall_1101;
+    case 0b1110 : return ti::wall_1110;
+    case 0b1111 : return ti::wall_1111;
+    default     : break;
+    }
+
+    return ti::invalid;
+}
+
+template <typename Read, typename Check>
+tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noexcept {
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
     using ti = tile_id;
     using tt = tile_type;
 
-    auto const get_wall_type = [&](int const x, int const y, auto check) noexcept {
-        auto const wall_t = fold_neighbors4(x, y, check
-          , [&](int const x0, int const y0) noexcept {
-                return data_at_(data_.types, x0, y0) == tt::wall;
-            });
+    switch (read(x, y)) {
+    case tt::empty  : return ti::empty;
+    case tt::floor  : return ti::floor;
+    case tt::tunnel : return ti::tunnel;
+    case tt::door   : break;
+    case tt::stair  : break;
+    case tt::wall   : return wall_code_to_id(
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tt::wall;
+        }));
+    }
 
-        switch (wall_t) {
-        case 0b0000 : return ti::wall_0000;
-        case 0b0001 : return ti::wall_0001;
-        case 0b0010 : return ti::wall_0010;
-        case 0b0011 : return ti::wall_0011;
-        case 0b0100 : return ti::wall_0100;
-        case 0b0101 : return ti::wall_0101;
-        case 0b0110 : return ti::wall_0110;
-        case 0b0111 : return ti::wall_0111;
-        case 0b1000 : return ti::wall_1000;
-        case 0b1001 : return ti::wall_1001;
-        case 0b1010 : return ti::wall_1010;
-        case 0b1011 : return ti::wall_1011;
-        case 0b1100 : return ti::wall_1100;
-        case 0b1101 : return ti::wall_1101;
-        case 0b1110 : return ti::wall_1110;
-        case 0b1111 : return ti::wall_1111;
-        default     : break;
-        }
+    return ti::invalid;
+}
 
-        return ti::invalid;
+void level_impl::generate_select_ids(random_state& rng) {
+    auto const read = [&](int const x, int const y) noexcept {
+        return data_at_(data_.types, x, y);
     };
 
     auto const translate = [&](int const x, int const y, auto check) noexcept {
-        data_at_(data_.ids, x, y) = [&] {
-            switch (data_at_(data_.types, x, y)) {
-            case tt::empty  : return ti::empty;
-            case tt::wall   : return get_wall_type(x, y, check);
-            case tt::floor  : return ti::floor;
-            case tt::tunnel : return ti::tunnel;
-            case tt::door   : break;
-            case tt::stair  : break;
-            }
-
-            return ti::invalid;
-        }();
+        data_at_(data_.ids, x, y) = tile_type_to_id_at(x, y, read, check);
     };
 
     for_each_xy_center_first(bounds_
