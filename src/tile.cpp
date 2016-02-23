@@ -10,6 +10,7 @@ tile_id string_to_enum<tile_id>(string_view const str) noexcept {
     switch (static_cast<tile_id>(hash)) {
         BK_ENUM_MAPPING(empty);
         BK_ENUM_MAPPING(floor);
+        BK_ENUM_MAPPING(tunnel);
         BK_ENUM_MAPPING(wall_0000);
         BK_ENUM_MAPPING(wall_0001);
         BK_ENUM_MAPPING(wall_0010);
@@ -26,6 +27,8 @@ tile_id string_to_enum<tile_id>(string_view const str) noexcept {
         BK_ENUM_MAPPING(wall_1101);
         BK_ENUM_MAPPING(wall_1110);
         BK_ENUM_MAPPING(wall_1111);
+        BK_ENUM_MAPPING(door_ns);
+        BK_ENUM_MAPPING(door_ew);
     }
     #undef BK_ENUM_MAPPING
 
@@ -37,6 +40,7 @@ string_view enum_to_string(tile_id const id) noexcept {
     switch (id) {
         BK_ENUM_MAPPING(empty);
         BK_ENUM_MAPPING(floor);
+        BK_ENUM_MAPPING(tunnel);
         BK_ENUM_MAPPING(wall_0000);
         BK_ENUM_MAPPING(wall_0001);
         BK_ENUM_MAPPING(wall_0010);
@@ -53,6 +57,8 @@ string_view enum_to_string(tile_id const id) noexcept {
         BK_ENUM_MAPPING(wall_1101);
         BK_ENUM_MAPPING(wall_1110);
         BK_ENUM_MAPPING(wall_1111);
+        BK_ENUM_MAPPING(door_ns);
+        BK_ENUM_MAPPING(door_ew);
     }
     #undef BK_ENUM_MAPPING
 
@@ -72,6 +78,7 @@ uint16_t tile_map::id_to_index(tile_id const id) const noexcept {
     case ti::invalid:   break;
     case ti::empty:     return to_index(11, 13);
     case ti::floor:     return to_index( 7,  0);
+    case ti::tunnel:    return to_index(10, 15);
     case ti::wall_0000: return to_index( 0, 15); // none
     case ti::wall_0001: return to_index( 2, 13); // south
     case ti::wall_0010: return to_index( 6, 12); // east
@@ -88,6 +95,9 @@ uint16_t tile_map::id_to_index(tile_id const id) const noexcept {
     case ti::wall_1101: return to_index( 9, 11); // nsw
     case ti::wall_1110: return to_index(10, 12); // new
     case ti::wall_1111: return to_index(14, 12); // nesw
+    case ti::door_ns:   return to_index( 3, 11);
+    case ti::door_ew:   return to_index( 4, 12);
+
     }
 
     return 0;

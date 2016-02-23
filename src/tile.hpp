@@ -19,8 +19,9 @@ namespace boken {
 
 enum class tile_id : uint32_t {
     invalid = 0
-  , empty = djb2_hash_32c("empty")
-  , floor = djb2_hash_32c("floor")
+  , empty  = djb2_hash_32c("empty")
+  , floor  = djb2_hash_32c("floor")
+  , tunnel = djb2_hash_32c("tunnel")
   , wall_0000 = djb2_hash_32c("wall_0000")
   , wall_0001 = djb2_hash_32c("wall_0001")
   , wall_0010 = djb2_hash_32c("wall_0010")
@@ -37,6 +38,8 @@ enum class tile_id : uint32_t {
   , wall_1101 = djb2_hash_32c("wall_1101")
   , wall_1110 = djb2_hash_32c("wall_1110")
   , wall_1111 = djb2_hash_32c("wall_1111")
+  , door_ns   = djb2_hash_32c("door_ns")
+  , door_ew   = djb2_hash_32c("door_ew")
 };
 
 #if defined(_MSC_VER)
@@ -49,7 +52,7 @@ Enum string_to_enum(string_view str) noexcept;
 string_view enum_to_string(tile_id id) noexcept;
 
 enum class tile_type : uint16_t {
-    empty, wall, floor, door, stair
+    empty, wall, floor, tunnel, door, stair
 };
 
 class tile_flags {

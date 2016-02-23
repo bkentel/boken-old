@@ -489,6 +489,53 @@ public:
 
     void generate_select_ids(random_state& rng);
 
+    void generate_make_connections(random_state& rng) {
+        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+        for (auto const& region : regions_) {
+            if (region.tile_count <= 0) {
+                continue;
+            }
+
+            auto const& bounds = region.bounds;
+            auto p = point2i {bounds.x0 + bounds.width()  / 2
+                            , bounds.y0 + bounds.height() / 2};
+
+            auto const segments = random_uniform_int(rng, 0, 10);
+            for (int i = 0; i < segments; ++i) {
+                auto const dir = random_uniform_int(rng, 0, 3);
+                auto const d   = vec2i {dir_x[dir], dir_y[dir]};
+
+                for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
+                    auto const p0 = p + d;
+                    if (!check_bounds_(p0)) {
+                        break;
+                    }
+
+                    auto& type = data_at_(data_.types, p0);
+                    switch (type) {
+                    case tile_type::empty:
+                        type = tile_type::tunnel;
+                        data_at_(data_.flags, p0) = tile_flags {0};
+                        break;
+                    case tile_type::wall:
+                        type = tile_type::floor;
+                        data_at_(data_.flags, p0) = tile_flags {0};
+                        break;
+                    case tile_type::floor  : break;
+                    case tile_type::tunnel : break;
+                    case tile_type::door   : break;
+                    case tile_type::stair  : break;
+                    default                : break;
+                    }
+
+                    p = p0;
+                }
+            }
+        }
+    }
+
     void generate(random_state& rng) {
         std::fill(begin(data_.types), end(data_.types), tile_type::empty);
         std::fill(begin(data_.flags), end(data_.flags), tile_flags {tile_flags::f_solid});
@@ -549,6 +596,7 @@ public:
             buffer.resize(0);
         }
 
+        generate_make_connections(rng);
         generate_merge_walls(rng);
         generate_select_ids(rng);
     }
@@ -706,11 +754,12 @@ void level_impl::generate_select_ids(random_state& rng) {
     auto const translate = [&](int const x, int const y, auto check) noexcept {
         data_at_(data_.ids, x, y) = [&] {
             switch (data_at_(data_.types, x, y)) {
-            case tt::empty : return ti::empty;
-            case tt::wall  : return get_wall_type(x, y, check);
-            case tt::floor : return ti::floor;
-            case tt::door  : break;
-            case tt::stair : break;
+            case tt::empty  : return ti::empty;
+            case tt::wall   : return get_wall_type(x, y, check);
+            case tt::floor  : return ti::floor;
+            case tt::tunnel : return ti::tunnel;
+            case tt::door   : break;
+            case tt::stair  : break;
             }
 
             return ti::invalid;
