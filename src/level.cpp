@@ -11,6 +11,7 @@
 #include <algorithm>            // for max, find_if, fill, max_element, min, etc
 #include <functional>           // for reference_wrapper, ref
 #include <iterator>             // for begin, end, back_insert_iterator, etc
+#include <numeric>
 #include <vector>               // for vector
 
 #include <cstdint>              // for uint16_t, int32_t
@@ -18,6 +19,89 @@
 namespace boken {
 
 level::~level() = default;
+
+struct always_true {
+    template <typename... Args>
+    inline constexpr bool operator()(Args...) const noexcept {
+        return true;
+    }
+};
+
+template <size_t N, typename Check, typename Predicate>
+unsigned fold_neighbors_impl(
+    std::array<int, N> const& xi
+  , std::array<int, N> const& yi
+  , int const x
+  , int const y
+  , Check check
+  , Predicate pred
+) {
+    unsigned result {};
+
+    for (size_t i = 0; i < N; ++i) {
+        auto const x0 = x + xi[i];
+        auto const y0 = y + yi[i];
+        auto const bit = check(x0, y0) && pred(x0, y0) ? 1u : 0u;
+        result |= bit << (N - 1 - i);
+    }
+
+    return result;
+}
+
+//     N[3]
+// W[2]    E[1]
+//     S[0]
+template <typename Check, typename Predicate>
+unsigned fold_neighbors4(int const x, int const y, Check check, Predicate pred) {
+    constexpr std::array<int, 4> yi {-1,  0, 0, 1};
+    constexpr std::array<int, 4> xi { 0, -1, 1, 0};
+    return fold_neighbors_impl(xi, yi, x, y, check, pred);
+}
+
+// NW[7] N[6] NE[5]
+//  W[4]       E[3]
+// SW[2] S[1] SE[0]
+template <typename Check, typename Predicate>
+unsigned fold_neighbors9(int const x, int const y, Check check, Predicate pred) {
+    constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
+    constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
+    return fold_neighbors_impl(xi, yi, x, y, check, pred);
+}
+
+template <typename T>
+constexpr axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
+    return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
+          , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
+}
+
+//
+// 1111111111
+// 2000000002
+// 2000000002
+// 2000000002
+// 3333333333
+//
+template <typename T, typename CenterF, typename EdgeF>
+void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
+    // inner tiles
+    for_each_xy(shrink_rect(r), center);
+
+    //top edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        edge(x, r.y0);
+    }
+
+    //left and right edge
+    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
+        edge(r.x0,     y);
+        edge(r.x1 - 1, y);
+    }
+
+    // bottom edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        edge(x, r.y1 - 1);
+    }
+}
 
 template <typename Vector>
 auto& data_at(Vector&& v, int const x, int const y, sizeix const w) noexcept {
@@ -401,162 +485,9 @@ public:
         }
     }
 
-    void generate_merge_walls(random_state& rng) {
-        using namespace container_algorithms;
-        //sort(room_rects_, rect_by_min_dimension<int>);
+    void generate_merge_walls(random_state& rng);
 
-        auto const can_remove_shared_wall = [&](recti const r, int const x, int const y) noexcept {
-            auto const is_wall = [&](int const xi, int const yi) noexcept {
-                return check_bounds_(xi, yi)
-                    && data_at_(data_.types, xi, yi) == tile_type::wall;
-            };
-
-            auto const type = ((x == r.x0)     ? 0b0001u : 0u)
-                            | ((x == r.x1 - 1) ? 0b0010u : 0u)
-                            | ((y == r.y0)     ? 0b0100u : 0u)
-                            | ((y == r.y1 - 1) ? 0b1000u : 0u);
-
-            switch (type) {
-            case 0b0001 : // left
-                return is_wall(x - 1, y - 1)
-                    && is_wall(x - 1, y    )
-                    && is_wall(x - 1, y + 1);
-            case 0b0010 : // right
-                return is_wall(x + 1, y - 1)
-                    && is_wall(x + 1, y    )
-                    && is_wall(x + 1, y + 1);
-            case 0b0100 : // top
-                return is_wall(x - 1, y - 1)
-                    && is_wall(x    , y - 1)
-                    && is_wall(x + 1, y - 1);
-            case 0b1000 : // bottom
-                return is_wall(x - 1, y + 1)
-                    && is_wall(x    , y + 1)
-                    && is_wall(x + 1, y + 1);
-            case 0b0101 : // top left
-                return is_wall(x - 1, y - 1)
-                    && is_wall(x - 1, y    )
-                    && is_wall(x - 1, y + 1)
-                    && is_wall(x    , y - 1)
-                    && is_wall(x + 1, y - 1);
-            case 0b0110 : // top right
-                return is_wall(x + 1, y - 1)
-                    && is_wall(x + 1, y    )
-                    && is_wall(x + 1, y + 1)
-                    && is_wall(x    , y - 1)
-                    && is_wall(x - 1, y - 1);
-            case 0b1001 : // bottom left
-                return is_wall(x - 1, y - 1)
-                    && is_wall(x - 1, y    )
-                    && is_wall(x - 1, y + 1)
-                    && is_wall(x    , y + 1)
-                    && is_wall(x + 1, y + 1);
-            case 0b1010 : // bottom right
-                return is_wall(x + 1, y - 1)
-                    && is_wall(x + 1, y    )
-                    && is_wall(x + 1, y + 1)
-                    && is_wall(x    , y + 1)
-                    && is_wall(x - 1, y + 1);
-            default:
-                break;
-            }
-
-            return false;
-        };
-
-        //for (auto r : room_rects_) {
-        //    for_each_xy(r, [&](int const x, int const y, bool const on_edge) noexcept {
-        //        if (on_edge && can_remove_shared_wall(r, x, y)) {
-        //            data_at_(data_.types, x, y, width_) = tile_type::floor;
-        //            data_at_(data_.flags, x, y, width_) = tile_flags {0};
-        //        }
-        //    });
-        //}
-    }
-
-    void generate_select_ids(random_state& rng) {
-        using ti = tile_id;
-        using tt = tile_type;
-
-        auto const is_wall = [&](int const x, int const y) noexcept {
-            return data_at_(data_.types, x, y) == tt::wall;
-        };
-
-        auto const get_wall_type = [&](int const x, int const y, auto check) noexcept {
-            auto const wall_t =
-                  (check(x + 0, y - 1) && is_wall(x + 0, y - 1) ? 1u : 0u) << 3
-                | (check(x + 1, y + 0) && is_wall(x + 1, y + 0) ? 1u : 0u) << 2
-                | (check(x + 0, y + 1) && is_wall(x + 0, y + 1) ? 1u : 0u) << 1
-                | (check(x - 1, y + 0) && is_wall(x - 1, y + 0) ? 1u : 0u) << 0;
-
-            switch (wall_t) {
-            case 0b0000 : return ti::wall_0000;
-            case 0b0001 : return ti::wall_0001;
-            case 0b0010 : return ti::wall_0010;
-            case 0b0011 : return ti::wall_0011;
-            case 0b0100 : return ti::wall_0100;
-            case 0b0101 : return ti::wall_0101;
-            case 0b0110 : return ti::wall_0110;
-            case 0b0111 : return ti::wall_0111;
-            case 0b1000 : return ti::wall_1000;
-            case 0b1001 : return ti::wall_1001;
-            case 0b1010 : return ti::wall_1010;
-            case 0b1011 : return ti::wall_1011;
-            case 0b1100 : return ti::wall_1100;
-            case 0b1101 : return ti::wall_1101;
-            case 0b1110 : return ti::wall_1110;
-            case 0b1111 : return ti::wall_1111;
-            default     : break;
-            }
-
-            return ti::invalid;
-        };
-
-        auto const translate = [&](int const x, int const y, auto check) noexcept {
-            data_at_(data_.ids, x, y) = [&] {
-                switch (data_at_(data_.types, x, y)) {
-                case tile_type::empty : return ti::empty;
-                case tile_type::wall  : return get_wall_type(x, y, check);
-                case tile_type::floor : return ti::floor;
-                case tile_type::door  : break;
-                case tile_type::stair : break;
-                }
-
-                return ti::invalid;
-            }();
-        };
-
-        auto const check_none = [](int, int) noexcept { return true; };
-        auto const check_bounds = [&](int const x, int const y) noexcept {
-            return check_bounds_(x, y);
-        };
-
-        recti const map_rect {offix {bounds_.x0 + 1}, offiy {bounds_.y0 + 1}
-                            , offix {bounds_.x1 - 1}, offiy {bounds_.y1 - 1}};
-
-        // inner tiles -- no check required as we don't look at the edges here
-        for_each_xy(map_rect, [&](int const x, int const y) noexcept {
-            translate(x, y, check_none);
-        });
-
-        auto const x_edge = [&](int const y) noexcept {
-            for (auto x = bounds_.x0; x < bounds_.x1; ++x) {
-                translate(x, y, check_bounds);
-            }
-        };
-
-        //top edge
-        x_edge(bounds_.y0);
-
-        //left and right edge
-        for (auto y = bounds_.y0 + 1; y < bounds_.y1 - 1; ++y) {
-            translate(bounds_.x0 + 0, y, check_bounds);
-            translate(bounds_.x1 - 1, y, check_bounds);
-        }
-
-        // bottom edge
-        x_edge(bounds_.y1 - 1);
-    }
+    void generate_select_ids(random_state& rng);
 
     void generate(random_state& rng) {
         std::fill(begin(data_.types), end(data_.types), tile_type::empty);
@@ -611,9 +542,9 @@ public:
             buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
             region.tile_count = gen_rect(rng, rect, buffer);
 
-            copy_region(buffer, &tile_data_set::id,         rect, data_.ids);
-            copy_region(buffer, &tile_data_set::type,       rect, data_.types);
-            copy_region(buffer, &tile_data_set::flags,      rect, data_.flags);
+            copy_region(buffer, &tile_data_set::id,    rect, data_.ids);
+            copy_region(buffer, &tile_data_set::type,  rect, data_.types);
+            copy_region(buffer, &tile_data_set::flags, rect, data_.flags);
 
             buffer.resize(0);
         }
@@ -686,6 +617,116 @@ private:
 
 std::unique_ptr<level> make_level(random_state& rng, sizeix const width, sizeiy const height) {
     return std::make_unique<level_impl>(rng, width, height);
+}
+
+void level_impl::generate_merge_walls(random_state& rng) {
+    auto const can_remove_shared_wall = [&](int const x, int const y, auto check) noexcept {
+        auto const wall_type = fold_neighbors9(x, y, check
+            , [&](int const x0, int const y0) noexcept {
+                return data_at_(data_.types, x0, y0) == tile_type::wall;
+            });
+
+        auto const floor_type = fold_neighbors9(x, y, check
+            , [&](int const x0, int const y0) noexcept {
+                return data_at_(data_.types, x0, y0) == tile_type::floor;
+            });
+
+        // north
+        if (
+            ((wall_type & 0b111'00'000) == 0b111'00'000) && (floor_type & 0b000'00'010)
+        ) {
+            return true;
+        }
+
+        // east
+        if (
+            ((wall_type & 0b001'01'001) == 0b001'01'001) && (floor_type & 0b000'10'000)
+        ) {
+            return true;
+        }
+
+        return false;
+    };
+
+    auto const transform = [&](int const x, int const y, auto check) noexcept {
+        auto& type = data_at_(data_.types, x, y);
+        if (type != tile_type::wall || !can_remove_shared_wall(x, y, check)) {
+            return;
+        }
+
+        type = tile_type::floor;
+        data_at_(data_.flags, x, y) = tile_flags {0};
+    };
+
+    for_each_xy_center_first(bounds_
+        , [&](int const x, int const y) noexcept {
+            transform(x, y, always_true {});
+        }
+        , [&](int const x, int const y) noexcept {
+            transform(x, y, [&](int const x0, int const y0) noexcept {
+                return check_bounds_(x0, y0);
+            });
+        }
+    );
+}
+
+void level_impl::generate_select_ids(random_state& rng) {
+    using ti = tile_id;
+    using tt = tile_type;
+
+    auto const get_wall_type = [&](int const x, int const y, auto check) noexcept {
+        auto const wall_t = fold_neighbors4(x, y, check
+          , [&](int const x0, int const y0) noexcept {
+                return data_at_(data_.types, x0, y0) == tt::wall;
+            });
+
+        switch (wall_t) {
+        case 0b0000 : return ti::wall_0000;
+        case 0b0001 : return ti::wall_0001;
+        case 0b0010 : return ti::wall_0010;
+        case 0b0011 : return ti::wall_0011;
+        case 0b0100 : return ti::wall_0100;
+        case 0b0101 : return ti::wall_0101;
+        case 0b0110 : return ti::wall_0110;
+        case 0b0111 : return ti::wall_0111;
+        case 0b1000 : return ti::wall_1000;
+        case 0b1001 : return ti::wall_1001;
+        case 0b1010 : return ti::wall_1010;
+        case 0b1011 : return ti::wall_1011;
+        case 0b1100 : return ti::wall_1100;
+        case 0b1101 : return ti::wall_1101;
+        case 0b1110 : return ti::wall_1110;
+        case 0b1111 : return ti::wall_1111;
+        default     : break;
+        }
+
+        return ti::invalid;
+    };
+
+    auto const translate = [&](int const x, int const y, auto check) noexcept {
+        data_at_(data_.ids, x, y) = [&] {
+            switch (data_at_(data_.types, x, y)) {
+            case tt::empty : return ti::empty;
+            case tt::wall  : return get_wall_type(x, y, check);
+            case tt::floor : return ti::floor;
+            case tt::door  : break;
+            case tt::stair : break;
+            }
+
+            return ti::invalid;
+        }();
+    };
+
+    for_each_xy_center_first(bounds_
+        , [&](int const x, int const y) noexcept {
+            translate(x, y, always_true {});
+        }
+        , [&](int const x, int const y) noexcept {
+            translate(x, y, [&](int const x0, int const y0) noexcept {
+                return check_bounds_(x0, y0);
+            });
+        }
+    );
 }
 
 } //namespace boken
