@@ -20,7 +20,6 @@ struct tile_view {
     tile_id    const&       id;
     tile_type  const&       type;
     tile_flags const&       flags;
-    uint16_t   const&       tile_index;
     uint16_t   const&       region_id;
     tile_data  const* const data;
 };
@@ -95,8 +94,8 @@ public:
     virtual std::vector<point2<uint16_t>> const& entity_positions() const noexcept = 0;
     virtual std::vector<entity_id>        const& entity_ids()       const noexcept = 0;
 
-    virtual std::pair<std::vector<uint16_t> const&, recti>
-        tile_indicies(int block) const noexcept = 0;
+    virtual std::pair<std::vector<tile_id> const&, recti>
+        tile_ids(int block) const noexcept = 0;
 
     virtual std::pair<std::vector<uint16_t> const&, recti>
         region_ids(int block) const noexcept = 0;

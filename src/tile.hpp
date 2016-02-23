@@ -39,14 +39,14 @@ enum class tile_id : uint32_t {
   , wall_1111 = djb2_hash_32c("wall_1111")
 };
 
+#if defined(_MSC_VER)
+#   pragma warning(pop)
+#endif
+
 template <typename Enum>
 Enum string_to_enum(string_view str) noexcept;
 
 string_view enum_to_string(tile_id id) noexcept;
-
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#endif
 
 enum class tile_type : uint16_t {
     empty, wall, floor, door, stair
@@ -92,7 +92,6 @@ struct tile_data_set {
     tile_flags flags;
     tile_id    id;
     tile_type  type;
-    uint16_t   tile_index;
     uint16_t   region_id;
 };
 
@@ -100,8 +99,8 @@ class tile_map {
 public:
     recti index_to_rect(int32_t const i) const noexcept {
         return {
-            offix {i % value_cast(tiles_x)}
-          , offiy {i / value_cast(tiles_x)}
+            offix {(i % value_cast(tiles_x)) * value_cast(tile_w)}
+          , offiy {(i / value_cast(tiles_x)) * value_cast(tile_h)}
           , tile_w
           , tile_h
         };

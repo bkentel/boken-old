@@ -19,6 +19,19 @@ namespace boken {
 
 level::~level() = default;
 
+template <typename Vector>
+auto& data_at(Vector&& v, int const x, int const y, sizeix const w) noexcept {
+    auto const i = static_cast<size_t>(x)
+                 + static_cast<size_t>(y) * value_cast<size_t>(w);
+
+    return v[i];
+}
+
+template <typename Vector>
+auto& data_at(Vector&& v, point2i const p, sizeix const w) noexcept {
+    return data_at(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
+}
+
 template <typename T, typename Predicate>
 std::pair<point2<T>, bool> find_random_nearest(
     random_state&         rng
@@ -80,7 +93,7 @@ struct generate_rect_room {
       , axis_aligned_rect<T> const r
       , size_type<T>         const min_size
       , size_type<T>         const max_size
-      , float                const inverse_variance = 6.0f
+      , double               const inverse_variance = 6.0
     ) noexcept {
         BK_ASSERT(min_size <= max_size);
         BK_ASSERT(inverse_variance > 0.0f);
@@ -99,9 +112,10 @@ struct generate_rect_room {
                 return size;
             }
 
-            auto const range  = max_s - min_s;
-            auto const median = min_s + range / 2.0;
-            auto const roll   = random_normal(rng, median, range / inverse_variance);
+            auto const range    = max_s - min_s;
+            auto const median   = min_s + range / 2.0;
+            auto const variance = range / inverse_variance;
+            auto const roll     = random_normal(rng, median, variance);
 
             return clamp(round_as<T>(roll), min_s, max_s);
         };
@@ -160,9 +174,8 @@ struct generate_rect_room {
 class level_impl : public level {
 public:
     level_impl(random_state& rng, sizeix const width, sizeiy const height)
-      : width_  {width}
-      , height_ {height}
-      , data_   {width, height}
+      : bounds_  {offix {0}, offiy {0}, width, height}
+      , data_    {width, height}
     {
         bsp_generator::param_t p;
         p.width  = sizeix {width};
@@ -187,11 +200,11 @@ public:
     // level interface
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     sizeix width() const noexcept final override {
-        return width_;
+        return sizeix {bounds_.width()};
     }
 
     sizeiy height() const noexcept final override {
-        return height_;
+        return sizeiy {bounds_.height()};
     }
 
     item const* find(item_instance_id const id) const noexcept final override {
@@ -219,7 +232,7 @@ public:
     placement_result can_place_entity_at(point2i const p) const noexcept final override {
         return !check_bounds_(p)
                  ? placement_result::failed_bounds
-             : data_at_(data_.flags, p, width_).test(tile_flags::f_solid)
+             : data_at_(data_.flags, p).test(tile_flags::f_solid)
                  ? placement_result::failed_obstacle
              : is_entity_at(p)
                  ? placement_result::failed_entity
@@ -308,7 +321,6 @@ public:
             static tile_id    const dummy_id         {};
             static tile_type  const dummy_type       {tile_type::empty};
             static tile_flags const dummy_flags      {};
-            static uint16_t   const dummy_tile_index {};
             static uint16_t   const dummy_region_id  {};
             static tile_data* const dummy_data       {};
 
@@ -316,18 +328,16 @@ public:
                 dummy_id
               , dummy_type
               , dummy_flags
-              , dummy_tile_index
               , dummy_region_id
               , dummy_data
             };
         }
 
         return {
-            data_at_(data_.ids,           x, y, width_)
-          , data_at_(data_.types,         x, y, width_)
-          , data_at_(data_.flags,         x, y, width_)
-          , data_at_(data_.tile_indicies, x, y, width_)
-          , data_at_(data_.region_ids,    x, y, width_)
+            data_at_(data_.ids,        x, y)
+          , data_at_(data_.types,      x, y)
+          , data_at_(data_.flags,      x, y)
+          , data_at_(data_.region_ids, x, y)
           , nullptr
         };
     }
@@ -340,16 +350,14 @@ public:
         return entities_.ids;
     }
 
-    std::pair<std::vector<uint16_t> const&, recti>
-    tile_indicies(int const block) const noexcept final override {
-        return std::make_pair(std::ref(data_.tile_indicies)
-          , recti {offix {0}, offiy {0}, width_, height_});
+    std::pair<std::vector<tile_id> const&, recti>
+    tile_ids(int const block) const noexcept final override {
+        return std::make_pair(std::ref(data_.ids), bounds_);
     }
 
     std::pair<std::vector<uint16_t> const&, recti>
     region_ids(int const block) const noexcept final override {
-        return std::make_pair(std::ref(data_.region_ids)
-          , recti {offix {0}, offiy {0}, width_, height_});
+        return std::make_pair(std::ref(data_.region_ids), bounds_);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -378,7 +386,7 @@ public:
       , std::vector<T>&                   dst
     ) noexcept {
         auto const src_w = src_rect.width();
-        auto const dst_w = value_cast(width_);
+        auto const dst_w = value_cast(width());
         auto const step = static_cast<size_t>(dst_w - src_w);
 
         BK_ASSERT(src_w <= dst_w);
@@ -400,7 +408,7 @@ public:
         auto const can_remove_shared_wall = [&](recti const r, int const x, int const y) noexcept {
             auto const is_wall = [&](int const xi, int const yi) noexcept {
                 return check_bounds_(xi, yi)
-                    && data_at_(data_.types, xi, yi, width_) == tile_type::wall;
+                    && data_at_(data_.types, xi, yi) == tile_type::wall;
             };
 
             auto const type = ((x == r.x0)     ? 0b0001u : 0u)
@@ -449,6 +457,8 @@ public:
                     && is_wall(x + 1, y + 1)
                     && is_wall(x    , y + 1)
                     && is_wall(x - 1, y + 1);
+            default:
+                break;
             }
 
             return false;
@@ -465,17 +475,87 @@ public:
     }
 
     void generate_select_ids(random_state& rng) {
-        recti const map_rect {offix {0}, offiy {0}, width_, height_};
-        for_each_xy(map_rect, [&](int const x, int const y, bool) noexcept {
-            auto const& type  = data_at_(data_.types, x, y, width_);
-            auto&       index = data_at_(data_.tile_indicies, x, y, width_);
+        using ti = tile_id;
+        using tt = tile_type;
 
-            switch (type) {
-            case tile_type::empty : index = 11 + 13 * 16; break;
-            case tile_type::floor : index = 7;            break;
-            case tile_type::wall  : index = 11 * 16;      break;
+        auto const is_wall = [&](int const x, int const y) noexcept {
+            return data_at_(data_.types, x, y) == tt::wall;
+        };
+
+        auto const get_wall_type = [&](int const x, int const y, auto check) noexcept {
+            auto const wall_t =
+                  (check(x + 0, y - 1) && is_wall(x + 0, y - 1) ? 1u : 0u) << 3
+                | (check(x + 1, y + 0) && is_wall(x + 1, y + 0) ? 1u : 0u) << 2
+                | (check(x + 0, y + 1) && is_wall(x + 0, y + 1) ? 1u : 0u) << 1
+                | (check(x - 1, y + 0) && is_wall(x - 1, y + 0) ? 1u : 0u) << 0;
+
+            switch (wall_t) {
+            case 0b0000 : return ti::wall_0000;
+            case 0b0001 : return ti::wall_0001;
+            case 0b0010 : return ti::wall_0010;
+            case 0b0011 : return ti::wall_0011;
+            case 0b0100 : return ti::wall_0100;
+            case 0b0101 : return ti::wall_0101;
+            case 0b0110 : return ti::wall_0110;
+            case 0b0111 : return ti::wall_0111;
+            case 0b1000 : return ti::wall_1000;
+            case 0b1001 : return ti::wall_1001;
+            case 0b1010 : return ti::wall_1010;
+            case 0b1011 : return ti::wall_1011;
+            case 0b1100 : return ti::wall_1100;
+            case 0b1101 : return ti::wall_1101;
+            case 0b1110 : return ti::wall_1110;
+            case 0b1111 : return ti::wall_1111;
+            default     : break;
             }
+
+            return ti::invalid;
+        };
+
+        auto const translate = [&](int const x, int const y, auto check) noexcept {
+            data_at_(data_.ids, x, y) = [&] {
+                switch (data_at_(data_.types, x, y)) {
+                case tile_type::empty : return ti::empty;
+                case tile_type::wall  : return get_wall_type(x, y, check);
+                case tile_type::floor : return ti::floor;
+                case tile_type::door  : break;
+                case tile_type::stair : break;
+                }
+
+                return ti::invalid;
+            }();
+        };
+
+        auto const check_none = [](int, int) noexcept { return true; };
+        auto const check_bounds = [&](int const x, int const y) noexcept {
+            return check_bounds_(x, y);
+        };
+
+        recti const map_rect {offix {bounds_.x0 + 1}, offiy {bounds_.y0 + 1}
+                            , offix {bounds_.x1 - 1}, offiy {bounds_.y1 - 1}};
+
+        // inner tiles -- no check required as we don't look at the edges here
+        for_each_xy(map_rect, [&](int const x, int const y) noexcept {
+            translate(x, y, check_none);
         });
+
+        auto const x_edge = [&](int const y) noexcept {
+            for (auto x = bounds_.x0; x < bounds_.x1; ++x) {
+                translate(x, y, check_bounds);
+            }
+        };
+
+        //top edge
+        x_edge(bounds_.y0);
+
+        //left and right edge
+        for (auto y = bounds_.y0 + 1; y < bounds_.y1 - 1; ++y) {
+            translate(bounds_.x0 + 0, y, check_bounds);
+            translate(bounds_.x1 - 1, y, check_bounds);
+        }
+
+        // bottom edge
+        x_edge(bounds_.y1 - 1);
     }
 
     void generate(random_state& rng) {
@@ -511,7 +591,6 @@ public:
           , tile_id    {}
           , tile_type  {tile_type::empty}
           , uint16_t   {}
-          , uint16_t   {}
         };
 
         auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
@@ -523,7 +602,7 @@ public:
 
         for (auto& region : regions_) {
             auto const rect = region.bounds;
-            fill_rect(data_.region_ids, width_, rect, default_tile.region_id++);
+            fill_rect(data_.region_ids, width(), rect, default_tile.region_id++);
 
             if (!roll_room_chance()) {
                 continue;
@@ -535,7 +614,6 @@ public:
             copy_region(buffer, &tile_data_set::id,         rect, data_.ids);
             copy_region(buffer, &tile_data_set::type,       rect, data_.types);
             copy_region(buffer, &tile_data_set::flags,      rect, data_.flags);
-            copy_region(buffer, &tile_data_set::tile_index, rect, data_.tile_indicies);
 
             buffer.resize(0);
         }
@@ -545,33 +623,36 @@ public:
     }
 private:
     template <typename Vector>
-    static auto data_at_(Vector&& v, int const x, int const y, sizeix const w)
-        noexcept -> decltype(v[0])
-    {
-        auto const i = static_cast<size_t>(x)
-                     + static_cast<size_t>(y) * value_cast<size_t>(w);
-
-        return v[i];
+    auto data_at_(Vector&& v, int const x, int const y) const noexcept -> decltype(v[0]) {
+        return data_at(std::forward<Vector>(v), x, y, width());
     }
 
     template <typename Vector>
-    static auto data_at_(Vector&& v, point2i const p, sizeix const w) noexcept
-        -> decltype(v[0])
-    {
-        return data_at_(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
+    auto data_at_(Vector&& v, point2i const p) const noexcept -> decltype(v[0]) {
+        return data_at(std::forward<Vector>(v), p, width());
     }
 
+    template <typename Vector>
+    auto data_at_(Vector&& v, int const x, int const y) noexcept -> decltype(v[0]) {
+        return data_at(std::forward<Vector>(v), x, y, width());
+    }
+
+    template <typename Vector>
+    auto data_at_(Vector&& v, point2i const p) noexcept -> decltype(v[0]) {
+        return data_at(std::forward<Vector>(v), p, width());
+    }
+
+
     bool check_bounds_(int const x, int const y) const noexcept {
-       return (x >= 0)                  && (y >= 0)
-           && (x <  value_cast(width_)) && (y <  value_cast(height_));
+       return (x >= 0)                   && (y >= 0)
+           && (x <  value_cast(width())) && (y <  value_cast(height()));
     }
 
     bool check_bounds_(point2i const p) const noexcept {
         return check_bounds_(value_cast(p.x), value_cast(p.y));
     }
 
-    sizeix width_;
-    sizeiy height_;
+    recti bounds_;
 
     struct entities_t {
         std::vector<point2<uint16_t>> positions;
@@ -587,7 +668,6 @@ private:
           : ids(size)
           , types(size)
           , flags(size)
-          , tile_indicies(size)
           , region_ids(size)
         {
         }
@@ -600,7 +680,6 @@ private:
         std::vector<tile_id>    ids;
         std::vector<tile_type>  types;
         std::vector<tile_flags> flags;
-        std::vector<uint16_t>   tile_indicies;
         std::vector<uint16_t>   region_ids;
     } data_;
 };
