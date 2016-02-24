@@ -2,10 +2,13 @@
 
 #include "math.hpp"   // for point2i, recti, vec2i, axis_aligned_rect, etc
 #include "types.hpp"  // for entity_instance_id, item_instance_id, sizeix, etc
+#include "utility.hpp"
+
 #include <memory>     // for unique_ptr
 #include <utility>    // for pair
 #include <vector>     // for vector
 #include <cstdint>    // for uint16_t, int32_t
+
 namespace boken { class entity; }
 namespace boken { class item; }
 namespace boken { class random_state; }
@@ -48,6 +51,7 @@ public:
     //===--------------------------------------------------------------------===
     virtual sizeix width()  const noexcept = 0;
     virtual sizeiy height() const noexcept = 0;
+    virtual recti  bounds() const noexcept = 0;
 
     virtual item   const* find(item_instance_id   id) const noexcept = 0;
     virtual entity const* find(entity_instance_id id) const noexcept = 0;
@@ -88,7 +92,8 @@ public:
     virtual placement_result move_by(item_instance_id   id, vec2i v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i v) noexcept = 0;
 
-    virtual void update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
+    virtual const_sub_region_range<tile_id>
+        update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access

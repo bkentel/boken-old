@@ -1,13 +1,16 @@
 #pragma once
 
 #include "math.hpp"
+#include "utility.hpp"
 #include <chrono>
+#include <cstdint>
 
 namespace boken { class level; }
 namespace boken { class message_log; }
 namespace boken { class system; }
 namespace boken { class text_renderer; }
 namespace boken { class tile_map; }
+namespace boken { enum class tile_id : uint32_t; }
 
 namespace boken {
 
@@ -82,7 +85,7 @@ public:
     virtual tile_map const& base_tile_map() const noexcept = 0;
 
     virtual void update_map_data(level const& lvl) = 0;
-    virtual void update_map_data(level const& lvl, recti area) = 0;
+    virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
     virtual void update_entity_data(level const& lvl) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;

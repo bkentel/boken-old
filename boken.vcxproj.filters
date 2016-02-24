@@ -28,6 +28,9 @@
     </ClCompile>
     <ClCompile Include="src\tile.cpp" />
     <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\test\level.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bkassert/assert.hpp>
+
 #include <type_traits>
 #include <algorithm>
 #include <array>
@@ -190,5 +192,143 @@ using dynamic_buffer = basic_buffer<0>;
 
 template <size_t Size>
 using static_buffer = basic_buffer<Size>;
+
+template <typename T>
+class sub_region_iterator : public std::iterator_traits<T*> {
+    using this_t = sub_region_iterator<T>;
+    template <typename U> friend class sub_region_iterator;
+public:
+    using reference = typename std::iterator_traits<T*>::reference;
+    using pointer   = typename std::iterator_traits<T*>::pointer;
+
+    sub_region_iterator(
+        T* const p
+      , ptrdiff_t const off_x,       ptrdiff_t const off_y
+      , ptrdiff_t const width_outer, ptrdiff_t const height_outer
+      , ptrdiff_t const width_inner, ptrdiff_t const height_inner
+      , ptrdiff_t const x = 0,       ptrdiff_t const y = 0
+    ) noexcept
+      : p_ {p + (off_x + x) + (off_y + y) * width_outer}
+      , off_x_ {off_x}
+      , off_y_ {off_y}
+      , width_outer_ {width_outer}
+      , width_inner_ {width_inner}
+      , height_inner_ {height_inner}
+      , x_ {x}
+      , y_ {y}
+    {
+        BK_ASSERT(!!p);
+        BK_ASSERT(off_x >= 0 && off_y >= 0);
+        BK_ASSERT(width_inner >= 0 && width_outer >= width_inner + off_x);
+        BK_ASSERT(height_inner >= 0 && height_outer >= height_inner + off_y);
+        BK_ASSERT(x_ <= width_inner && y_ <= height_inner);
+    }
+
+    // create a new iterator with the same properties as other, but with a
+    // different base pointer.
+    template <typename U>
+    sub_region_iterator(sub_region_iterator<U> it, T* const p) noexcept
+      : p_ {p + (it.off_x_ + it.x_) + (it.off_y_ + it.y_) * it.width_outer_}
+      , off_x_ {it.off_x_}
+      , off_y_ {it.off_y_}
+      , width_outer_ {it.width_outer_}
+      , width_inner_ {it.width_inner_}
+      , height_inner_ {it.height_inner_}
+      , x_ {it.x_}
+      , y_ {it.y_}
+    {
+    }
+
+    reference operator*() const noexcept {
+        return *p_;
+    }
+
+    pointer operator->() const noexcept {
+        return &**this;
+    }
+
+    void operator++() noexcept {
+        ++p_;
+        if (++x_ < width_inner_) {
+            return;
+        }
+
+        if (++y_ < height_inner_) {
+            x_ = 0;
+            p_ += (width_outer_ - width_inner_);
+        }
+    }
+
+    sub_region_iterator operator++(int) noexcept {
+        auto result = *this;
+        ++(*this);
+        return result;
+    }
+
+    bool operator<(this_t const& other) const noexcept {
+        return p_ < other.p_;
+    }
+
+    bool operator==(this_t const& other) const noexcept {
+        return (p_ == other.p_);
+    }
+
+    bool operator!=(this_t const& other) const noexcept {
+        return !(*this == other);
+    }
+
+    ptrdiff_t x()      const noexcept { return x_; }
+    ptrdiff_t y()      const noexcept { return y_; }
+    ptrdiff_t off_x()  const noexcept { return off_x_; }
+    ptrdiff_t off_y()  const noexcept { return off_y_; }
+    ptrdiff_t width()  const noexcept { return width_inner_; }
+    ptrdiff_t height() const noexcept { return height_inner_; }
+    ptrdiff_t stride() const noexcept { return width_outer_; }
+private:
+    T* p_ {};
+
+    ptrdiff_t off_x_ {};
+    ptrdiff_t off_y_ {};
+    ptrdiff_t width_outer_ {};
+    ptrdiff_t width_inner_ {};
+    ptrdiff_t height_inner_ {};
+
+    ptrdiff_t x_ {};
+    ptrdiff_t y_ {};
+};
+
+template <typename T>
+using const_sub_region_iterator = sub_region_iterator<std::add_const_t<std::decay_t<T>>>;
+
+template <typename T>
+using sub_region_range = std::pair<
+    sub_region_iterator<T>, sub_region_iterator<T>>;
+
+template <typename T>
+using const_sub_region_range = sub_region_range<std::add_const_t<std::decay_t<T>>>;
+
+template <typename T>
+sub_region_range<T> make_sub_region_range(
+    T* const p
+  , ptrdiff_t const off_x,       ptrdiff_t const off_y
+  , ptrdiff_t const width_outer, ptrdiff_t const height_outer
+  , ptrdiff_t const width_inner, ptrdiff_t const height_inner
+) noexcept {
+    return {
+        sub_region_iterator<T> {
+            p
+          , off_x, off_y
+          , width_outer, height_outer
+          , width_inner, height_inner
+        }
+      , sub_region_iterator<T> {
+            p
+          , off_x, off_y
+          , width_outer, height_outer
+          , width_inner, height_inner
+          , width_inner, height_inner - 1
+      }
+    };
+}
 
 } //namespace boken

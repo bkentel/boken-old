@@ -297,6 +297,10 @@ public:
         return sizeiy {bounds_.height()};
     }
 
+    recti bounds() const noexcept final override {
+        return bounds_;
+    }
+
     item const* find(item_instance_id const id) const noexcept final override {
         return nullptr;
     }
@@ -607,15 +611,15 @@ public:
         update_tile_ids(rng, bounds_);
     }
 
-    void update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data);
+    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data);
 
-    void update_tile_at(random_state& rng, point2i const p, tile_data_set const& data) noexcept final override {
+    const_sub_region_range<tile_id> update_tile_at(random_state& rng, point2i const p, tile_data_set const& data) noexcept final override {
         auto const r = recti {p.x, p.y, sizeix {1}, sizeiy{1}};
-        update_tile_rect(rng, r, &data);
+        return update_tile_rect(rng, r, &data);
     }
 
-    void update_tile_rect(random_state& rng, recti const area, std::vector<tile_data_set> const& data) {
-        update_tile_rect(rng, area, data.data());
+    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti const area, std::vector<tile_data_set> const& data) {
+        return update_tile_rect(rng, area, data.data());
     }
 private:
     template <typename Vector>
@@ -832,7 +836,12 @@ void level_impl::update_tile_ids(random_state& rng, recti const area) {
     );
 }
 
-void level_impl::update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data) {
+const_sub_region_range<tile_id>
+level_impl::update_tile_rect(
+    random_state&              rng
+  , recti                const area
+  , tile_data_set const* const data
+) {
     copy_region(data, &tile_data_set::id,    area, data_.ids);
     copy_region(data, &tile_data_set::type,  area, data_.types);
     copy_region(data, &tile_data_set::flags, area, data_.flags);
@@ -844,6 +853,12 @@ void level_impl::update_tile_rect(random_state& rng, recti const area, tile_data
     update_area.y1 = std::min(update_area.y1, bounds_.y1);
 
     update_tile_ids(rng, update_area);
+
+    return make_sub_region_range(as_const(data_.ids.data())
+      , update_area.x0,      update_area.y0
+      , bounds_.width(),     bounds_.height()
+      , update_area.width(), update_area.height()
+    );
 }
 
 } //namespace boken

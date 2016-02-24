@@ -29,7 +29,7 @@ public:
     }
 
     void update_map_data(level const& lvl) final override;
-    void update_map_data(level const& lvl, recti area) final override;
+    void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
     void update_entity_data(level const& lvl) final override;
 
     void update_tool_tip_text(std::string text) final override;
@@ -67,8 +67,18 @@ std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& tre
     return std::make_unique<game_renderer_impl>(os, trender);
 }
 
-void game_renderer_impl::update_map_data(level const& lvl, recti area) {
+void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region) {
+    auto dst_it = sub_region_iterator<data_t>(sub_region.first, tile_data.data());
 
+    for (auto it = sub_region.first; it != sub_region.second; ++it, ++dst_it) {
+        auto& dst = *dst_it;
+
+        auto const tex_rect = base_tile_map_.index_to_rect(
+            base_tile_map_.id_to_index(*it));
+
+        dst.tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
+        dst.tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
+    }
 }
 
 void game_renderer_impl::update_map_data(level const& lvl) {

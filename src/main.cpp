@@ -199,6 +199,7 @@ struct game_state {
         os.on_key([&](kb_event a, kb_modifiers b) { on_key(a, b); });
         os.on_mouse_move([&](mouse_event a, kb_modifiers b) { on_mouse_move(a, b); });
         os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
+        os.on_mouse_button([&](mouse_event a, kb_modifiers b) { on_mouse_button(a, b); });
 
         cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
 
@@ -275,6 +276,28 @@ struct game_state {
                 show_tool_tip({last_mouse_x, last_mouse_y});
             }
             cmd_translator.translate(event);
+        }
+    }
+
+    void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        if (event.button_state[0]) {
+            auto&      lvl = the_world.current_level();
+            auto const p   = window_to_world({event.x, event.y});
+
+            if (!intersects(lvl.bounds(), p)) {
+                return;
+            }
+
+            tile_data_set const data {
+                tile_data {}
+              , tile_flags {0}
+              , tile_id::tunnel
+              , tile_type::tunnel
+              , 0
+            };
+
+            renderer.update_map_data(
+                lvl.update_tile_at(rng_superficial, p, data));
         }
     }
 

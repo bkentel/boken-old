@@ -223,6 +223,21 @@ private:
 using recti = axis_aligned_rect<int32_t>;
 
 template <typename T, typename U> inline constexpr
+bool intersects(axis_aligned_rect<T> const& r, point2<U> const& p) noexcept {
+    using lt = std::less<>;
+
+    return !compare_integral(value_cast(p.x), r.x0, lt {})
+        &&  compare_integral(value_cast(p.x), r.x1, lt {})
+        && !compare_integral(value_cast(p.y), r.y0, lt {})
+        &&  compare_integral(value_cast(p.y), r.y1, lt {});
+}
+
+template <typename T, typename U> inline constexpr
+bool intersects(point2<U> const& p, axis_aligned_rect<T> const& r) noexcept {
+    return intersects(r, p);
+}
+
+template <typename T, typename U> inline constexpr
 bool operator==(axis_aligned_rect<T> const& lhs, axis_aligned_rect<U> const& rhs) noexcept {
     using eq = std::equal_to<>;
 

@@ -67,6 +67,7 @@ set(SOURCES_EXTERNAL
 
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp
+    src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/spatial_map.t.cpp
     src/test/utility.t.cpp)
