@@ -82,6 +82,7 @@ public:
     virtual tile_map const& base_tile_map() const noexcept = 0;
 
     virtual void update_map_data(level const& lvl) = 0;
+    virtual void update_map_data(level const& lvl, recti area) = 0;
     virtual void update_entity_data(level const& lvl) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;

@@ -74,6 +74,12 @@ constexpr axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcep
           , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
 }
 
+template <typename T>
+constexpr axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
+    return {offset_type_x<T> {r.x0 - 1}, offset_type_y<T> {r.y0 - 1}
+          , offset_type_x<T> {r.x1 + 1}, offset_type_y<T> {r.y1 + 1}};
+}
+
 //
 // 1111111111
 // 2000000002
@@ -426,10 +432,6 @@ public:
         };
     }
 
-    void update_tile_at(point2i const p, tile_data_set const& data) noexcept final override {
-
-    }
-
     std::vector<point2<uint16_t>> const& entity_positions() const noexcept final override {
         return entities_.positions;
     }
@@ -468,10 +470,10 @@ public:
 
     template <typename T>
     void copy_region(
-        std::vector<tile_data_set> const& src
-      , T const tile_data_set::* const    src_field
-      , recti const                       src_rect
-      , std::vector<T>&                   dst
+        tile_data_set const*     const src
+      , T const tile_data_set::* const src_field
+      , recti const                    src_rect
+      , std::vector<T>&                dst
     ) noexcept {
         auto const src_w = src_rect.width();
         auto const dst_w = value_cast(width());
@@ -489,9 +491,9 @@ public:
         }
     }
 
-    void generate_merge_walls(random_state& rng);
+    void merge_walls_at(random_state& rng, recti area);
 
-    void generate_select_ids(random_state& rng);
+    void update_tile_ids(random_state& rng, recti area);
 
     void generate_make_connections(random_state& rng) {
         constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
@@ -593,18 +595,42 @@ public:
             buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
             region.tile_count = gen_rect(rng, rect, buffer);
 
-            copy_region(buffer, &tile_data_set::id,    rect, data_.ids);
-            copy_region(buffer, &tile_data_set::type,  rect, data_.types);
-            copy_region(buffer, &tile_data_set::flags, rect, data_.flags);
+            copy_region(buffer.data(), &tile_data_set::id,    rect, data_.ids);
+            copy_region(buffer.data(), &tile_data_set::type,  rect, data_.types);
+            copy_region(buffer.data(), &tile_data_set::flags, rect, data_.flags);
 
             buffer.resize(0);
         }
 
         generate_make_connections(rng);
-        generate_merge_walls(rng);
-        generate_select_ids(rng);
+        merge_walls_at(rng, bounds_);
+        update_tile_ids(rng, bounds_);
+    }
+
+    void update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data);
+
+    void update_tile_at(random_state& rng, point2i const p, tile_data_set const& data) noexcept final override {
+        auto const r = recti {p.x, p.y, sizeix {1}, sizeiy{1}};
+        update_tile_rect(rng, r, &data);
+    }
+
+    void update_tile_rect(random_state& rng, recti const area, std::vector<tile_data_set> const& data) {
+        update_tile_rect(rng, area, data.data());
     }
 private:
+    template <typename Vector>
+    auto make_data_reader_(Vector&& v) const noexcept {
+        return [&](int const x, int const y) noexcept {
+            return data_at_(std::forward<Vector>(v), x, y);
+        };
+    }
+
+    auto make_bounds_checker_() const noexcept {
+        return [&](int const x, int const y) noexcept {
+            return check_bounds_(x, y);
+        };
+    }
+
     template <typename Vector>
     auto data_at_(Vector&& v, int const x, int const y) const noexcept -> decltype(v[0]) {
         return data_at(std::forward<Vector>(v), x, y, width());
@@ -710,33 +736,6 @@ bool can_remove_wall_at(int const x, int const y, Read read, Check check) noexce
     return can_remove_wall_code(wall_type, other_type);
 }
 
-void level_impl::generate_merge_walls(random_state& rng) {
-    auto const read = [&](int const x, int const y) noexcept {
-        return data_at_(data_.types, x, y);
-    };
-
-    auto const transform = [&](int const x, int const y, auto check) noexcept {
-        auto& type = data_at_(data_.types, x, y);
-        if (type != tile_type::wall || !can_remove_wall_at(x, y, read, check)) {
-            return;
-        }
-
-        type = tile_type::floor;
-        data_at_(data_.flags, x, y) = tile_flags {0};
-    };
-
-    for_each_xy_center_first(bounds_
-        , [&](int const x, int const y) noexcept {
-            transform(x, y, always_true {});
-        }
-        , [&](int const x, int const y) noexcept {
-            transform(x, y, [&](int const x0, int const y0) noexcept {
-                return check_bounds_(x0, y0);
-            });
-        }
-    );
-}
-
 tile_id wall_code_to_id(unsigned const code) noexcept {
     using ti = tile_id;
     switch (code) {
@@ -785,25 +784,66 @@ tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noe
     return ti::invalid;
 }
 
-void level_impl::generate_select_ids(random_state& rng) {
-    auto const read = [&](int const x, int const y) noexcept {
-        return data_at_(data_.types, x, y);
+template <typename Check, typename Transform>
+void transform_area(recti const area, recti const bounds, Check check, Transform transform) {
+    auto const transform_checked = [&](int const x, int const y) noexcept {
+        transform(x, y, check);
     };
 
-    auto const translate = [&](int const x, int const y, auto check) noexcept {
-        data_at_(data_.ids, x, y) = tile_type_to_id_at(x, y, read, check);
+    auto const transform_unchecked = [&](int const x, int const y) noexcept {
+        transform(x, y, always_true {});
     };
 
-    for_each_xy_center_first(bounds_
-        , [&](int const x, int const y) noexcept {
-            translate(x, y, always_true {});
-        }
-        , [&](int const x, int const y) noexcept {
-            translate(x, y, [&](int const x0, int const y0) noexcept {
-                return check_bounds_(x0, y0);
-            });
+    bool const must_check = area.x0 == bounds.x0
+                         || area.y0 == bounds.y0
+                         || area.x1 == bounds.x1 - 1
+                         || area.y1 == bounds.y1 - 1;
+
+    if (must_check) {
+        for_each_xy_center_first(area, transform_unchecked, transform_checked);
+    } else {
+        for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
+    }
+}
+
+void level_impl::merge_walls_at(random_state& rng, recti const area) {
+    auto const read = make_data_reader_(data_.types);
+    transform_area(area, bounds_, make_bounds_checker_()
+      , [&](int const x, int const y, auto check) noexcept {
+            // TODO: explicit 'this' due to a GCC bug (5.2.1)
+            auto& type = this->data_at_(data_.types, x, y);
+            if (type != tile_type::wall || !can_remove_wall_at(x, y, read, check)) {
+                return;
+            }
+
+            type = tile_type::floor;
+            this->data_at_(data_.flags, x, y) = tile_flags {0};
         }
     );
+}
+
+void level_impl::update_tile_ids(random_state& rng, recti const area) {
+    auto const read = make_data_reader_(data_.types);
+    transform_area(area, bounds_, make_bounds_checker_()
+      , [&](int const x, int const y, auto check) noexcept {
+            // TODO: explicit 'this' due to a GCC bug (5.2.1)
+            this->data_at_(data_.ids, x, y) = tile_type_to_id_at(x, y, read, check);
+        }
+    );
+}
+
+void level_impl::update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data) {
+    copy_region(data, &tile_data_set::id,    area, data_.ids);
+    copy_region(data, &tile_data_set::type,  area, data_.types);
+    copy_region(data, &tile_data_set::flags, area, data_.flags);
+
+    auto update_area = grow_rect(area);
+    update_area.x0 = std::max(update_area.x0, bounds_.x0);
+    update_area.y0 = std::max(update_area.y0, bounds_.y0);
+    update_area.x1 = std::min(update_area.x1, bounds_.x1);
+    update_area.y1 = std::min(update_area.y1, bounds_.y1);
+
+    update_tile_ids(rng, update_area);
 }
 
 } //namespace boken

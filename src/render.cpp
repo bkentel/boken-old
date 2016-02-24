@@ -29,6 +29,7 @@ public:
     }
 
     void update_map_data(level const& lvl) final override;
+    void update_map_data(level const& lvl, recti area) final override;
     void update_entity_data(level const& lvl) final override;
 
     void update_tool_tip_text(std::string text) final override;
@@ -64,6 +65,10 @@ private:
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender) {
     return std::make_unique<game_renderer_impl>(os, trender);
+}
+
+void game_renderer_impl::update_map_data(level const& lvl, recti area) {
+
 }
 
 void game_renderer_impl::update_map_data(level const& lvl) {
@@ -213,8 +218,8 @@ void game_renderer_impl::render_text_(text_layout const& text) const noexcept {
     auto const& glyph_data = text.data();
 
     auto const p  = text.position();
-    auto const tx = value_cast(p.x);
-    auto const ty = value_cast(p.y);
+    auto const tx = value_cast<float>(p.x);
+    auto const ty = value_cast<float>(p.y);
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 

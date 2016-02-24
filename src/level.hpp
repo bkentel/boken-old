@@ -88,7 +88,7 @@ public:
     virtual placement_result move_by(item_instance_id   id, vec2i v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i v) noexcept = 0;
 
-    virtual void update_tile_at(point2i p, tile_data_set const& data) noexcept = 0;
+    virtual void update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access
