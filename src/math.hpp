@@ -304,6 +304,14 @@ inline constexpr R clamp_as(T const n) noexcept {
                                     , std::numeric_limits<R>::max()));
 }
 
+//TODO generalize
+inline constexpr recti clamp(recti const r, recti const bounds) noexcept {
+    return {offix {clamp(r.x0, bounds.x0, bounds.x1)}
+          , offiy {clamp(r.y0, bounds.y0, bounds.y1)}
+          , offix {clamp(r.x1, bounds.x0, bounds.x1)}
+          , offiy {clamp(r.y1, bounds.y0, bounds.y1)}};
+}
+
 //! type-casted ceil
 template <typename R, typename T>
 inline constexpr R ceil_as(T const n) noexcept {

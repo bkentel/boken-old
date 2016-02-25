@@ -82,55 +82,46 @@ void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const s
 }
 
 void game_renderer_impl::update_map_data(level const& lvl) {
-    {
-        auto const size = value_cast(lvl.width()) * value_cast(lvl.height());
-        if (tile_data.size() < size) {
-            tile_data.resize(size);
-        }
+    auto const bounds = lvl.bounds();
+    auto const bounds_size = bounds.area();
+
+    if (tile_data.size() < bounds_size) {
+        tile_data.resize(static_cast<size_t>(bounds_size));
     }
 
-    std::vector<uint32_t> colors;
-    std::generate_n(back_inserter(colors), lvl.region_count()
-      , [&] {
-            auto const s = static_cast<uint32_t>(colors.size() + 1);
-            return 0xFF << 24 | (s * 11) << 16 | (s * 23) << 8 | (s * 37);
-        });
-
-    auto const  region_id_pair = lvl.region_ids(0);
-    auto const  tile_pair      = lvl.tile_ids(0);
-    auto const& region_ids     = region_id_pair.first;
-    auto const& tile_ids       = tile_pair.first;
-    auto const  tile_rect      = tile_pair.second;
-    auto const  w              = tile_rect.width();
+    auto const region_color = [](uint32_t i) noexcept {
+        ++i;
+        return 0xFF << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
+    };
 
     auto const tw = value_cast(base_tile_map_.tile_w);
     auto const th = value_cast(base_tile_map_.tile_h);
     auto const tx = value_cast(base_tile_map_.tiles_x);
 
-    BK_ASSERT(region_id_pair.second == tile_pair.second);
-    BK_ASSERT(tile_rect.x0 >= 0 && tile_rect.x1 >= tile_rect.x0);
-    BK_ASSERT(tile_rect.y0 >= 0 && tile_rect.y1 >= tile_rect.y0);
+    auto const ids_range        = lvl.tile_ids(bounds);
+    auto const region_ids_range = lvl.region_ids(bounds);
 
-    for_each_xy(tile_rect, [&](int const x, int const y) noexcept {
-        auto const  i   = static_cast<size_t>(x + y * w);
-        auto const& src = tile_ids[i];
-        auto&       dst = tile_data[i];
+    auto dst = sub_region_iterator<data_t> {ids_range.first, tile_data.data()};
+    auto it0 = ids_range.first;
+    auto it1 = region_ids_range.first;
 
-        dst.position.x = offset_type_x<uint16_t> {x * tw};
-        dst.position.y = offset_type_y<uint16_t> {y * th};
+    for ( ; it0 != ids_range.second; ++it0, ++it1, ++dst) {
+        auto const tid = *it0;
+        auto const rid = *it1;
 
-        if (src == tile_id::empty) {
-            dst.color = colors[region_ids[i]];
-        } else {
-            dst.color = 0xFF0000FFu;
-        }
+        dst->position.x = offset_type_x<uint16_t> {dst.x() * tw};
+        dst->position.y = offset_type_y<uint16_t> {dst.y() * th};
+
+        dst->color = (tid == tile_id::empty)
+          ? region_color(rid)
+          : 0xFF0000FFu;
 
         auto const tex_rect = base_tile_map_.index_to_rect(
-            base_tile_map_.id_to_index(tile_ids[i]));
+            base_tile_map_.id_to_index(tid));
 
-        dst.tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
-        dst.tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
-    });
+        dst->tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
+        dst->tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
+    }
 }
 
 void game_renderer_impl::update_entity_data(level const& lvl) {

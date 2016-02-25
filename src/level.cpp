@@ -444,14 +444,28 @@ public:
         return entities_.ids;
     }
 
-    std::pair<std::vector<tile_id> const&, recti>
-    tile_ids(int const block) const noexcept final override {
-        return std::make_pair(std::ref(data_.ids), bounds_);
+
+
+    const_sub_region_range<tile_id>
+    tile_ids(recti const area) const noexcept final override {
+        auto const b = bounds();
+        auto const r = clamp(area, b);
+
+        return make_sub_region_range(as_const(data_.ids.data())
+          , r.x0,      r.y0
+          , b.width(), b.height()
+          , r.width(), r.height());
     }
 
-    std::pair<std::vector<uint16_t> const&, recti>
-    region_ids(int const block) const noexcept final override {
-        return std::make_pair(std::ref(data_.region_ids), bounds_);
+    const_sub_region_range<uint16_t>
+    region_ids(recti const area) const noexcept final override {
+        auto const b = bounds();
+        auto const r = clamp(area, b);
+
+        return make_sub_region_range(as_const(data_.region_ids.data())
+          , r.x0,      r.y0
+          , b.width(), b.height()
+          , r.width(), r.height());
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

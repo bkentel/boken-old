@@ -101,11 +101,9 @@ public:
     virtual std::vector<point2<uint16_t>> const& entity_positions() const noexcept = 0;
     virtual std::vector<entity_id>        const& entity_ids()       const noexcept = 0;
 
-    virtual std::pair<std::vector<tile_id> const&, recti>
-        tile_ids(int block) const noexcept = 0;
+    virtual const_sub_region_range<tile_id> tile_ids(recti area) const noexcept = 0;
 
-    virtual std::pair<std::vector<uint16_t> const&, recti>
-        region_ids(int block) const noexcept = 0;
+    virtual const_sub_region_range<uint16_t> region_ids(recti area) const noexcept = 0;
 };
 
 std::unique_ptr<level> make_level(random_state& rng, sizeix width, sizeiy height);
