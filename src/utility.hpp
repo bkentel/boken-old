@@ -277,6 +277,13 @@ public:
         return !(*this == other);
     }
 
+    ptrdiff_t operator-(this_t const& other) const noexcept {
+        BK_ASSERT(is_compatible_(other));
+
+        return (x_       + y_       * width_outer_) -
+               (other.x_ + other.y_ * other.width_outer_);
+    }
+
     ptrdiff_t x()      const noexcept { return x_; }
     ptrdiff_t y()      const noexcept { return y_; }
     ptrdiff_t off_x()  const noexcept { return off_x_; }
@@ -285,6 +292,15 @@ public:
     ptrdiff_t height() const noexcept { return height_inner_; }
     ptrdiff_t stride() const noexcept { return width_outer_; }
 private:
+    template <typename U>
+    bool is_compatible_(sub_region_iterator<U> const& it) const noexcept {
+        return off_x_        == it.off_x_
+            && off_y_        == it.off_y_
+            && width_outer_  == it.width_outer_
+            && width_inner_  == it.width_inner_
+            && height_inner_ == it.height_inner_;
+    }
+
     T* p_ {};
 
     ptrdiff_t off_x_ {};
