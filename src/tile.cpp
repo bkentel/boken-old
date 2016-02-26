@@ -65,12 +65,12 @@ string_view enum_to_string(tile_id const id) noexcept {
     return "invalid tile_id";
 }
 
-uint16_t tile_map::id_to_index(tile_id const id) const noexcept {
+uint32_t id_to_index(tile_map const& map, tile_id const id) noexcept {
     using ti = tile_id;
 
-    auto const tx = value_cast(tiles_x);
+    auto const tx = value_cast(map.tiles_x);
     auto const to_index = [&](int const x, int const y) noexcept {
-        return static_cast<uint16_t>(x + y * tx);
+        return static_cast<uint32_t>(x + y * tx);
     };
 
     //NWES
@@ -100,6 +100,10 @@ uint16_t tile_map::id_to_index(tile_id const id) const noexcept {
 
     }
 
+    return 0;
+}
+
+uint32_t id_to_index(tile_map const& map, entity_id id) noexcept {
     return 0;
 }
 

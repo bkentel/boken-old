@@ -171,9 +171,10 @@ public:
 
     virtual void render_background() = 0;
 
-    virtual void render_set_tile_size(int w, int h) = 0;
+    virtual void render_set_tile_size(sizeix w, sizeiy h) = 0;
     virtual void render_set_transform(float sx, float sy, float tx, float ty) = 0;
 
+    virtual void render_set_texture(uint32_t id) = 0;
     virtual void render_set_data(render_data_type type, read_only_pointer_t data) = 0;
     virtual void render_data_n(size_t n) = 0;
 };

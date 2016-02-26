@@ -174,8 +174,10 @@ class sdl_system final : public system {
 public:
     sdl_system()
       : renderer_ {window_}
-      , tiles_ {SDL_CreateTextureFromSurface(
+      , base_tiles_ {SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
+      , entity_tiles_ {SDL_CreateTextureFromSurface(
+          renderer_, sdl_surface {SDL_LoadBMP("./data/entities.bmp")})}
       , background_{SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
     {
@@ -194,7 +196,7 @@ public:
 
     void set_draw_color(uint32_t const c) noexcept {
         SDL_SetTextureColorMod(
-            tiles_
+            *active_texture_
           , static_cast<uint8_t>((c >>  0) & 0xFFu)
           , static_cast<uint8_t>((c >>  8) & 0xFFu)
           , static_cast<uint8_t>((c >> 16) & 0xFFu));
@@ -365,6 +367,16 @@ public:
         }
     }
 
+    void render_set_texture(uint32_t const id) final override {
+        switch (id) {
+        case 0  : break;
+        case 1  : active_texture_ = &entity_tiles_; return;
+        default : break;
+        }
+
+        active_texture_ = &base_tiles_;
+    }
+
     void render_set_data(
         render_data_type    const type
       , read_only_pointer_t const data
@@ -376,9 +388,9 @@ public:
         }
     }
 
-    void render_set_tile_size(int const w, int const h) noexcept final override {
-        tile_w_ = w;
-        tile_h_ = h;
+    void render_set_tile_size(sizeix const w, sizeiy const h) noexcept final override {
+        tile_w_ = value_cast(w);
+        tile_h_ = value_cast(h);
     }
 
     void render_set_transform(float const sx, float const sy, float const tx, float const ty) noexcept final override {
@@ -404,6 +416,9 @@ public:
         auto const tx = ceil_as<int>(tx_ / sx_);
         auto const ty = ceil_as<int>(ty_ / sy_);
 
+        SDL_Texture*  const texture  = *active_texture_;
+        SDL_Renderer* const renderer = renderer_;
+
         for (size_t i = 0; i < n; ++i, ++pd, ++td, ++cd) {
             std::tie(src.x, src.y) = td.value<std::pair<uint16_t, uint16_t>>();
             std::tie(dst.x, dst.y) = pd.value<std::pair<uint16_t, uint16_t>>();
@@ -416,7 +431,7 @@ public:
                 set_draw_color(last_color = color);
             }
 
-            SDL_RenderCopy(renderer_, tiles_, &src, &dst);
+            SDL_RenderCopy(renderer, texture, &src, &dst);
         }
     }
 private:
@@ -433,8 +448,11 @@ private:
     sdl          sdl_;
     sdl_window   window_;
     sdl_renderer renderer_;
-    sdl_texture  tiles_;
+    sdl_texture  base_tiles_;
+    sdl_texture  entity_tiles_;
     sdl_texture  background_;
+
+    sdl_texture* active_texture_ {&base_tiles_};
 
     read_only_pointer_t position_data_;
     read_only_pointer_t texture_data_;

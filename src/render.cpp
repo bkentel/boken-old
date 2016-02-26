@@ -24,13 +24,9 @@ public:
     {
     }
 
-    tile_map const& base_tile_map() const noexcept final override {
-        return base_tile_map_;
-    }
-
-    void update_map_data(level const& lvl) final override;
-    void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
-    void update_entity_data(level const& lvl) final override;
+    void update_map_data(level const& lvl, tile_map const& tmap) final override;
+    void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) final override;
+    void update_entity_data(level const& lvl, tile_map const& tmap) final override;
 
     void update_tool_tip_text(std::string text) final override;
     void update_tool_tip_visible(bool show) noexcept final override;
@@ -40,7 +36,10 @@ public:
         message_log_ = window;
     }
 
-    void render(duration_t delta, view const& v) const noexcept final override;
+    void render(duration_t delta, view const& v
+      , tile_map const& tmap_base
+      , tile_map const& tmap_entities
+      , tile_map const& tmap_items) const noexcept final override;
 private:
     void render_text_(text_layout const& text) const noexcept;
     void render_message_log_() const noexcept;
@@ -57,8 +56,6 @@ private:
     std::vector<data_t> tile_data;
     std::vector<data_t> entity_data;
 
-    tile_map base_tile_map_;
-
     text_layout tool_tip_;
     message_log const* message_log_ {};
 };
@@ -67,21 +64,20 @@ std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& tre
     return std::make_unique<game_renderer_impl>(os, trender);
 }
 
-void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region) {
+void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region, tile_map const& tmap) {
     auto dst_it = sub_region_iterator<data_t>(sub_region.first, tile_data.data());
 
     for (auto it = sub_region.first; it != sub_region.second; ++it, ++dst_it) {
         auto& dst = *dst_it;
 
-        auto const tex_rect = base_tile_map_.index_to_rect(
-            base_tile_map_.id_to_index(*it));
+        auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, *it));
 
         dst.tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
         dst.tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
     }
 }
 
-void game_renderer_impl::update_map_data(level const& lvl) {
+void game_renderer_impl::update_map_data(level const& lvl, tile_map const& tmap) {
     auto const bounds = lvl.bounds();
     auto const bounds_size = bounds.area();
 
@@ -94,9 +90,9 @@ void game_renderer_impl::update_map_data(level const& lvl) {
         return 0xFF << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
     };
 
-    auto const tw = value_cast(base_tile_map_.tile_w);
-    auto const th = value_cast(base_tile_map_.tile_h);
-    auto const tx = value_cast(base_tile_map_.tiles_x);
+    auto const tw = value_cast(tmap.tile_w);
+    auto const th = value_cast(tmap.tile_h);
+    auto const tx = value_cast(tmap.tiles_x);
 
     auto const ids_range        = lvl.tile_ids(bounds);
     auto const region_ids_range = lvl.region_ids(bounds);
@@ -116,22 +112,21 @@ void game_renderer_impl::update_map_data(level const& lvl) {
           ? region_color(rid)
           : 0xFF0000FFu;
 
-        auto const tex_rect = base_tile_map_.index_to_rect(
-            base_tile_map_.id_to_index(tid));
+        auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, tid));
 
         dst->tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
         dst->tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
     }
 }
 
-void game_renderer_impl::update_entity_data(level const& lvl) {
+void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tmap) {
     auto const& epos = lvl.entity_positions();
     auto const& eids = lvl.entity_ids();
 
     BK_ASSERT(epos.size() == eids.size());
 
-    auto const tw = value_cast(base_tile_map_.tile_w);
-    auto const th = value_cast(base_tile_map_.tile_h);
+    auto const tw = value_cast(tmap.tile_w);
+    auto const th = value_cast(tmap.tile_h);
 
     entity_data.clear();
     entity_data.reserve(epos.size());
@@ -161,22 +156,24 @@ void game_renderer_impl::update_tool_tip_position(point2i const p) noexcept {
     tool_tip_.move_to(value_cast(p.x), value_cast(p.y));
 }
 
-void game_renderer_impl::render(duration_t const delta, view const& v) const noexcept {
+void game_renderer_impl::render(duration_t const delta, view const& v
+  , tile_map const& tmap_base
+  , tile_map const& tmap_entities
+  , tile_map const& tmap_items
+) const noexcept {
     os_.render_clear();
 
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-
     os_.render_background();
 
-    os_.render_set_transform(v.scale_x, v.scale_y
-                           , v.x_off,   v.y_off);
-
-    os_.render_set_tile_size(value_cast(base_tile_map_.tile_w)
-                           , value_cast(base_tile_map_.tile_h));
+    os_.render_set_transform(v.scale_x, v.scale_y, v.x_off, v.y_off);
 
     //
     // Map tiles
     //
+    os_.render_set_tile_size(tmap_base.tile_w, tmap_base.tile_h);
+    os_.render_set_texture(tmap_base.texture_id);
+
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, position)});
     os_.render_set_data(render_data_type::texture
@@ -188,6 +185,9 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     //
     // Entities
     //
+    os_.render_set_tile_size(tmap_entities.tile_w, tmap_entities.tile_h);
+    os_.render_set_texture(tmap_entities.texture_id);
+
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, position)});
     os_.render_set_data(render_data_type::texture
@@ -195,6 +195,12 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     os_.render_set_data(render_data_type::color
       , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, color)});
     os_.render_data_n(entity_data.size());
+
+    //
+    // text
+    //
+    os_.render_set_tile_size(tmap_base.tile_w, tmap_base.tile_h);
+    os_.render_set_texture(0);
 
     //
     // tool tip

@@ -1,4 +1,5 @@
 #include "catch.hpp"        // for run_unit_tests
+#include "data.hpp"
 #include "entity.hpp"       // for entity
 #include "entity_def.hpp"   // for entity_definition
 #include "hash.hpp"         // for djb2_hash_32
@@ -212,7 +213,7 @@ struct game_state {
     // Utility / Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     point2i window_to_world(point2i const p) const noexcept {
-        auto const& tile_map = renderer.base_tile_map();
+        auto const& tile_map = database.get_tile_map(tile_map_type::base);
         auto const tw = value_cast(tile_map.tile_w);
         auto const th = value_cast(tile_map.tile_h);
 
@@ -230,14 +231,14 @@ struct game_state {
         auto const level_w = 100;
         auto const level_h = 80;
 
-        auto& current_level = the_world.add_new_level(nullptr
+        auto& lvl = the_world.add_new_level(nullptr
           , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
 
         // player
-        create_entity_at(point2i {0, 0}, the_world, current_level, entity_definition {});
+        create_entity_at(point2i {0, 0}, the_world, lvl, entity_definition {});
 
-        for (size_t i = 0; i < current_level.region_count(); ++i) {
-            auto const& region = current_level.region(i);
+        for (size_t i = 0; i < lvl.region_count(); ++i) {
+            auto const& region = lvl.region(i);
             if (region.tile_count <= 0) {
                 continue;
             }
@@ -245,11 +246,11 @@ struct game_state {
             point2i const p {region.bounds.x0 + region.bounds.width()  / 2
                            , region.bounds.y0 + region.bounds.height() / 2};
 
-            create_entity_at(p, the_world, current_level, entity_definition {entity_id {1}});
+            create_entity_at(p, the_world, lvl, entity_definition {entity_id {1}});
         }
 
-        renderer.update_map_data(current_level);
-        renderer.update_entity_data(current_level);
+        renderer.update_map_data(lvl, database.get_tile_map(tile_map_type::base));
+        renderer.update_entity_data(lvl, database.get_tile_map(tile_map_type::entity));
     }
 
     void show_tool_tip(point2i const p) {
@@ -297,7 +298,8 @@ struct game_state {
             };
 
             renderer.update_map_data(
-                lvl.update_tile_at(rng_superficial, p, data));
+                lvl.update_tile_at(rng_superficial, p, data)
+              , database.get_tile_map(tile_map_type::base));
         }
     }
 
@@ -371,7 +373,8 @@ struct game_state {
     }
 
     void advance(int const steps) {
-        renderer.update_entity_data(the_world.current_level());
+        renderer.update_entity_data(the_world.current_level()
+          , database.get_tile_map(tile_map_type::entity));
     }
 
     void run() {
@@ -393,7 +396,10 @@ struct game_state {
             return;
         }
 
-        renderer.render(delta, current_view);
+        renderer.render(delta, current_view
+          , database.get_tile_map(tile_map_type::base)
+          , database.get_tile_map(tile_map_type::entity)
+          , database.get_tile_map(tile_map_type::item));
 
         last_frame_time = now;
     }
@@ -408,6 +414,7 @@ struct game_state {
         up<system>        system_ptr          = make_system();
         up<random_state>  rng_substantive_ptr = make_random_state();
         up<random_state>  rng_superficial_ptr = make_random_state();
+        up<game_database> database_ptr        = make_game_database();
         up<world>         world_ptr           = make_world();
         up<text_renderer> trender_ptr         = make_text_renderer();
         up<game_renderer> renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
@@ -416,6 +423,7 @@ struct game_state {
     system&        os              = *state.system_ptr;
     random_state&  rng_substantive = *state.rng_substantive_ptr;
     random_state&  rng_superficial = *state.rng_superficial_ptr;
+    game_database& database        = *state.database_ptr;
     world&         the_world       = *state.world_ptr;
     game_renderer& renderer        = *state.renderer_ptr;
     text_renderer& trender         = *state.trender_ptr;

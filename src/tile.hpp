@@ -98,8 +98,17 @@ struct tile_data_set {
     uint16_t   region_id;
 };
 
+enum class tile_map_type : uint32_t {
+    base, entity, item
+};
+
 class tile_map {
 public:
+    explicit tile_map(tile_map_type const map_type) noexcept
+      : type {map_type}
+    {
+    }
+
     recti index_to_rect(int32_t const i) const noexcept {
         return {
             offix {(i % value_cast(tiles_x)) * value_cast(tile_w)}
@@ -109,12 +118,16 @@ public:
         };
     }
 
-    uint16_t id_to_index(tile_id const id) const noexcept;
+    tile_map_type type;
+    uint32_t      texture_id {0};
 
     sizeix tile_w  {18};
     sizeiy tile_h  {18};
     sizeix tiles_x {16};
     sizeiy tiles_y {16};
 };
+
+uint32_t id_to_index(tile_map const& map, tile_id id) noexcept;
+uint32_t id_to_index(tile_map const& map, entity_id id) noexcept;
 
 } //namespace boken

@@ -3,10 +3,12 @@
 #include "types.hpp"
 #include <memory>
 
-namespace boken {
+namespace boken { struct item_definition; }
+namespace boken { struct entity_definition; }
+namespace boken { class tile_map; }
+namespace boken { enum class tile_map_type : uint32_t; }
 
-struct item_definition;
-struct entity_definition;
+namespace boken {
 
 //====---
 // The database of all current game data.
@@ -17,6 +19,8 @@ public:
 
     virtual item_definition   const* find(item_id   id) const noexcept = 0;
     virtual entity_definition const* find(entity_id id) const noexcept = 0;
+
+    virtual tile_map const& get_tile_map(tile_map_type type) const noexcept = 0;
 };
 
 std::unique_ptr<game_database> make_game_database();

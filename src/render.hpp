@@ -82,11 +82,9 @@ public:
 
     virtual ~game_renderer();
 
-    virtual tile_map const& base_tile_map() const noexcept = 0;
-
-    virtual void update_map_data(level const& lvl) = 0;
-    virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
-    virtual void update_entity_data(level const& lvl) = 0;
+    virtual void update_map_data(level const& lvl, tile_map const& tmap) = 0;
+    virtual void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) = 0;
+    virtual void update_entity_data(level const& lvl, tile_map const& tmap) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual void update_tool_tip_visible(bool show) noexcept = 0;
@@ -94,7 +92,10 @@ public:
 
     virtual void set_message_window(message_log const* window) noexcept = 0;
 
-    virtual void render(duration_t delta, view const& v) const noexcept = 0;
+    virtual void render(duration_t delta, view const& v
+        , tile_map const& tmap_base
+        , tile_map const& tmap_entities
+        , tile_map const& tmap_items) const noexcept = 0;
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender);
