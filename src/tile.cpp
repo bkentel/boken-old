@@ -27,8 +27,11 @@ tile_id string_to_enum<tile_id>(string_view const str) noexcept {
         BK_ENUM_MAPPING(wall_1101);
         BK_ENUM_MAPPING(wall_1110);
         BK_ENUM_MAPPING(wall_1111);
-        BK_ENUM_MAPPING(door_ns);
-        BK_ENUM_MAPPING(door_ew);
+        BK_ENUM_MAPPING(door_ns_closed);
+        BK_ENUM_MAPPING(door_ns_open);
+        BK_ENUM_MAPPING(door_ew_closed);
+        BK_ENUM_MAPPING(door_ew_open);
+
     }
     #undef BK_ENUM_MAPPING
 
@@ -57,8 +60,10 @@ string_view enum_to_string(tile_id const id) noexcept {
         BK_ENUM_MAPPING(wall_1101);
         BK_ENUM_MAPPING(wall_1110);
         BK_ENUM_MAPPING(wall_1111);
-        BK_ENUM_MAPPING(door_ns);
-        BK_ENUM_MAPPING(door_ew);
+        BK_ENUM_MAPPING(door_ns_closed);
+        BK_ENUM_MAPPING(door_ns_open);
+        BK_ENUM_MAPPING(door_ew_closed);
+        BK_ENUM_MAPPING(door_ew_open);
     }
     #undef BK_ENUM_MAPPING
 
@@ -95,9 +100,10 @@ uint32_t id_to_index(tile_map const& map, tile_id const id) noexcept {
     case ti::wall_1101: return to_index( 9, 11); // nsw
     case ti::wall_1110: return to_index(10, 12); // new
     case ti::wall_1111: return to_index(14, 12); // nesw
-    case ti::door_ns:   return to_index( 3, 11);
-    case ti::door_ew:   return to_index( 4, 12);
-
+    case ti::door_ns_closed: return to_index( 3, 11);
+    case ti::door_ns_open:   return to_index( 3, 11);
+    case ti::door_ew_closed: return to_index( 4, 12);
+    case ti::door_ew_open:   return to_index( 4, 12);
     }
 
     return 0;

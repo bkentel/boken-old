@@ -509,6 +509,8 @@ public:
         }
     }
 
+    void place_doors(random_state& rng, recti area);
+
     void merge_walls_at(random_state& rng, recti area);
 
     void update_tile_ids(random_state& rng, recti area);
@@ -622,6 +624,7 @@ public:
 
         generate_make_connections(rng);
         merge_walls_at(rng, bounds_);
+        place_doors(rng, bounds_);
         update_tile_ids(rng, bounds_);
     }
 
@@ -795,11 +798,33 @@ tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noe
     case tt::stair  : break;
     case tt::wall   : return wall_code_to_id(
         fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tt::wall;
+            auto const type = read(x0, y0);
+            return type == tt::wall || type == tt::door;
         }));
     }
 
     return ti::invalid;
+}
+
+template <typename Read, typename Check>
+tile_id can_place_door_at(int const x, int const y, Read read, Check check) noexcept {
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
+    auto const wall_type =
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::wall;
+        });
+
+    auto const other_type =
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            auto const type = read(x0, y0);
+            return type == tile_type::floor || type == tile_type::tunnel;
+        });
+
+    return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
+         : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
+         : tile_id::invalid;
 }
 
 template <typename Check, typename Transform>
@@ -845,7 +870,27 @@ void level_impl::update_tile_ids(random_state& rng, recti const area) {
     transform_area(area, bounds_, make_bounds_checker_()
       , [&](int const x, int const y, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
-            this->data_at_(data_.ids, x, y) = tile_type_to_id_at(x, y, read, check);
+            auto const id = tile_type_to_id_at(x, y, read, check);
+            if (id != tile_id::invalid) {
+                this->data_at_(data_.ids, x, y) = id;
+            }
+        }
+    );
+}
+
+void level_impl::place_doors(random_state& rng, recti const area) {
+    auto const read = make_data_reader_(data_.types);
+    transform_area(area, bounds_, make_bounds_checker_()
+      , [&](int const x, int const y, auto check) noexcept {
+            auto const id = can_place_door_at(x, y, read, check);
+            if (id == tile_id::invalid || random_coin_flip(rng)) {
+                return;
+            }
+
+            // TODO: explicit 'this' due to a GCC bug (5.2.1)
+            this->data_at_(data_.types, x, y) = tile_type::door;
+            data_at_(data_.ids, x, y) = id;
+            data_at_(data_.flags, x, y) = tile_flags {tile_flags::f_solid};
         }
     );
 }

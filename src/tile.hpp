@@ -38,8 +38,10 @@ enum class tile_id : uint32_t {
   , wall_1101 = djb2_hash_32c("wall_1101")
   , wall_1110 = djb2_hash_32c("wall_1110")
   , wall_1111 = djb2_hash_32c("wall_1111")
-  , door_ns   = djb2_hash_32c("door_ns")
-  , door_ew   = djb2_hash_32c("door_ew")
+  , door_ns_closed = djb2_hash_32c("door_ns_closed")
+  , door_ns_open   = djb2_hash_32c("door_ns_open")
+  , door_ew_closed = djb2_hash_32c("door_ew_closed")
+  , door_ew_open   = djb2_hash_32c("door_ew_open")
 };
 
 #if defined(_MSC_VER)
