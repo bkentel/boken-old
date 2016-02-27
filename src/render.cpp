@@ -200,7 +200,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v
     // text
     //
     os_.render_set_tile_size(tmap_base.tile_w, tmap_base.tile_h);
-    os_.render_set_texture(0);
+    os_.render_set_texture(3);
 
     //
     // tool tip

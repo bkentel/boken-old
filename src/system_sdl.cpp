@@ -134,6 +134,14 @@ public:
     operator SDL_Surface*() const noexcept {
         return handle_.get();
     }
+
+    SDL_Surface* operator->() noexcept {
+        return handle_.get();
+    }
+
+    SDL_Surface const* operator->() const noexcept {
+        return handle_.get();
+    }
 private:
     std::unique_ptr<SDL_Surface, sdl_deleter_surface> handle_;
 };
@@ -170,6 +178,39 @@ namespace boken {
 
 system::~system() = default;
 
+sdl_texture create_font_texture(sdl_renderer& render) {
+    auto converted = sdl_surface {
+        SDL_ConvertSurfaceFormat(
+            sdl_surface {SDL_LoadBMP("./data/tiles.bmp")}
+          , SDL_PIXELFORMAT_RGBA8888
+          , 0)};
+
+    auto const w     = converted->w;
+    auto const h     = converted->h;
+    auto const pitch = converted->pitch;
+    auto const bytes = converted->format->BytesPerPixel;
+    auto const padding = pitch - w * bytes;
+
+    auto const mask  = converted->format->Amask;
+    auto const shift = converted->format->Ashift;
+
+    auto it = reinterpret_cast<char*>(converted->pixels);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x, it += bytes) {
+            auto p = reinterpret_cast<uint32_t*>(it);
+            auto const color = *p & ~mask;
+            *p = color | (color == 0 ? 0 : (0xFFu << shift));
+        }
+        it += padding;
+    }
+
+    auto result = sdl_texture {SDL_CreateTextureFromSurface(render, converted)};
+
+    SDL_SetTextureBlendMode(result, SDL_BLENDMODE_BLEND);
+
+    return result;
+}
+
 class sdl_system final : public system {
 public:
     sdl_system()
@@ -178,6 +219,7 @@ public:
           renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
       , entity_tiles_ {SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/entities.bmp")})}
+      , font_cache_ {create_font_texture(renderer_)}
       , background_{SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
     {
@@ -371,6 +413,7 @@ public:
         switch (id) {
         case 0  : break;
         case 1  : active_texture_ = &entity_tiles_; return;
+        case 3  : active_texture_ = &font_cache_;   return;
         default : break;
         }
 
@@ -450,6 +493,7 @@ private:
     sdl_renderer renderer_;
     sdl_texture  base_tiles_;
     sdl_texture  entity_tiles_;
+    sdl_texture  font_cache_;
     sdl_texture  background_;
 
     sdl_texture* active_texture_ {&base_tiles_};
