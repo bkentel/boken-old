@@ -105,6 +105,7 @@
     <ClCompile Include="external\bkassert\assert.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\catch.cpp" />
+    <ClCompile Include="src\command.cpp" />
     <ClCompile Include="src\data.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -127,6 +128,7 @@
     <ClInclude Include="src\bsp_generator.hpp" />
     <ClInclude Include="src\catch.hpp" />
     <ClInclude Include="src\circular_buffer.hpp" />
+    <ClInclude Include="src\command.hpp" />
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\definition.hpp" />

@@ -1,4 +1,5 @@
 #include "catch.hpp"        // for run_unit_tests
+#include "command.hpp"
 #include "data.hpp"
 #include "entity.hpp"       // for entity
 #include "entity_def.hpp"   // for entity_definition
@@ -60,84 +61,6 @@ struct keydef_t {
     uint32_t    value;
     uint32_t    hash;
     key_t       type;
-};
-
-enum class command_type {
-    none
-
-  , move_here
-  , move_n
-  , move_ne
-  , move_e
-  , move_se
-  , move_s
-  , move_sw
-  , move_w
-  , move_nw
-
-  , reset_zoom
-  , reset_view
-};
-
-class command_translator {
-public:
-    command_translator() {
-        handler_ = [](auto, auto) noexcept {};
-    }
-
-    using command_handler_t = std::function<void (command_type, uintptr_t)>;
-    void on_command(command_handler_t handler) {
-        handler_ = std::move(handler);
-    }
-
-    void translate(bk::kb_event event) {
-        switch (event.scancode) {
-        case 79 : // SDL_SCANCODE_RIGHT = 79
-            handler_(command_type::move_e, 0);
-            break;
-        case 80 : // SDL_SCANCODE_LEFT = 80
-            handler_(command_type::move_w, 0);
-            break;
-        case 81 : // SDL_SCANCODE_DOWN = 81
-            handler_(command_type::move_s, 0);
-            break;
-        case 82 : // SDL_SCANCODE_UP = 82
-            handler_(command_type::move_n, 0);
-            break;
-        case 89 : // SDL_SCANCODE_KP_1 = 89
-            handler_(command_type::move_sw, 0);
-            break;
-        case 90 : // SDL_SCANCODE_KP_2 = 90
-            handler_(command_type::move_s, 0);
-            break;
-        case 91 : // SDL_SCANCODE_KP_3 = 91
-            handler_(command_type::move_se, 0);
-            break;
-        case 92 : // SDL_SCANCODE_KP_4 = 92
-            handler_(command_type::move_w, 0);
-            break;
-        case 93 : // SDL_SCANCODE_KP_5 = 93
-            handler_(command_type::move_here, 0);
-            break;
-        case 94 : // SDL_SCANCODE_KP_6 = 94
-            handler_(command_type::move_e, 0);
-            break;
-        case 95 : // SDL_SCANCODE_KP_7 = 95
-            handler_(command_type::move_nw, 0);
-            break;
-        case 96 : // SDL_SCANCODE_KP_8 = 96
-            handler_(command_type::move_n, 0);
-            break;
-        case 97 : // SDL_SCANCODE_KP_9 = 97
-            handler_(command_type::move_ne, 0);
-            break;
-        case 74 : // SDL_SCANCODE_HOME = 74
-            handler_(command_type::reset_view, 0);
-            break;
-        }
-    }
-private:
-    command_handler_t handler_;
 };
 
 class item {
@@ -411,24 +334,24 @@ struct game_state {
         template <typename T>
         using up = std::unique_ptr<T>;
 
-        up<system>        system_ptr          = make_system();
-        up<random_state>  rng_substantive_ptr = make_random_state();
-        up<random_state>  rng_superficial_ptr = make_random_state();
-        up<game_database> database_ptr        = make_game_database();
-        up<world>         world_ptr           = make_world();
-        up<text_renderer> trender_ptr         = make_text_renderer();
-        up<game_renderer> renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
+        up<system>             system_ptr          = make_system();
+        up<random_state>       rng_substantive_ptr = make_random_state();
+        up<random_state>       rng_superficial_ptr = make_random_state();
+        up<game_database>      database_ptr        = make_game_database();
+        up<world>              world_ptr           = make_world();
+        up<text_renderer>      trender_ptr         = make_text_renderer();
+        up<game_renderer>      renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
+        up<command_translator> cmd_translator_ptr  = make_command_translator();
     } state {};
 
-    system&        os              = *state.system_ptr;
-    random_state&  rng_substantive = *state.rng_substantive_ptr;
-    random_state&  rng_superficial = *state.rng_superficial_ptr;
-    game_database& database        = *state.database_ptr;
-    world&         the_world       = *state.world_ptr;
-    game_renderer& renderer        = *state.renderer_ptr;
-    text_renderer& trender         = *state.trender_ptr;
-
-    command_translator cmd_translator {};
+    system&              os             = *state.system_ptr;
+    random_state&       rng_substantive = *state.rng_substantive_ptr;
+    random_state&       rng_superficial = *state.rng_superficial_ptr;
+    game_database&      database        = *state.database_ptr;
+    world&              the_world       = *state.world_ptr;
+    game_renderer&      renderer        = *state.renderer_ptr;
+    text_renderer&      trender         = *state.trender_ptr;
+    command_translator& cmd_translator  = *state.cmd_translator_ptr;
 
     view current_view;
 

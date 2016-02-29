@@ -52,6 +52,7 @@ set(GCC_WARNINGS
 set(SOURCES
     src/bsp_generator.cpp
     src/catch.cpp
+    src/command.cpp
     src/data.cpp
     src/level.cpp
     src/main.cpp
