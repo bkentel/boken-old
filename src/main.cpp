@@ -157,8 +157,13 @@ struct game_state {
         auto& lvl = the_world.add_new_level(nullptr
           , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
 
-        // player
-        create_entity_at(point2i {0, 0}, the_world, lvl, entity_definition {});
+        auto const player_def = database.find(entity_id {djb2_hash_32("player")});
+        BK_ASSERT(!!player_def);
+
+        auto const edef = database.find(entity_id {djb2_hash_32("rat_small")});
+        BK_ASSERT(!!edef);
+
+        bool placed_player = false;
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -169,7 +174,11 @@ struct game_state {
             point2i const p {region.bounds.x0 + region.bounds.width()  / 2
                            , region.bounds.y0 + region.bounds.height() / 2};
 
-            create_entity_at(p, the_world, lvl, entity_definition {entity_id {1}});
+            if (!placed_player && create_entity_at(p, the_world, lvl, *player_def) == placement_result::ok) {
+                placed_player = true;
+            } else {
+                create_entity_at(p, the_world, lvl, *edef);
+            }
         }
 
         renderer.update_map_data(lvl, database.get_tile_map(tile_map_type::base));

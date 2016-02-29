@@ -110,7 +110,7 @@ uint32_t id_to_index(tile_map const& map, tile_id const id) noexcept {
 }
 
 uint32_t id_to_index(tile_map const& map, entity_id id) noexcept {
-    return 0;
+    return map.find(id);
 }
 
 } //namespace boken

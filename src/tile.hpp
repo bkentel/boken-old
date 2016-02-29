@@ -7,6 +7,7 @@
 
 #include <bitset>
 #include <type_traits>
+#include <unordered_map>
 
 #include <cstdint>
 
@@ -127,6 +128,20 @@ public:
     sizeiy tile_h  {18};
     sizeix tiles_x {16};
     sizeiy tiles_y {16};
+
+    //TODO remove these
+    template <typename T, typename Tag>
+    void add_mapping(tagged_integral_value<T, Tag> const id, uint32_t const index) {
+        mappings_.insert(std::make_pair(value_cast(id), index));
+    }
+
+    template <typename T, typename Tag>
+    uint32_t find(tagged_integral_value<T, Tag> const id) const noexcept {
+        auto const it = mappings_.find(value_cast(id));
+        return it == std::end(mappings_) ? 0 : it->second;
+    }
+private:
+    std::unordered_map<uint32_t, uint32_t> mappings_;
 };
 
 uint32_t id_to_index(tile_map const& map, tile_id id) noexcept;

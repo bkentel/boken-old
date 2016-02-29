@@ -70,6 +70,33 @@ game_database_impl::game_database_impl() {
     tile_map_entities_.texture_id = 1;
 
     using e_value_type = decltype(entity_defs_)::value_type;
+
+    {
+        auto       id      = std::string {"rat_small"};
+        auto const id_hash = djb2_hash_32(id.data());
+
+        entity_defs_.insert(std::make_pair(
+            entity_id {id_hash}
+          , entity_definition {
+                basic_definition {std::move(id), "small rat", "source", 0}
+              , entity_id {id_hash}}));
+    }
+
+    {
+        auto       id      = std::string {"player"};
+        auto const id_hash = djb2_hash_32(id.data());
+
+        entity_defs_.insert(std::make_pair(
+            entity_id {id_hash}
+          , entity_definition {
+                basic_definition {std::move(id), "player", "source", 0}
+              , entity_id {id_hash}}));
+    }
+
+    tile_map_entities_.tiles_x = sizeix {26};
+    tile_map_entities_.tiles_y = sizeiy {17};
+    tile_map_entities_.add_mapping(entity_id {djb2_hash_32("rat_small")}, 21 + 6 * 26);
+    tile_map_entities_.add_mapping(entity_id {djb2_hash_32("player")}, 13 + 13 * 26);
 }
 
 } //namespace boken

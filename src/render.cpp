@@ -131,12 +131,15 @@ void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tm
     entity_data.clear();
     entity_data.reserve(epos.size());
 
+    size_t i = 0;
     std::transform(begin(epos), end(epos), back_inserter(entity_data)
       , [&](point2<uint16_t> const p) noexcept {
+            auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, eids[i++]));
+
             auto const px = static_cast<uint16_t>(value_cast(p.x) * tw);
             auto const py = static_cast<uint16_t>(value_cast(p.y) * th);
-            auto const tx = static_cast<uint16_t>(1 * tw);
-            auto const ty = static_cast<uint16_t>(0 * th);
+            auto const tx = static_cast<uint16_t>(tex_rect.x0);
+            auto const ty = static_cast<uint16_t>(tex_rect.y0);
 
             return data_t {point2<uint16_t> {px, py}
                          , point2<uint16_t> {tx, ty}
