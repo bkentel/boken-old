@@ -36,6 +36,7 @@
       <Filter>test</Filter>
     </ClCompile>
     <ClCompile Include="src\entity.cpp" />
+    <ClCompile Include="src\item.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -63,6 +64,7 @@
     <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\render.hpp" />
     <ClInclude Include="src\command.hpp" />
+    <ClInclude Include="src\item.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

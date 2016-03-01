@@ -280,8 +280,8 @@ public:
     ptrdiff_t operator-(this_t const& other) const noexcept {
         BK_ASSERT(is_compatible_(other));
 
-        return (x_       + y_       * width_outer_) -
-               (other.x_ + other.y_ * other.width_outer_);
+        return (x_       + y_       * width_inner_)
+             - (other.x_ + other.y_ * other.width_inner_);
     }
 
     ptrdiff_t x()      const noexcept { return x_; }

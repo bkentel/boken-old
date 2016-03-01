@@ -6,29 +6,6 @@
 #include <array>
 #include <vector>
 
-//template <typename T>
-//auto make_iterator_pair(
-//    T* const p
-//  , ptrdiff_t const off_x,       ptrdiff_t const off_y
-//  , ptrdiff_t const width_outer, ptrdiff_t const height_outer
-//  , ptrdiff_t const width_inner, ptrdiff_t const height_inner
-//) {
-//    return std::make_pair(
-//        const_sub_region_iterator<T> {
-//            p
-//          , off_x, off_y
-//          , width_outer, height_outer
-//          , width_inner, height_inner
-//        }
-//      , const_sub_region_iterator<T> {
-//            p
-//          , off_x, off_y
-//          , width_outer, height_outer
-//          , width_inner, height_inner
-//          , width_inner, height_inner - 1
-//        });
-//}
-
 TEST_CASE("sub_region_iterator") {
     using namespace boken;
 
@@ -54,6 +31,8 @@ TEST_CASE("sub_region_iterator") {
         auto it      = p.first;
         auto last    = p.second;
 
+        REQUIRE((last - it) == 6);
+
         std::array<int, 6> const expected {
             11, 12, 13
           , 21, 22, 23
@@ -61,6 +40,7 @@ TEST_CASE("sub_region_iterator") {
 
         std::vector<int> actual;
         std::copy(it, last, back_inserter(actual));
+
         REQUIRE(std::equal(begin(expected), end(expected)
                          , begin(actual),   end(actual)));
 
@@ -82,6 +62,8 @@ TEST_CASE("sub_region_iterator") {
         auto const p = make_sub_region_range(v.data(), offx, offy, w, h, sw, sh);
         auto it      = const_sub_region_iterator<char> {p.first,  v0.data()};
         auto last    = const_sub_region_iterator<char> {p.second, v0.data()};
+
+        REQUIRE((last - it) == 4);
 
         std::array<int, 4> const expected {
             'B', 'C'

@@ -4,6 +4,7 @@
 #include "entity.hpp"       // for entity
 #include "entity_def.hpp"   // for entity_definition
 #include "hash.hpp"         // for djb2_hash_32
+#include "item.hpp"
 #include "item_def.hpp"     // for item_definition
 #include "level.hpp"        // for level, placement_result, make_level, etc
 #include "math.hpp"         // for vec2i, floor_as, point2f, basic_2_tuple, etc
@@ -61,18 +62,6 @@ struct keydef_t {
     uint32_t    value;
     uint32_t    hash;
     key_t       type;
-};
-
-class item {
-public:
-    item(item_instance_id const i_instance, item_id const i_id)
-      : instance_id {i_instance}
-      , id          {i_id}
-    {
-    }
-
-    item_instance_id instance_id {0};
-    item_id          id          {0};
 };
 
 placement_result create_item_at(point2i const p, world& w, level& l, item_definition const& def) {
@@ -377,7 +366,7 @@ struct game_state {
         up<command_translator> cmd_translator_ptr  = make_command_translator();
     } state {};
 
-    system&              os             = *state.system_ptr;
+    system&             os              = *state.system_ptr;
     random_state&       rng_substantive = *state.rng_substantive_ptr;
     random_state&       rng_superficial = *state.rng_superficial_ptr;
     game_database&      database        = *state.database_ptr;

@@ -459,8 +459,6 @@ public:
         return entities_.ids;
     }
 
-
-
     const_sub_region_range<tile_id>
     tile_ids(recti const area) const noexcept final override {
         auto const b = bounds();
@@ -904,8 +902,8 @@ void level_impl::place_doors(random_state& rng, recti const area) {
 
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             this->data_at_(data_.types, x, y) = tile_type::door;
-            data_at_(data_.ids, x, y) = id;
-            data_at_(data_.flags, x, y) = tile_flags {tile_flags::f_solid};
+            this->data_at_(data_.ids, x, y) = id;
+            this->data_at_(data_.flags, x, y) = tile_flags {tile_flags::f_solid};
         }
     );
 }
