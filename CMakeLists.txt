@@ -54,6 +54,7 @@ set(SOURCES
     src/catch.cpp
     src/command.cpp
     src/data.cpp
+    src/entity.cpp
     src/level.cpp
     src/main.cpp
     src/random.cpp
@@ -68,6 +69,7 @@ set(SOURCES_EXTERNAL
 
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp
+    src/test/entity.t.cpp
     src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/spatial_map.t.cpp

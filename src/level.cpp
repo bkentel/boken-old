@@ -344,7 +344,7 @@ public:
     placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
         using namespace container_algorithms;
         auto const it = find_if(entities_.intances
-          , [id](entity const& e) noexcept { return id == e.instance_id; });
+          , [id](entity const& e) noexcept { return id == e.instance(); });
 
         if (it == end(entities_.intances)) {
             return placement_result::failed_bad_id;
@@ -372,7 +372,7 @@ public:
             return result;
         }
 
-        entities_.ids.push_back(e.id);
+        entities_.ids.push_back(e.definition());
         entities_.positions.push_back(p.cast_to<uint16_t>());
         entities_.intances.push_back(std::move(e));
 

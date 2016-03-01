@@ -75,11 +75,15 @@ game_database_impl::game_database_impl() {
         auto       id      = std::string {"rat_small"};
         auto const id_hash = djb2_hash_32(id.data());
 
-        entity_defs_.insert(std::make_pair(
-            entity_id {id_hash}
-          , entity_definition {
-                basic_definition {std::move(id), "small rat", "source", 0}
-              , entity_id {id_hash}}));
+        auto edef = entity_definition {
+            basic_definition {std::move(id), "small rat", "source", 0}
+          , entity_id {id_hash}};
+
+        edef.properties.add_or_update_properties({
+            {entity_property::temperment, 0}
+        });
+
+        entity_defs_.insert(std::make_pair(entity_id {id_hash}, std::move(edef)));
     }
 
     {

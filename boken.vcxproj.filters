@@ -32,6 +32,10 @@
       <Filter>test</Filter>
     </ClCompile>
     <ClCompile Include="src\command.cpp" />
+    <ClCompile Include="src\test\entity.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="src\entity.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
