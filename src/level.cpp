@@ -341,6 +341,16 @@ public:
         return placement_result::ok;
     }
 
+    placement_result move_entity_by_(size_t const i, vec2i const v) noexcept {
+        auto const p = entities_.positions[i].cast_to<int>() + v;
+        auto const result = can_place_entity_at(p);
+        if (result == placement_result::ok) {
+            entities_.positions[i] = p.cast_to<uint16_t>();
+        }
+
+        return result;
+    }
+
     placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
         using namespace container_algorithms;
         auto const it = find_if(entities_.intances
@@ -350,16 +360,21 @@ public:
             return placement_result::failed_bad_id;
         }
 
-        auto const i = static_cast<size_t>(
-            std::distance(begin(entities_.intances), it));
-        auto const p = entities_.positions[i].cast_to<int>() + v;
+        return move_entity_by_(std::distance(begin(entities_.intances), it), v);
+    }
 
-        auto const result = can_place_entity_at(p);
-        if (result == placement_result::ok) {
-            entities_.positions[i] = p.cast_to<uint16_t>();
+    void transform_entities(std::function<point2i (entity&, point2i)>&& f) final override {
+        size_t i = 0;
+        for (auto& e : entities_.intances) {
+            auto const p = entities_.positions[i].cast_to<int>();
+            auto const q = f(e, p);
+
+            if (p != q) {
+                move_entity_by_(i, q - p);
+            }
+
+            ++i;
         }
-
-        return result;
     }
 
     placement_result add_item_at(item&& i, point2i p) final override {

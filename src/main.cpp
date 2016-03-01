@@ -305,7 +305,31 @@ struct game_state {
     }
 
     void advance(int const steps) {
-        renderer.update_entity_data(the_world.current_level()
+        auto& lvl = the_world.current_level();
+
+        lvl.transform_entities([&](entity& e, point2i const p) noexcept {
+            // the player
+            if (e.instance() == entity_instance_id {0}) {
+                return p;
+            }
+
+            auto const temperment =
+                e.property_value_or(database, entity_property::temperment, 0);
+
+            if (!random_chance_in_x(rng_superficial, 1, 10)) {
+                return p;
+            }
+
+            constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+            constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+            auto const dir = random_uniform_int(rng_superficial, 0, 3);
+            auto const d   = vec2i {dir_x[dir], dir_y[dir]};
+
+            return p + d;
+        });
+
+        renderer.update_entity_data(lvl
           , database.get_tile_map(tile_map_type::entity));
     }
 

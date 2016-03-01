@@ -8,6 +8,7 @@
 #include <utility>    // for pair
 #include <vector>     // for vector
 #include <cstdint>    // for uint16_t, int32_t
+#include <functional>
 
 namespace boken { class entity; }
 namespace boken { class item; }
@@ -81,6 +82,8 @@ public:
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
+    virtual void transform_entities(std::function<point2i (entity&, point2i)>&& f) = 0;
+
     virtual placement_result add_item_at(item&& i, point2i p) = 0;
     virtual placement_result add_entity_at(entity&& e, point2i p) = 0;
 

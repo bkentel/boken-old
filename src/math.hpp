@@ -116,6 +116,11 @@ bool operator==(point2<T> const p, point2<U> const q) noexcept {
         && compare_integral(value_cast(p.y), value_cast(q.y), std::equal_to<> {});
 }
 
+template <typename T, typename U> inline constexpr
+bool operator!=(point2<T> const p, point2<U> const q) noexcept {
+    return !(p == q);
+}
+
 template <typename T> inline constexpr
 point2<T> operator+(point2<T> const p, vec2<T> const v) noexcept {
     return detail::do_op<tag_point>(p, v, std::plus<> {});
