@@ -11,6 +11,7 @@
 
 namespace boken {
 
+//! Type trait for the number of parameters a function (object) takes.
 template <typename F>
 struct arity_of;
 
@@ -29,12 +30,15 @@ struct arity_of<R (C::*)(Args...) const> {
     static constexpr size_t value = sizeof...(Args);
 };
 
+template <typename R, typename... Args>
+struct arity_of<R (Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
 template <typename F>
-struct arity_of : std::conditional_t<
-    std::is_class<std::decay_t<F>>::value
-  , arity_of<decltype(&F::operator())>
-  , std::false_type>
-{
+struct arity_of {
+    static_assert(std::is_class<std::decay_t<F>>::value, "");
+    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
 };
 
 namespace detail {
@@ -114,6 +118,9 @@ template <typename T>
 inline constexpr std::add_const_t<T>& as_const(T& t) noexcept {
     return t;
 }
+
+template <typename T>
+void as_const(T const&&) = delete;
 
 template <typename T>
 inline constexpr std::add_const_t<T>* as_const(T* const t) noexcept {
