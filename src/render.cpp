@@ -79,20 +79,19 @@ void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const s
 
 void game_renderer_impl::update_map_data(level const& lvl, tile_map const& tmap) {
     auto const bounds = lvl.bounds();
-    auto const bounds_size = bounds.area();
+    auto const bounds_size = static_cast<size_t>(std::max(0, bounds.area()));
 
     if (tile_data.size() < bounds_size) {
-        tile_data.resize(static_cast<size_t>(bounds_size));
+        tile_data.resize(bounds_size);
     }
 
     auto const region_color = [](uint32_t i) noexcept {
         ++i;
-        return 0xFF << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
+        return 0xFFu << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
     };
 
-    auto const tw = value_cast(tmap.tile_w);
-    auto const th = value_cast(tmap.tile_h);
-    auto const tx = value_cast(tmap.tiles_x);
+    auto const tw = value_cast(tmap.tile_width());
+    auto const th = value_cast(tmap.tile_height());
 
     auto const ids_range        = lvl.tile_ids(bounds);
     auto const region_ids_range = lvl.region_ids(bounds);
@@ -125,8 +124,8 @@ void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tm
 
     BK_ASSERT(epos.size() == eids.size());
 
-    auto const tw = value_cast(tmap.tile_w);
-    auto const th = value_cast(tmap.tile_h);
+    auto const tw = value_cast(tmap.tile_width());
+    auto const th = value_cast(tmap.tile_height());
 
     entity_data.clear();
     entity_data.reserve(epos.size());
@@ -174,8 +173,8 @@ void game_renderer_impl::render(duration_t const delta, view const& v
     //
     // Map tiles
     //
-    os_.render_set_tile_size(tmap_base.tile_w, tmap_base.tile_h);
-    os_.render_set_texture(tmap_base.texture_id);
+    os_.render_set_tile_size(tmap_base.tile_width(), tmap_base.tile_height());
+    os_.render_set_texture(tmap_base.texture_id());
 
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, position)});
@@ -188,8 +187,8 @@ void game_renderer_impl::render(duration_t const delta, view const& v
     //
     // Entities
     //
-    os_.render_set_tile_size(tmap_entities.tile_w, tmap_entities.tile_h);
-    os_.render_set_texture(tmap_entities.texture_id);
+    os_.render_set_tile_size(tmap_entities.tile_width(), tmap_entities.tile_height());
+    os_.render_set_texture(tmap_entities.texture_id());
 
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, position)});
@@ -202,7 +201,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v
     //
     // text
     //
-    os_.render_set_tile_size(tmap_base.tile_w, tmap_base.tile_h);
+    os_.render_set_tile_size(tmap_base.tile_width(), tmap_base.tile_height());
     os_.render_set_texture(3);
 
     //

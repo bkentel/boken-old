@@ -257,8 +257,11 @@ public:
 
         std::fill(begin(m.button_change), end(m.button_change), type::none);
 
-        if (e.button > 0 && e.button < mouse_event::button_count) {
-            auto const b = e.button - 1;
+        auto const b = (e.button > 0) && (e.button < mouse_event::button_count)
+          ? static_cast<size_t>(e.button - 1)
+          : mouse_event::button_count;
+
+        if (b < mouse_event::button_count) {
             std::tie(m.button_change[b], m.button_state[b]) =
                 (e.state == SDL_PRESSED) ? std::make_pair(type::went_down, true)
                                          : std::make_pair(type::went_up,   false);
@@ -345,43 +348,7 @@ public:
         return running_;
     }
 
-    int do_events() final override {
-        int count = 0;
-
-        for (SDL_Event event; SDL_PollEvent(&event); ++count) {
-            switch (event.type) {
-            case SDL_WINDOWEVENT :
-                handle_window_event(event.window);
-                break;
-            case SDL_QUIT:
-                running_ = !handler_quit_();
-                break;
-            case SDL_KEYDOWN :
-            case SDL_KEYUP :
-                handler_key_(kb_event {
-                    event.key.timestamp
-                  , static_cast<uint32_t>(event.key.keysym.scancode)
-                  , static_cast<uint32_t>(event.key.keysym.sym)
-                  , event.key.keysym.mod
-                  , !!event.key.repeat
-                  , event.key.state == SDL_PRESSED
-                }, kb_modifiers {event.key.keysym.mod});
-                break;
-            case SDL_MOUSEMOTION :
-                handle_event_mouse_move(event.motion);
-                break;
-            case SDL_MOUSEBUTTONDOWN :
-            case SDL_MOUSEBUTTONUP :
-                handle_event_mouse_button(event.button);
-                break;
-            case SDL_MOUSEWHEEL :
-                handler_mouse_wheel_(event.wheel.y, event.wheel.x, get_key_mods());
-                break;
-            }
-        }
-
-        return count;
-    }
+    int do_events() final override;
 
     void render_clear() final override {
         SDL_SetRenderDrawColor(renderer_, 127, 127, 0, 255);
@@ -513,6 +480,44 @@ private:
     float tx_ = 0.0f;
     float ty_ = 0.0f;
 };
+
+int sdl_system::do_events() {
+    int count = 0;
+
+    for (SDL_Event event; SDL_PollEvent(&event); ++count) {
+        switch (event.type) {
+        case SDL_WINDOWEVENT :
+            handle_window_event(event.window);
+            break;
+        case SDL_QUIT:
+            running_ = !handler_quit_();
+            break;
+        case SDL_KEYDOWN :
+        case SDL_KEYUP :
+            handler_key_(kb_event {
+                event.key.timestamp
+                , static_cast<uint32_t>(event.key.keysym.scancode)
+                , static_cast<uint32_t>(event.key.keysym.sym)
+                , event.key.keysym.mod
+                , !!event.key.repeat
+                , event.key.state == SDL_PRESSED
+            }, kb_modifiers {event.key.keysym.mod});
+            break;
+        case SDL_MOUSEMOTION :
+            handle_event_mouse_move(event.motion);
+            break;
+        case SDL_MOUSEBUTTONDOWN :
+        case SDL_MOUSEBUTTONUP :
+            handle_event_mouse_button(event.button);
+            break;
+        case SDL_MOUSEWHEEL :
+            handler_mouse_wheel_(event.wheel.y, event.wheel.x, get_key_mods());
+            break;
+        }
+    }
+
+    return count;
+}
 
 std::unique_ptr<system> make_system() {
     return std::make_unique<sdl_system>();

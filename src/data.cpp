@@ -43,34 +43,33 @@ public:
         return find_or_nullptr(entity_defs_, id);
     }
 
-    tile_map const& get_tile_map(tile_map_type const type) const noexcept final override {
-        switch (type) {
-        case tile_map_type::base:   break;
-        case tile_map_type::entity: return tile_map_entities_;
-        case tile_map_type::item:   return tile_map_items_;
-        default:                    break;
-        }
-
-        return tile_map_base_;
-    }
+    tile_map const& get_tile_map(tile_map_type const type) const noexcept final override;
 private:
     std::unordered_map<entity_id, entity_definition, identity_hash> entity_defs_;
     std::unordered_map<item_id,   item_definition,   identity_hash> item_defs_;
 
-    tile_map tile_map_base_     {tile_map_type::base};
-    tile_map tile_map_items_    {tile_map_type::item};
-    tile_map tile_map_entities_ {tile_map_type::entity};
+    tile_map tile_map_base_     {tile_map_type::base,   0, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
+    tile_map tile_map_items_    {tile_map_type::item,   0, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
+    tile_map tile_map_entities_ {tile_map_type::entity, 1, sizeix {18}, sizeiy {18}, sizeix {26}, sizeiy {17}};
 };
+
+tile_map const&
+game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
+    switch (type) {
+    case tile_map_type::base:   break;
+    case tile_map_type::entity: return tile_map_entities_;
+    case tile_map_type::item:   return tile_map_items_;
+    default:                    break;
+    }
+
+    return tile_map_base_;
+}
 
 std::unique_ptr<game_database> make_game_database() {
     return std::make_unique<game_database_impl>();
 }
 
 game_database_impl::game_database_impl() {
-    tile_map_entities_.texture_id = 1;
-
-    using e_value_type = decltype(entity_defs_)::value_type;
-
     {
         auto       id      = std::string {"rat_small"};
         auto const id_hash = djb2_hash_32(id.data());
@@ -97,8 +96,6 @@ game_database_impl::game_database_impl() {
               , entity_id {id_hash}}));
     }
 
-    tile_map_entities_.tiles_x = sizeix {26};
-    tile_map_entities_.tiles_y = sizeiy {17};
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("rat_small")}, 21 + 6 * 26);
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("player")}, 13 + 13 * 26);
 }

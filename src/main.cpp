@@ -71,8 +71,11 @@ placement_result create_item_at(point2i const p, world& w, level& l, item_defini
     switch (result) {
     case placement_result::ok :
         break;
-    case placement_result::failed_bounds   :
-    case placement_result::failed_entity   :
+    case placement_result::failed_bad_id :
+        BK_ASSERT_SAFE(false);
+        break;
+    case placement_result::failed_bounds :
+    case placement_result::failed_entity :
     case placement_result::failed_obstacle :
         w.free_item_id(id);
         break;
@@ -88,8 +91,11 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     switch (result) {
     case placement_result::ok :
         break;
-    case placement_result::failed_bounds   :
-    case placement_result::failed_entity   :
+    case placement_result::failed_bad_id :
+        BK_ASSERT_SAFE(false);
+        break;
+    case placement_result::failed_bounds :
+    case placement_result::failed_entity :
     case placement_result::failed_obstacle :
         w.free_entity_id(id);
         break;
@@ -126,8 +132,8 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     point2i window_to_world(point2i const p) const noexcept {
         auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast(tile_map.tile_w);
-        auto const th = value_cast(tile_map.tile_h);
+        auto const tw = value_cast(tile_map.tile_width());
+        auto const th = value_cast(tile_map.tile_height());
 
         auto const q  = current_view.window_to_world(p);
         auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
@@ -272,8 +278,11 @@ struct game_state {
         case ct::move_w  : move_player(vec2i {-1,  0}); break;
         case ct::move_nw : move_player(vec2i {-1, -1}); break;
         case ct::reset_view:
-            current_view.x_off = 0.0f;
-            current_view.y_off = 0.0f;
+            current_view.x_off   = 0.0f;
+            current_view.y_off   = 0.0f;
+            current_view.scale_x = 1.0f;
+            current_view.scale_y = 1.0f;
+            break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
             current_view.scale_y = 1.0f;
@@ -312,7 +321,7 @@ struct game_state {
             constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
             constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
 
-            auto const dir = random_uniform_int(rng_superficial, 0, 3);
+            auto const dir = static_cast<size_t>(random_uniform_int(rng_superficial, 0, 3));
             auto const d   = vec2i {dir_x[dir], dir_y[dir]};
 
             return p + d;

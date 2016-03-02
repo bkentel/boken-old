@@ -13,13 +13,9 @@ public:
     world_impl() {
     }
 
-    item const* find(item_instance_id id) const noexcept final override {
-        return nullptr;
-    }
+    item const* find(item_instance_id id) const noexcept final override;
 
-    entity const* find(entity_instance_id id) const noexcept final override {
-        return nullptr;
-    }
+    entity const* find(entity_instance_id id) const noexcept final override;
 
     item_instance_id create_item_id() final override {
         return item_instance_id {next_item_instance_id_++};
@@ -61,9 +57,28 @@ private:
     item_instance_id::type   next_item_instance_id_   {};
     entity_instance_id::type next_entity_instance_id_ {};
 
-    int current_level_index_ {0};
+    size_t current_level_index_ {0};
     std::vector<std::unique_ptr<level>> levels_;
 };
+
+item const* world_impl::find(item_instance_id const id) const noexcept {
+    for (auto const& lvl : levels_) {
+        if (auto const i = lvl->find(id)) {
+            return i;
+        }
+    }
+    return nullptr;
+}
+
+entity const* world_impl::find(entity_instance_id const id) const noexcept {
+    for (auto const& lvl : levels_) {
+        if (auto const e = lvl->find(id)) {
+            return e;
+        }
+    }
+
+    return nullptr;
+}
 
 std::unique_ptr<world> make_world() {
     return std::make_unique<world_impl>();

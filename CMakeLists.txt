@@ -1,25 +1,19 @@
 cmake_minimum_required(VERSION 3.2)
 project(boken CXX)
 
+#
+# Whether to warn about paddings added to structures
+#
 set(NO_WARN_PADDING 1)
 
-include_directories(src)
-include_directories(SYSTEM external)
-include_directories(SYSTEM external/boost/assert/include)
-include_directories(SYSTEM external/boost/config/include)
-include_directories(SYSTEM external/boost/integer/include)
-include_directories(SYSTEM external/boost/mpl/include)
-include_directories(SYSTEM external/boost/predef/include)
-include_directories(SYSTEM external/boost/random/include)
-include_directories(SYSTEM external/boost/static_assert/include)
-include_directories(SYSTEM external/boost/type_traits/include)
-include_directories(SYSTEM external/boost/utility/include)
-include_directories(SYSTEM external/pcg/include)
-
+#
+# Wmissing-braces is buggy (issued for valid code)
+#
 set(CLANG_WARNINGS
     "-Weverything"
     "-Wno-c++98-compat"
     "-Wno-c++98-c++11-compat-pedantic"
+    "-Wno-missing-braces"
     "-Wno-missing-prototypes"
     "-Wno-date-time")
 
@@ -76,7 +70,26 @@ set(SOURCES_TEST
     src/test/spatial_map.t.cpp
     src/test/utility.t.cpp)
 
-set_source_files_properties(${SOURCES_TEST} PROPERTIES COMPILE_FLAGS "-Wno-exit-time-destructors")
+include_directories(src)
+include_directories(SYSTEM external)
+include_directories(SYSTEM external/boost/assert/include)
+include_directories(SYSTEM external/boost/config/include)
+include_directories(SYSTEM external/boost/integer/include)
+include_directories(SYSTEM external/boost/mpl/include)
+include_directories(SYSTEM external/boost/predef/include)
+include_directories(SYSTEM external/boost/random/include)
+include_directories(SYSTEM external/boost/static_assert/include)
+include_directories(SYSTEM external/boost/type_traits/include)
+include_directories(SYSTEM external/boost/utility/include)
+include_directories(SYSTEM external/pcg/include)
+
+#
+# The unit test library Catch generated exit time destructors; disable warnings about this for
+# unit tests only
+#
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set_source_files_properties(${SOURCES_TEST} PROPERTIES COMPILE_FLAGS "-Wno-exit-time-destructors")
+endif()
 
 add_executable(boken ${SOURCES} ${SOURCES_EXTERNAL} ${SOURCES_TEST})
 set_property(TARGET boken PROPERTY CXX_STANDARD 14)
@@ -86,7 +99,7 @@ target_link_libraries(boken SDL2)
 target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:${CLANG_WARNINGS}>)
 target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:GNU>:${GCC_WARNINGS}>)
 
-if(${NO_WARN_PADDING})
+if (${NO_WARN_PADDING})
     target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:-Wno-padded>)
 endif()
 
@@ -97,7 +110,7 @@ include(CheckIncludeFileCXX)
 set(CMAKE_REQUIRED_FLAGS "-std=c++14")
 CHECK_INCLUDE_FILE_CXX("experimental/string_view" HAVE_STD_EXP_STRING_VIEW)
 
-if(HAVE_STD_EXP_STRING_VIEW)
+if (HAVE_STD_EXP_STRING_VIEW)
     target_compile_definitions(boken PRIVATE BK_USE_STD_EXP_STRING_VIEW=1)
 else()
     target_compile_definitions(boken PRIVATE BK_USE_BOOST_STRING_VIEW=1)

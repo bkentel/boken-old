@@ -23,28 +23,31 @@ public:
         return load_metrics(cp);
     }
 
-    glyph_data_t load_metrics(uint32_t const cp) noexcept final override {
-        constexpr int16_t tiles_x = 16;
-        constexpr int16_t tiles_y = 16;
-        constexpr int16_t tile_w  = 18;
-        constexpr int16_t tile_h  = 18;
-
-        auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
-        auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
-
-        return {
-            {    tx,     ty}
-          , {tile_w, tile_h}
-          , {     0,      0}
-          , {tile_w,      0}
-        };
-    }
+    glyph_data_t load_metrics(uint32_t const cp) noexcept final override;
 
     int pixel_size() const noexcept final override { return 18; }
     int ascender()   const noexcept final override { return 18; }
     int descender()  const noexcept final override { return 0; }
     int line_gap()   const noexcept final override { return 18; }
 };
+
+text_renderer::glyph_data_t
+text_renderer_impl::load_metrics(uint32_t const cp) noexcept {
+    constexpr int16_t tiles_x = 16;
+    //constexpr int16_t tiles_y = 16;
+    constexpr int16_t tile_w  = 18;
+    constexpr int16_t tile_h  = 18;
+
+    auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
+    auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
+
+    return {
+        {    tx,     ty}
+      , {tile_w, tile_h}
+      , {     0,      0}
+      , {tile_w,      0}
+    };
+}
 
 std::unique_ptr<text_renderer> make_text_renderer() {
     return std::make_unique<text_renderer_impl>();

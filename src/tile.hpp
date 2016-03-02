@@ -5,6 +5,8 @@
 #include "math.hpp"
 #include "types.hpp"
 
+#include <bkassert/assert.hpp>
+
 #include <bitset>
 #include <type_traits>
 #include <unordered_map>
@@ -107,27 +109,44 @@ enum class tile_map_type : uint32_t {
 
 class tile_map {
 public:
-    explicit tile_map(tile_map_type const map_type) noexcept
-      : type {map_type}
+    tile_map(
+        tile_map_type const type
+      , uint32_t      const texture_id
+      , sizeix        const tile_w
+      , sizeiy        const tile_h
+      , sizeix        const tiles_x
+      , sizeiy        const tiles_y
+    ) noexcept
+      : type_       {type}
+      , texture_id_ {texture_id}
+      , tile_w_     {tile_w}
+      , tile_h_     {tile_h}
+      , tiles_x_    {tiles_x}
+      , tiles_y_    {tiles_y}
     {
+        BK_ASSERT_SAFE(tile_w  > sizeix {0});
+        BK_ASSERT_SAFE(tile_h  > sizeiy {0});
+        BK_ASSERT_SAFE(tiles_x > sizeix {0});
+        BK_ASSERT_SAFE(tiles_y > sizeiy {0});
     }
 
-    recti index_to_rect(int32_t const i) const noexcept {
-        return {
-            offix {(i % value_cast(tiles_x)) * value_cast(tile_w)}
-          , offiy {(i / value_cast(tiles_x)) * value_cast(tile_h)}
-          , tile_w
-          , tile_h
-        };
+    recti index_to_rect(uint32_t const i) const noexcept {
+        auto const tx = value_cast<uint32_t>(tiles_x_);
+        auto const tw = value_cast(tile_w_);
+        auto const th = value_cast(tile_h_);
+        auto const x  = static_cast<int32_t>(i % tx);
+        auto const y  = static_cast<int32_t>(i / tx);
+
+        return {offix {x * tw}, offiy {y * th}, tile_w_, tile_h_};
     }
 
-    tile_map_type type;
-    uint32_t      texture_id {0};
+    sizeix tile_width()  const noexcept { return tile_w_; }
+    sizeiy tile_height() const noexcept { return tile_h_; }
 
-    sizeix tile_w  {18};
-    sizeiy tile_h  {18};
-    sizeix tiles_x {16};
-    sizeiy tiles_y {16};
+    sizeix width()  const noexcept { return tiles_x_; }
+    sizeiy height() const noexcept { return tiles_y_; }
+
+    uint32_t texture_id() const noexcept { return texture_id_; }
 
     //TODO remove these
     template <typename T, typename Tag>
@@ -141,6 +160,14 @@ public:
         return it == std::end(mappings_) ? 0 : it->second;
     }
 private:
+    tile_map_type type_;
+    uint32_t      texture_id_ {0};
+
+    sizeix tile_w_;
+    sizeiy tile_h_;
+    sizeix tiles_x_;
+    sizeiy tiles_y_;
+
     std::unordered_map<uint32_t, uint32_t> mappings_;
 };
 

@@ -186,7 +186,7 @@ struct generate_rect_room {
       , double               const inverse_variance = 6.0
     ) noexcept {
         BK_ASSERT(min_size <= max_size);
-        BK_ASSERT(inverse_variance > 0.0f);
+        BK_ASSERT(inverse_variance > 0);
 
         auto const w = r.width();
         auto const h = r.height();
@@ -360,7 +360,10 @@ public:
             return placement_result::failed_bad_id;
         }
 
-        return move_entity_by_(std::distance(begin(entities_.intances), it), v);
+        auto const i = std::distance(begin(entities_.intances), it);
+        BK_ASSERT(i >= 0);
+
+        return move_entity_by_(static_cast<size_t>(i), v);
     }
 
     void transform_entities(std::function<point2i (entity&, point2i)>&& f) final override {
@@ -422,34 +425,7 @@ public:
         return regions_[i];
     }
 
-    tile_view at(point2i const p) const noexcept final override {
-        auto const x = value_cast(p.x);
-        auto const y = value_cast(p.y);
-
-        if (!check_bounds_(x, y)) {
-            static tile_id    const dummy_id         {};
-            static tile_type  const dummy_type       {tile_type::empty};
-            static tile_flags const dummy_flags      {};
-            static uint16_t   const dummy_region_id  {};
-            static tile_data* const dummy_data       {};
-
-            return {
-                dummy_id
-              , dummy_type
-              , dummy_flags
-              , dummy_region_id
-              , dummy_data
-            };
-        }
-
-        return {
-            data_at_(data_.ids,        x, y)
-          , data_at_(data_.types,      x, y)
-          , data_at_(data_.flags,      x, y)
-          , data_at_(data_.region_ids, x, y)
-          , nullptr
-        };
-    }
+    tile_view at(point2i const p) const noexcept final override;
 
     std::vector<point2<uint16_t>> const& entity_positions() const noexcept final override {
         return entities_.positions;
@@ -543,7 +519,7 @@ public:
 
             auto const segments = random_uniform_int(rng, 0, 10);
             for (int i = 0; i < segments; ++i) {
-                auto const dir = random_uniform_int(rng, 0, 3);
+                auto const dir = static_cast<size_t>(random_uniform_int(rng, 0, 3));
                 auto const d   = vec2i {dir_x[dir], dir_y[dir]};
 
                 for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
@@ -726,6 +702,35 @@ private:
         std::vector<uint16_t>   region_ids;
     } data_;
 };
+
+tile_view level_impl::at(point2i const p) const noexcept {
+    auto const x = value_cast(p.x);
+    auto const y = value_cast(p.y);
+
+    if (!check_bounds_(x, y)) {
+        static tile_id    const dummy_id        {};
+        static tile_type  const dummy_type      {tile_type::empty};
+        static tile_flags const dummy_flags     {};
+        static uint16_t   const dummy_region_id {};
+        static tile_data* const dummy_data      {};
+
+        return {
+            dummy_id
+          , dummy_type
+          , dummy_flags
+          , dummy_region_id
+          , dummy_data
+        };
+    }
+
+    return {
+        data_at_(data_.ids,        x, y)
+      , data_at_(data_.types,      x, y)
+      , data_at_(data_.flags,      x, y)
+      , data_at_(data_.region_ids, x, y)
+      , nullptr
+    };
+}
 
 std::unique_ptr<level> make_level(random_state& rng, sizeix const width, sizeiy const height) {
     return std::make_unique<level_impl>(rng, width, height);
