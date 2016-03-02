@@ -7,12 +7,14 @@ project(boken CXX)
 set(NO_WARN_PADDING 1)
 
 #
-# Wmissing-braces is buggy (issued for valid code)
+# Wmissing-braces is buggy (issued for valid code).
+# Wcovered-switch-default conflicts with GCC; warnings are still issues for unhandled enumerator values.
 #
 set(CLANG_WARNINGS
     "-Weverything"
     "-Wno-c++98-compat"
     "-Wno-c++98-c++11-compat-pedantic"
+    "-Wno-covered-switch-default"
     "-Wno-missing-braces"
     "-Wno-missing-prototypes"
     "-Wno-date-time")

@@ -16,9 +16,7 @@
 
 #include <cstdint>              // for uint16_t, int32_t
 
-namespace boken {
-
-level::~level() = default;
+namespace {
 
 struct always_true {
     template <typename... Args>
@@ -68,49 +66,9 @@ unsigned fold_neighbors9(int const x, int const y, Check check, Predicate pred) 
     return fold_neighbors_impl(xi, yi, x, y, check, pred);
 }
 
-template <typename T>
-constexpr axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
-    return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
-          , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
-}
-
-template <typename T>
-constexpr axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
-    return {offset_type_x<T> {r.x0 - 1}, offset_type_y<T> {r.y0 - 1}
-          , offset_type_x<T> {r.x1 + 1}, offset_type_y<T> {r.y1 + 1}};
-}
-
-//
-// 1111111111
-// 2000000002
-// 2000000002
-// 2000000002
-// 3333333333
-//
-template <typename T, typename CenterF, typename EdgeF>
-void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
-    // inner tiles
-    for_each_xy(shrink_rect(r), center);
-
-    //top edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        edge(x, r.y0);
-    }
-
-    //left and right edge
-    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
-        edge(r.x0,     y);
-        edge(r.x1 - 1, y);
-    }
-
-    // bottom edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        edge(x, r.y1 - 1);
-    }
-}
-
 template <typename Vector>
-auto& data_at(Vector&& v, int const x, int const y, sizeix const w) noexcept {
+auto& data_at(Vector&& v, int const x, int const y, boken::sizeix const w) noexcept {
+    using namespace boken;
     auto const i = static_cast<size_t>(x)
                  + static_cast<size_t>(y) * value_cast<size_t>(w);
 
@@ -118,17 +76,18 @@ auto& data_at(Vector&& v, int const x, int const y, sizeix const w) noexcept {
 }
 
 template <typename Vector>
-auto& data_at(Vector&& v, point2i const p, sizeix const w) noexcept {
+auto& data_at(Vector&& v, boken::point2i const p, boken::sizeix const w) noexcept {
+    using namespace boken;
     return data_at(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
 }
 
 template <typename T, typename Predicate>
-std::pair<point2<T>, bool> find_random_nearest(
-    random_state&         rng
-  , point2<T> const       origin
-  , T const               max_distance
-  , std::vector<point2i>& points
-  , Predicate             pred
+std::pair<boken::point2<T>, bool> find_random_nearest(
+    boken::random_state&         rng
+  , boken::point2<T> const       origin
+  , T const                      max_distance
+  , std::vector<boken::point2i>& points
+  , Predicate                    pred
 ) {
     BK_ASSERT(max_distance >= 0);
 
@@ -161,20 +120,166 @@ std::pair<point2<T>, bool> find_random_nearest(
 }
 
 template <typename T, typename Predicate>
-auto find_random_nearest(random_state& rng, point2<T> const origin, T const max_distance, Predicate pred) {
-    std::vector<point2i> points;
+auto find_random_nearest(
+    boken::random_state&   rng
+  , boken::point2<T> const origin
+  , T const                max_distance
+  , Predicate              pred
+) {
+    std::vector<boken::point2i> points;
     return find_random_nearest(rng, origin, max_distance, points, pred);
 }
 
-template <typename T>
-constexpr axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
-    return axis_aligned_rect<T> {
-        offset_type_x<T> {0}
-      , offset_type_y<T> {0}
-      , size_type_x<T>   {r.width()}
-      , size_type_y<T>   {r.height()}
-    };
+bool can_remove_wall_code(
+    unsigned const wall_type
+  , unsigned const other_type
+) noexcept {
+    // north
+    if (
+        ((wall_type & 0b111'00'000) == 0b111'00'000) && (other_type & 0b000'00'010)
+    ) {
+        return true;
+    }
+
+    // east
+    if (
+        ((wall_type & 0b001'01'001) == 0b001'01'001) && (other_type & 0b000'10'000)
+    ) {
+        return true;
+    }
+
+    return false;
 }
+
+template <typename Read, typename Check>
+bool can_remove_wall_at(int const x, int const y, Read read, Check check) noexcept {
+    using namespace boken;
+
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
+    auto const wall_type =
+        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::wall;
+        });
+
+    auto const other_type =
+        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::floor;
+        });
+
+    return can_remove_wall_code(wall_type, other_type);
+}
+
+boken::tile_id wall_code_to_id(unsigned const code) noexcept {
+    using ti = boken::tile_id;
+    switch (code) {
+    case 0b0000 : return ti::wall_0000;
+    case 0b0001 : return ti::wall_0001;
+    case 0b0010 : return ti::wall_0010;
+    case 0b0011 : return ti::wall_0011;
+    case 0b0100 : return ti::wall_0100;
+    case 0b0101 : return ti::wall_0101;
+    case 0b0110 : return ti::wall_0110;
+    case 0b0111 : return ti::wall_0111;
+    case 0b1000 : return ti::wall_1000;
+    case 0b1001 : return ti::wall_1001;
+    case 0b1010 : return ti::wall_1010;
+    case 0b1011 : return ti::wall_1011;
+    case 0b1100 : return ti::wall_1100;
+    case 0b1101 : return ti::wall_1101;
+    case 0b1110 : return ti::wall_1110;
+    case 0b1111 : return ti::wall_1111;
+    default     : break;
+    }
+
+    return ti::invalid;
+}
+
+template <typename Read, typename Check>
+boken::tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noexcept {
+    using namespace boken;
+
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
+    using ti = tile_id;
+    using tt = tile_type;
+
+    switch (read(x, y)) {
+    default         : break;
+    case tt::empty  : return ti::empty;
+    case tt::floor  : return ti::floor;
+    case tt::tunnel : return ti::tunnel;
+    case tt::door   : break;
+    case tt::stair  : break;
+    case tt::wall   : return wall_code_to_id(
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            auto const type = read(x0, y0);
+            return type == tt::wall || type == tt::door;
+        }));
+    }
+
+    return ti::invalid;
+}
+
+template <typename Read, typename Check>
+boken::tile_id can_place_door_at(int const x, int const y, Read read, Check check) noexcept {
+    using namespace boken;
+
+    static_assert(noexcept(read(x, y)), "");
+    static_assert(noexcept(check(x, y)), "");
+
+    auto const wall_type =
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            return read(x0, y0) == tile_type::wall;
+        });
+
+    auto const other_type =
+        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
+            auto const type = read(x0, y0);
+            return type == tile_type::floor || type == tile_type::tunnel;
+        });
+
+    return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
+         : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
+         : tile_id::invalid;
+}
+
+template <typename Check, typename Transform>
+void transform_area(
+    boken::recti const area
+  , boken::recti const bounds
+  , Check              check
+  , Transform          transform
+) {
+    using namespace boken;
+
+    auto const transform_checked = [&](int const x, int const y) noexcept {
+        transform(x, y, check);
+    };
+
+    auto const transform_unchecked = [&](int const x, int const y) noexcept {
+        transform(x, y, always_true {});
+    };
+
+    bool const must_check = area.x0 == bounds.x0
+                         || area.y0 == bounds.y0
+                         || area.x1 == bounds.x1 - 1
+                         || area.y1 == bounds.y1 - 1;
+
+    if (must_check) {
+        for_each_xy_center_first(area, transform_unchecked, transform_checked);
+    } else {
+        for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
+    }
+}
+
+} //namespace
+
+namespace boken {
+
+level::~level() = default;
 
 struct generate_rect_room {
     template <typename T>
@@ -734,137 +839,6 @@ tile_view level_impl::at(point2i const p) const noexcept {
 
 std::unique_ptr<level> make_level(random_state& rng, sizeix const width, sizeiy const height) {
     return std::make_unique<level_impl>(rng, width, height);
-}
-
-bool can_remove_wall_code(
-    unsigned const wall_type
-  , unsigned const other_type
-) noexcept {
-    // north
-    if (
-        ((wall_type & 0b111'00'000) == 0b111'00'000) && (other_type & 0b000'00'010)
-    ) {
-        return true;
-    }
-
-    // east
-    if (
-        ((wall_type & 0b001'01'001) == 0b001'01'001) && (other_type & 0b000'10'000)
-    ) {
-        return true;
-    }
-
-    return false;
-}
-
-template <typename Read, typename Check>
-bool can_remove_wall_at(int const x, int const y, Read read, Check check) noexcept {
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
-
-    auto const wall_type =
-        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::wall;
-        });
-
-    auto const other_type =
-        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::floor;
-        });
-
-    return can_remove_wall_code(wall_type, other_type);
-}
-
-tile_id wall_code_to_id(unsigned const code) noexcept {
-    using ti = tile_id;
-    switch (code) {
-    case 0b0000 : return ti::wall_0000;
-    case 0b0001 : return ti::wall_0001;
-    case 0b0010 : return ti::wall_0010;
-    case 0b0011 : return ti::wall_0011;
-    case 0b0100 : return ti::wall_0100;
-    case 0b0101 : return ti::wall_0101;
-    case 0b0110 : return ti::wall_0110;
-    case 0b0111 : return ti::wall_0111;
-    case 0b1000 : return ti::wall_1000;
-    case 0b1001 : return ti::wall_1001;
-    case 0b1010 : return ti::wall_1010;
-    case 0b1011 : return ti::wall_1011;
-    case 0b1100 : return ti::wall_1100;
-    case 0b1101 : return ti::wall_1101;
-    case 0b1110 : return ti::wall_1110;
-    case 0b1111 : return ti::wall_1111;
-    default     : break;
-    }
-
-    return ti::invalid;
-}
-
-template <typename Read, typename Check>
-tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noexcept {
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
-
-    using ti = tile_id;
-    using tt = tile_type;
-
-    switch (read(x, y)) {
-    case tt::empty  : return ti::empty;
-    case tt::floor  : return ti::floor;
-    case tt::tunnel : return ti::tunnel;
-    case tt::door   : break;
-    case tt::stair  : break;
-    case tt::wall   : return wall_code_to_id(
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            auto const type = read(x0, y0);
-            return type == tt::wall || type == tt::door;
-        }));
-    }
-
-    return ti::invalid;
-}
-
-template <typename Read, typename Check>
-tile_id can_place_door_at(int const x, int const y, Read read, Check check) noexcept {
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
-
-    auto const wall_type =
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::wall;
-        });
-
-    auto const other_type =
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            auto const type = read(x0, y0);
-            return type == tile_type::floor || type == tile_type::tunnel;
-        });
-
-    return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
-         : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
-         : tile_id::invalid;
-}
-
-template <typename Check, typename Transform>
-void transform_area(recti const area, recti const bounds, Check check, Transform transform) {
-    auto const transform_checked = [&](int const x, int const y) noexcept {
-        transform(x, y, check);
-    };
-
-    auto const transform_unchecked = [&](int const x, int const y) noexcept {
-        transform(x, y, always_true {});
-    };
-
-    bool const must_check = area.x0 == bounds.x0
-                         || area.y0 == bounds.y0
-                         || area.x1 == bounds.x1 - 1
-                         || area.y1 == bounds.y1 - 1;
-
-    if (must_check) {
-        for_each_xy_center_first(area, transform_unchecked, transform_checked);
-    } else {
-        for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
-    }
 }
 
 void level_impl::merge_walls_at(random_state& rng, recti const area) {

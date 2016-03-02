@@ -69,10 +69,13 @@ placement_result create_item_at(point2i const p, world& w, level& l, item_defini
     auto const result = l.add_item_at(item {id, def.id}, p);
 
     switch (result) {
-    case placement_result::ok :
+    default :
+        BK_ASSERT_SAFE(false);
         break;
     case placement_result::failed_bad_id :
         BK_ASSERT_SAFE(false);
+        break;
+    case placement_result::ok :
         break;
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
@@ -89,10 +92,13 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     auto const result = l.add_entity_at(entity {id, def.id}, p);
 
     switch (result) {
-    case placement_result::ok :
+    default :
+        BK_ASSERT_SAFE(false);
         break;
     case placement_result::failed_bad_id :
         BK_ASSERT_SAFE(false);
+        break;
+    case placement_result::ok :
         break;
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
@@ -132,8 +138,8 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     point2i window_to_world(point2i const p) const noexcept {
         auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast(tile_map.tile_width());
-        auto const th = value_cast(tile_map.tile_height());
+        auto const tw = value_cast<float>(tile_map.tile_width());
+        auto const th = value_cast<float>(tile_map.tile_height());
 
         auto const q  = current_view.window_to_world(p);
         auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
@@ -232,8 +238,8 @@ struct game_state {
 
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
         if (kmods.none() && event.button_state[2]) {
-            current_view.x_off += event.dx;
-            current_view.y_off += event.dy;
+            current_view.x_off += static_cast<float>(event.dx);
+            current_view.y_off += static_cast<float>(event.dy);
         }
 
         if (kmods.test(kb_modifiers::m_shift)) {

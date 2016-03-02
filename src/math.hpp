@@ -227,6 +227,28 @@ private:
 
 using recti = axis_aligned_rect<int32_t>;
 
+template <typename T> inline constexpr
+axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
+    return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
+          , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
+}
+
+template <typename T> inline constexpr
+axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
+    return {offset_type_x<T> {r.x0 - 1}, offset_type_y<T> {r.y0 - 1}
+          , offset_type_x<T> {r.x1 + 1}, offset_type_y<T> {r.y1 + 1}};
+}
+
+template <typename T> inline constexpr
+axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
+    return axis_aligned_rect<T> {
+        offset_type_x<T> {0}
+      , offset_type_y<T> {0}
+      , size_type_x<T>   {r.width()}
+      , size_type_y<T>   {r.height()}
+    };
+}
+
 template <typename T, typename U> inline constexpr
 bool intersects(axis_aligned_rect<T> const& r, point2<U> const& p) noexcept {
     using lt = std::less<>;
@@ -276,6 +298,35 @@ template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f) {
     constexpr int n = arity_of<F>::value;
     for_each_xy(r, f, std::integral_constant<int, n> {});
+}
+
+//
+// 1111111111
+// 2000000002
+// 2000000002
+// 2000000002
+// 3333333333
+//
+template <typename T, typename CenterF, typename EdgeF>
+void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
+    // inner tiles
+    for_each_xy(shrink_rect(r), center);
+
+    //top edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        edge(x, r.y0);
+    }
+
+    //left and right edge
+    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
+        edge(r.x0,     y);
+        edge(r.x1 - 1, y);
+    }
+
+    // bottom edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        edge(x, r.y1 - 1);
+    }
 }
 
 template <typename T>

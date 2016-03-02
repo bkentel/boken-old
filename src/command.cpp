@@ -67,6 +67,8 @@ void command_translator_impl::translate(kb_event const& event) const {
     case 74 : // SDL_SCANCODE_HOME = 74
         handler_(command_type::reset_view, 0);
         break;
+    default:
+        break;
     }
 }
 
@@ -92,6 +94,8 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(move_nw);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        default:
+            break;
     }
     #undef BK_ENUM_MAPPING
 
@@ -113,6 +117,8 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(move_nw);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        default:
+            break;
     }
     #undef BK_ENUM_MAPPING
 

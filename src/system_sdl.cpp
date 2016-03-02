@@ -172,12 +172,6 @@ private:
 };
 
 
-} //namespace
-
-namespace boken {
-
-system::~system() = default;
-
 sdl_texture create_font_texture(sdl_renderer& render) {
     auto converted = sdl_surface {
         SDL_ConvertSurfaceFormat(
@@ -206,10 +200,18 @@ sdl_texture create_font_texture(sdl_renderer& render) {
 
     auto result = sdl_texture {SDL_CreateTextureFromSurface(render, converted)};
 
-    SDL_SetTextureBlendMode(result, SDL_BLENDMODE_BLEND);
+    if (SDL_SetTextureBlendMode(result, SDL_BLENDMODE_BLEND)) {
+        throw sdl_error {SDL_GetError()};
+    }
 
     return result;
 }
+
+} //namespace
+
+namespace boken {
+
+system::~system() = default;
 
 class sdl_system final : public system {
 public:
@@ -317,6 +319,8 @@ public:
             window_w_ = e.data1;
             window_h_ = e.data2;
             break;
+        default:
+            break;
         }
     }
 public:
@@ -395,6 +399,9 @@ public:
         case render_data_type::position : position_data_ = data; break;
         case render_data_type::texture  : texture_data_  = data; break;
         case render_data_type::color    : color_data_    = data; break;
+        default:
+            BK_ASSERT_SAFE(false);
+            break;
         }
     }
 
@@ -512,6 +519,8 @@ int sdl_system::do_events() {
             break;
         case SDL_MOUSEWHEEL :
             handler_mouse_wheel_(event.wheel.y, event.wheel.x, get_key_mods());
+            break;
+        default:
             break;
         }
     }

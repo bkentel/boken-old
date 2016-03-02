@@ -42,14 +42,14 @@ public:
 
     template <typename T>
     point2f window_to_world(T const x, T const y) const noexcept {
-        return {(1.0f / scale_x) * x - (x_off / scale_x)
-              , (1.0f / scale_y) * y - (y_off / scale_y)};
+        return {(1.0f / scale_x) * static_cast<float>(x) - (x_off / scale_x)
+              , (1.0f / scale_y) * static_cast<float>(y) - (y_off / scale_y)};
     }
 
     template <typename T>
     vec2f window_to_world(vec2<T> const v) const noexcept {
-        return {(1.0f / scale_x) * value_cast(v.x)
-              , (1.0f / scale_y) * value_cast(v.y)};
+        return {(1.0f / scale_x) * value_cast<float>(v.x)
+              , (1.0f / scale_y) * value_cast<float>(v.y)};
     }
 
     template <typename T>

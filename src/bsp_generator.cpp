@@ -133,7 +133,7 @@ void bsp_generator_impl::generate(random_state& rnd) {
         if (must_slice_rect(r, p.max_region_size)
          || (can_slice_rect(r, p.min_region_size) && pass_split_chance(r))
         ) {
-            n.child = i + 1;
+            n.child = static_cast<uint16_t>(i + 1);
             add_children(slice_rect(rnd, r, p.min_region_size, p.split_variance), i);
         } else {
             leaf_nodes_.push_back(n);
