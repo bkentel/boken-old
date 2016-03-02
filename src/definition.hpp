@@ -3,9 +3,9 @@
 #include "config.hpp"
 #include <algorithm>
 #include <numeric>
-#include <string>
 #include <vector>
 #include <initializer_list>
+#include <string>
 #include <type_traits>
 #include <cstdint>
 
@@ -29,7 +29,9 @@ class property_set {
         return const_cast<property_set*>(this)->find_(property);
     }
 public:
-    using pair_t = std::pair<Property, Value>;
+    using property_type = Property;
+    using value_type    = Value;
+    using pair_t        = std::pair<property_type, value_type>;
 
     size_t size()  const noexcept { return values_.size(); }
     bool   empty() const noexcept { return values_.empty(); }

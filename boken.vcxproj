@@ -143,6 +143,7 @@
     <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\message_log.hpp" />
+    <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\render.hpp" />

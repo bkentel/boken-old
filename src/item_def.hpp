@@ -24,6 +24,11 @@ enum class item_property : uint32_t {
 using item_properties = property_set<item_property, int32_t>;
 
 struct item_definition : basic_definition {
+    using definition_type     = item_id;
+    using properties_type     = item_properties;
+    using property_type       = item_properties::property_type;
+    using property_value_type = item_properties::value_type;
+
     item_definition(basic_definition const& basic, item_id const id_)
       : basic_definition {basic}
       , id {id_}
