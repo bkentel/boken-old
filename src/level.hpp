@@ -84,7 +84,7 @@ public:
     //===--------------------------------------------------------------------===
     virtual void transform_entities(std::function<point2i (entity&, point2i)>&& f) = 0;
 
-    virtual placement_result add_item_at(item&& i, point2i p) = 0;
+    virtual placement_result add_item_at(unique_item i, point2i p) = 0;
     virtual placement_result add_entity_at(entity&& e, point2i p) = 0;
 
     virtual std::pair<point2i, placement_result>
@@ -103,6 +103,9 @@ public:
     //===--------------------------------------------------------------------===
     virtual std::vector<point2<uint16_t>> const& entity_positions() const noexcept = 0;
     virtual std::vector<entity_id>        const& entity_ids()       const noexcept = 0;
+
+    virtual std::vector<point2<uint16_t>> const& item_positions() const noexcept = 0;
+    virtual std::vector<item_id>          const& item_ids()       const noexcept = 0;
 
     virtual const_sub_region_range<tile_id> tile_ids(recti area) const noexcept = 0;
 

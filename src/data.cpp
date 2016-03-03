@@ -49,8 +49,8 @@ private:
     std::unordered_map<item_id,   item_definition,   identity_hash> item_defs_;
 
     tile_map tile_map_base_     {tile_map_type::base,   0, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
-    tile_map tile_map_items_    {tile_map_type::item,   0, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
     tile_map tile_map_entities_ {tile_map_type::entity, 1, sizeix {18}, sizeiy {18}, sizeix {26}, sizeiy {17}};
+    tile_map tile_map_items_    {tile_map_type::item,   2, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
 };
 
 tile_map const&
@@ -98,6 +98,19 @@ game_database_impl::game_database_impl() {
 
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("rat_small")}, 21 + 6 * 26);
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("player")}, 13 + 13 * 26);
+
+    {
+        auto       id      = std::string {"dagger"};
+        auto const id_hash = djb2_hash_32(id.data());
+
+        item_defs_.insert(std::make_pair(
+            item_id {id_hash}
+          , item_definition {
+                basic_definition {std::move(id), "dagger", "source", 0}
+              , item_id {id_hash}}));
+    }
+
+    tile_map_items_.add_mapping(entity_id {djb2_hash_32("dagger")}, 3);
 }
 
 } //namespace boken

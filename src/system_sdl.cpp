@@ -221,6 +221,8 @@ public:
           renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
       , entity_tiles_ {SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/entities.bmp")})}
+      , item_tiles_ {SDL_CreateTextureFromSurface(
+          renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
       , font_cache_ {create_font_texture(renderer_)}
       , background_{SDL_CreateTextureFromSurface(
           renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
@@ -384,6 +386,7 @@ public:
         switch (id) {
         case 0  : break;
         case 1  : active_texture_ = &entity_tiles_; return;
+        case 2  : active_texture_ = &item_tiles_;   return;
         case 3  : active_texture_ = &font_cache_;   return;
         default : break;
         }
@@ -467,6 +470,7 @@ private:
     sdl_renderer renderer_;
     sdl_texture  base_tiles_;
     sdl_texture  entity_tiles_;
+    sdl_texture  item_tiles_;
     sdl_texture  font_cache_;
     sdl_texture  background_;
 

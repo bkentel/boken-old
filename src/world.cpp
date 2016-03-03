@@ -1,5 +1,6 @@
 #include "world.hpp"
 #include "level.hpp"           // for level
+#include "item.hpp"
 
 #include <algorithm>           // for move
 #include <vector>              // for vector
@@ -7,6 +8,10 @@
 namespace boken {
 
 world::~world() = default;
+
+void item_deleter::operator()(item_instance_id const id) const noexcept {
+    world_->free_item(id);
+}
 
 class world_impl final : public world {
 public:
@@ -17,21 +22,40 @@ public:
 
     entity const* find(entity_instance_id id) const noexcept final override;
 
-    item_instance_id create_item_id() final override {
-        return item_instance_id {next_item_instance_id_++};
+    unique_item create_item(std::function<item (item_instance_id)> f) final override {
+        // + 1 as 0 must be reserved to act as a nullptr
+        item_instance_id id {static_cast<int>(next_free_item_) + 1};
+
+        if (next_free_item_ < items_.size()) {
+            auto const index = *reinterpret_cast<size_t const*>(&items_[next_free_item_]);
+            new (&items_[next_free_item_]) item {f(id)};
+            next_free_item_ = index;
+        } else {
+            items_.push_back(f(id));
+            ++next_free_item_;
+        }
+
+        return unique_item {id, item_deleter_};
     }
 
     entity_instance_id create_entity_id() final override {
         return entity_instance_id {next_entity_instance_id_++};
     }
 
-    void free_item_id(item_instance_id const id) final override {
-        if (value_cast(id) == next_item_instance_id_ - 1) {
-            --next_item_instance_id_;
-        }
+    void free_item(item_instance_id const id) final override {
+        auto const value = value_cast(id);
+        BK_ASSERT(value > 0);
+
+        // - 1 see create_item
+        auto const index = static_cast<size_t>(value - 1);
+        BK_ASSERT(index < items_.size());
+
+        call_destructor(items_[index]);
+        *reinterpret_cast<size_t*>(&items_[index]) = next_free_item_;
+        next_free_item_ = index;
     }
 
-    void free_entity_id(entity_instance_id const id) final override {
+    void free_entity(entity_instance_id const id) final override {
         if (value_cast(id) == next_entity_instance_id_ - 1) {
             --next_entity_instance_id_;
         }
@@ -54,6 +78,11 @@ public:
         return *levels_.back();
     }
 private:
+    item_deleter item_deleter_ {this};
+
+    size_t next_free_item_ {0};
+    std::vector<item> items_;
+
     item_instance_id::type   next_item_instance_id_   {};
     entity_instance_id::type next_entity_instance_id_ {};
 
@@ -62,12 +91,9 @@ private:
 };
 
 item const* world_impl::find(item_instance_id const id) const noexcept {
-    for (auto const& lvl : levels_) {
-        if (auto const i = lvl->find(id)) {
-            return i;
-        }
-    }
-    return nullptr;
+    BK_ASSERT(value_cast(id) > 0);
+    auto const i = static_cast<size_t>(value_cast(id) - 1);
+    return &items_[i];
 }
 
 entity const* world_impl::find(entity_instance_id const id) const noexcept {

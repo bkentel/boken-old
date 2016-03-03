@@ -5,6 +5,8 @@
 #include "random.hpp"           // for random_state (ptr only), etc
 #include "tile.hpp"             // for tile_data_set, tile_type, tile_flags, etc
 #include "utility.hpp"          // for find_if
+#include "world.hpp"
+#include "item.hpp"
 
 #include <bkassert/assert.hpp>  // for BK_ASSERT
 
@@ -384,8 +386,15 @@ public:
 
     auto entity_at_(point2i const p) const noexcept {
         return std::find_if(
-            begin(entities_.positions)
-          , end(entities_.positions)
+            begin(entities_.positions), end(entities_.positions)
+          , [p](auto const& q) {
+                return q == p;
+            });
+    }
+
+    auto item_at_(point2i const p) const noexcept {
+        return std::find_if(
+            begin(items_.positions), end(items_.positions)
           , [p](auto const& q) {
                 return q == p;
             });
@@ -438,8 +447,12 @@ public:
                  : placement_result::ok;
     }
 
-    placement_result can_place_item_at(point2i p) const noexcept final override {
-        return placement_result::failed_obstacle;
+    placement_result can_place_item_at(point2i const p) const noexcept final override {
+        return !check_bounds_(p)
+                 ? placement_result::failed_bounds
+             : data_at_(data_.flags, p).test(tile_flags::f_solid)
+                 ? placement_result::failed_obstacle
+                 : placement_result::ok;
     }
 
     placement_result move_by(item_instance_id const id, vec2i const v) noexcept final override {
@@ -485,8 +498,26 @@ public:
         }
     }
 
-    placement_result add_item_at(item&& i, point2i p) final override {
-        return placement_result::failed_obstacle;
+    placement_result add_item_at(unique_item i, point2i const p) final override {
+        for (auto const result = can_place_item_at(p); result != placement_result::ok; ) {
+            return result;
+        }
+
+        auto const& w = i.get_deleter().source_world();
+
+        auto const instance = i.get();
+        auto const itm = w.find(instance);
+        if (!itm) {
+            return placement_result::failed_bad_id;
+        }
+
+        BK_ASSERT(itm->instance() == instance);
+
+        items_.ids.push_back(itm->definition());
+        items_.positions.push_back(p.cast_to<uint16_t>());
+        items_.intances.push_back(instance);
+
+        return placement_result::ok;
     }
 
     placement_result add_entity_at(entity&& e, point2i const p) final override {
@@ -538,6 +569,14 @@ public:
 
     std::vector<entity_id> const& entity_ids() const noexcept final override {
         return entities_.ids;
+    }
+
+    std::vector<point2<uint16_t>> const& item_positions() const noexcept final override {
+        return items_.positions;
+    }
+
+    std::vector<item_id> const& item_ids() const noexcept final override {
+        return items_.ids;
     }
 
     const_sub_region_range<tile_id>
@@ -783,6 +822,12 @@ private:
         std::vector<entity_id>        ids;
         std::vector<entity>           intances;
     } entities_;
+
+    struct items_t {
+        std::vector<point2<uint16_t>> positions;
+        std::vector<item_id>          ids;
+        std::vector<item_instance_id> intances;
+    } items_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
     std::vector<region_info> regions_;

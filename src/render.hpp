@@ -85,6 +85,7 @@ public:
     virtual void update_map_data(level const& lvl, tile_map const& tmap) = 0;
     virtual void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) = 0;
     virtual void update_entity_data(level const& lvl, tile_map const& tmap) = 0;
+    virtual void update_item_data(level const& lvl, tile_map const& tmap) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual void update_tool_tip_visible(bool show) noexcept = 0;

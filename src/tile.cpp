@@ -119,7 +119,11 @@ uint32_t id_to_index(tile_map const& map, tile_id const id) noexcept {
     return 0;
 }
 
-uint32_t id_to_index(tile_map const& map, entity_id id) noexcept {
+uint32_t id_to_index(tile_map const& map, entity_id const id) noexcept {
+    return map.find(id);
+}
+
+uint32_t id_to_index(tile_map const& map, item_id const id) noexcept {
     return map.find(id);
 }
 

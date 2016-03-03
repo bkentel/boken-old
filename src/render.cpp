@@ -27,6 +27,7 @@ public:
     void update_map_data(level const& lvl, tile_map const& tmap) final override;
     void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) final override;
     void update_entity_data(level const& lvl, tile_map const& tmap) final override;
+    void update_item_data(level const& lvl, tile_map const& tmap) final override;
 
     void update_tool_tip_text(std::string text) final override;
     void update_tool_tip_visible(bool show) noexcept final override;
@@ -55,6 +56,7 @@ private:
 
     std::vector<data_t> tile_data;
     std::vector<data_t> entity_data;
+    std::vector<data_t> item_data;
 
     text_layout tool_tip_;
     message_log const* message_log_ {};
@@ -146,6 +148,34 @@ void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tm
         });
 }
 
+void game_renderer_impl::update_item_data(level const& lvl, tile_map const& tmap) {
+    auto const& ipos = lvl.item_positions();
+    auto const& iids = lvl.item_ids();
+
+    BK_ASSERT(ipos.size() == iids.size());
+
+    auto const tw = value_cast(tmap.tile_width());
+    auto const th = value_cast(tmap.tile_height());
+
+    item_data.clear();
+    item_data.reserve(ipos.size());
+
+    size_t i = 0;
+    std::transform(begin(ipos), end(ipos), back_inserter(item_data)
+      , [&](point2<uint16_t> const p) noexcept {
+            auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, iids[i++]));
+
+            auto const px = static_cast<uint16_t>(value_cast(p.x) * tw);
+            auto const py = static_cast<uint16_t>(value_cast(p.y) * th);
+            auto const tx = static_cast<uint16_t>(tex_rect.x0);
+            auto const ty = static_cast<uint16_t>(tex_rect.y0);
+
+            return data_t {point2<uint16_t> {px, py}
+                         , point2<uint16_t> {tx, ty}
+                         , 0xFFu};
+        });
+}
+
 void game_renderer_impl::update_tool_tip_text(std::string text) {
     tool_tip_.layout(trender_, std::move(text));
 }
@@ -183,6 +213,20 @@ void game_renderer_impl::render(duration_t const delta, view const& v
     os_.render_set_data(render_data_type::color
       , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, color)});
     os_.render_data_n(tile_data.size());
+
+    //
+    // Items
+    //
+    os_.render_set_tile_size(tmap_items.tile_width(), tmap_items.tile_height());
+    os_.render_set_texture(tmap_items.texture_id());
+
+    os_.render_set_data(render_data_type::position
+      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, position)});
+    os_.render_set_data(render_data_type::texture
+      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, tex_coord)});
+    os_.render_set_data(render_data_type::color
+      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, color)});
+    os_.render_data_n(item_data.size());
 
     //
     // Entities

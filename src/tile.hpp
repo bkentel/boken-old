@@ -173,5 +173,6 @@ private:
 
 uint32_t id_to_index(tile_map const& map, tile_id id) noexcept;
 uint32_t id_to_index(tile_map const& map, entity_id id) noexcept;
+uint32_t id_to_index(tile_map const& map, item_id id) noexcept;
 
 } //namespace boken

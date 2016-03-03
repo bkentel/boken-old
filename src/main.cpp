@@ -65,8 +65,11 @@ struct keydef_t {
 };
 
 placement_result create_item_at(point2i const p, world& w, level& l, item_definition const& def) {
-    auto const id     = w.create_item_id();
-    auto const result = l.add_item_at(item {id, def.id}, p);
+    auto id = w.create_item([&](item_instance_id const instance) {
+        return item {instance, def.id};
+    });
+
+    auto const result = l.add_item_at(std::move(id), p);
 
     switch (result) {
     default :
@@ -80,7 +83,6 @@ placement_result create_item_at(point2i const p, world& w, level& l, item_defini
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
     case placement_result::failed_obstacle :
-        w.free_item_id(id);
         break;
     }
 
@@ -103,7 +105,6 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
     case placement_result::failed_obstacle :
-        w.free_entity_id(id);
         break;
     }
 
@@ -180,10 +181,13 @@ struct game_state {
             } else {
                 create_entity_at(p, the_world, lvl, *edef);
             }
+
+            create_item_at(p, the_world, lvl, *database.find(item_id {djb2_hash_32("dagger")}));
         }
 
         renderer.update_map_data(lvl, database.get_tile_map(tile_map_type::base));
         renderer.update_entity_data(lvl, database.get_tile_map(tile_map_type::entity));
+        renderer.update_item_data(lvl, database.get_tile_map(tile_map_type::item));
     }
 
     void show_tool_tip(point2i const p) {

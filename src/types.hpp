@@ -1,8 +1,11 @@
 #pragma once
 
 #include <type_traits> // conditional_t etc
+#include <memory>
 #include <cstddef>     // ptrdiff_t
 #include <cstdint>
+
+namespace boken { class world; }
 
 namespace boken {
 
@@ -127,6 +130,14 @@ inline constexpr bool operator==(
     return value_cast(a) == value_cast(b);
 }
 
+template <typename T, typename U, typename Tag>
+inline constexpr bool operator!=(
+    tagged_integral_value<T, Tag> const a
+  , tagged_integral_value<U, Tag> const b
+) noexcept {
+    return !(a == b);
+}
+
 //===------------------------------------------------------------------------===
 //                                  Types
 //===------------------------------------------------------------------------===
@@ -182,5 +193,19 @@ template <typename T>
 inline constexpr size_type<T> sz(T const n) noexcept {
     return size_type<T> {n};
 }
+
+class item_deleter {
+public:
+    using pointer = item_instance_id;
+
+    item_deleter(world* const w) noexcept : world_ {w} { }
+
+    void operator()(item_instance_id const id) const noexcept;
+    world const& source_world() const noexcept { return *world_; }
+private:
+    world* world_;
+};
+
+using unique_item = std::unique_ptr<item_instance_id, item_deleter const&>;
 
 } //namespace boken
