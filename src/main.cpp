@@ -132,6 +132,12 @@ struct game_state {
 
         renderer.set_message_window(&message_window);
 
+        renderer.set_tile_maps({
+            {tile_map_type::base,   database.get_tile_map(tile_map_type::base)}
+          , {tile_map_type::entity, database.get_tile_map(tile_map_type::entity)}
+          , {tile_map_type::item,   database.get_tile_map(tile_map_type::item)}
+        });
+
         generate();
     }
 
@@ -160,6 +166,8 @@ struct game_state {
         auto& lvl = the_world.add_new_level(nullptr
           , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}));
 
+        renderer.set_level(the_world.current_level());
+
         auto const player_def = database.find(entity_id {djb2_hash_32("player")});
         BK_ASSERT(!!player_def);
 
@@ -186,9 +194,9 @@ struct game_state {
             create_item_at(p, the_world, lvl, *database.find(item_id {djb2_hash_32("dagger")}));
         }
 
-        renderer.update_map_data(lvl, database.get_tile_map(tile_map_type::base));
-        renderer.update_entity_data(lvl, database.get_tile_map(tile_map_type::entity));
-        renderer.update_item_data(lvl, database.get_tile_map(tile_map_type::item));
+        renderer.update_map_data();
+        renderer.update_entity_data();
+        renderer.update_item_data();
     }
 
     void show_tool_tip(point2i const p) {
@@ -235,9 +243,7 @@ struct game_state {
               , 0
             };
 
-            renderer.update_map_data(
-                lvl.update_tile_at(rng_superficial, p, data)
-              , database.get_tile_map(tile_map_type::base));
+            renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
         }
     }
 
@@ -362,8 +368,7 @@ struct game_state {
             return p + d;
         });
 
-        renderer.update_entity_data(lvl
-          , database.get_tile_map(tile_map_type::entity));
+        renderer.update_entity_data();
     }
 
     void run() {
@@ -385,10 +390,7 @@ struct game_state {
             return;
         }
 
-        renderer.render(delta, current_view
-          , database.get_tile_map(tile_map_type::base)
-          , database.get_tile_map(tile_map_type::entity)
-          , database.get_tile_map(tile_map_type::item));
+        renderer.render(delta, current_view);
 
         last_frame_time = now;
     }

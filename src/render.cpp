@@ -24,10 +24,19 @@ public:
     {
     }
 
-    void update_map_data(level const& lvl, tile_map const& tmap) final override;
-    void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) final override;
-    void update_entity_data(level const& lvl, tile_map const& tmap) final override;
-    void update_item_data(level const& lvl, tile_map const& tmap) final override;
+    void set_level(level const& lvl) noexcept final override {
+        level_ = &lvl;
+    }
+
+    void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept final override;
+
+    void update_map_data() final override;
+    void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
+    void update_entity_data() final override;
+    void update_item_data() final override;
+
+    void update_entity_data(std::vector<point2i> const& pos) final override {}
+    void update_item_data(std::vector<point2i> const& pos) final override {}
 
     void update_tool_tip_text(std::string text) final override;
     void update_tool_tip_visible(bool show) noexcept final override;
@@ -37,10 +46,7 @@ public:
         message_log_ = window;
     }
 
-    void render(duration_t delta, view const& v
-      , tile_map const& tmap_base
-      , tile_map const& tmap_entities
-      , tile_map const& tmap_items) const noexcept final override;
+    void render(duration_t delta, view const& v) const noexcept final override;
 private:
     void render_text_(text_layout const& text) const noexcept;
     void render_message_log_() const noexcept;
@@ -48,11 +54,17 @@ private:
     system&        os_;
     text_renderer& trender_;
 
+    level const* level_ {};
+
     struct data_t {
         point2<uint16_t> position;
         point2<uint16_t> tex_coord;
         uint32_t         color;
     };
+
+    tile_map const* tile_map_base_ {};
+    tile_map const* tile_map_entities_ {};
+    tile_map const* tile_map_items_ {};
 
     std::vector<data_t> tile_data;
     std::vector<data_t> entity_data;
@@ -66,7 +78,23 @@ std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& tre
     return std::make_unique<game_renderer_impl>(os, trender);
 }
 
-void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region, tile_map const& tmap) {
+void game_renderer_impl::set_tile_maps(
+    std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps
+) noexcept {
+    for (auto const& p : tmaps) {
+        switch (p.first) {
+        case tile_map_type::base   : this->tile_map_base_     = &p.second; break;
+        case tile_map_type::entity : this->tile_map_entities_ = &p.second; break;
+        case tile_map_type::item   : this->tile_map_items_    = &p.second; break;
+        default :
+            break;
+        }
+    }
+}
+
+void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region) {
+    auto const& tmap = *tile_map_items_;
+
     auto dst_it = sub_region_iterator<data_t>(sub_region.first, tile_data.data());
 
     for (auto it = sub_region.first; it != sub_region.second; ++it, ++dst_it) {
@@ -79,7 +107,10 @@ void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const s
     }
 }
 
-void game_renderer_impl::update_map_data(level const& lvl, tile_map const& tmap) {
+void game_renderer_impl::update_map_data() {
+    auto const& tmap = *tile_map_base_;
+    auto const& lvl  = *level_;
+
     auto const bounds = lvl.bounds();
     auto const bounds_size = static_cast<size_t>(std::max(0, bounds.area()));
 
@@ -120,7 +151,10 @@ void game_renderer_impl::update_map_data(level const& lvl, tile_map const& tmap)
     }
 }
 
-void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tmap) {
+void game_renderer_impl::update_entity_data() {
+    auto const& tmap = *tile_map_entities_;
+    auto const& lvl  = *level_;
+
     auto const& epos = lvl.entity_positions();
     auto const& eids = lvl.entity_ids();
 
@@ -148,7 +182,10 @@ void game_renderer_impl::update_entity_data(level const& lvl, tile_map const& tm
         });
 }
 
-void game_renderer_impl::update_item_data(level const& lvl, tile_map const& tmap) {
+void game_renderer_impl::update_item_data() {
+    auto const& tmap = *tile_map_items_;
+    auto const& lvl  = *level_;
+
     auto const& ipos = lvl.item_positions();
     auto const& iids = lvl.item_ids();
 
@@ -188,11 +225,11 @@ void game_renderer_impl::update_tool_tip_position(point2i const p) noexcept {
     tool_tip_.move_to(value_cast(p.x), value_cast(p.y));
 }
 
-void game_renderer_impl::render(duration_t const delta, view const& v
-  , tile_map const& tmap_base
-  , tile_map const& tmap_entities
-  , tile_map const& tmap_items
-) const noexcept {
+void game_renderer_impl::render(duration_t const delta, view const& v) const noexcept {
+    auto const& tmap_base     = *tile_map_base_;
+    auto const& tmap_entities = *tile_map_entities_;
+    auto const& tmap_items    = *tile_map_items_;
+
     os_.render_clear();
 
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);

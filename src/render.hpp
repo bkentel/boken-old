@@ -3,6 +3,8 @@
 #include "math.hpp"
 #include "utility.hpp"
 #include <chrono>
+#include <initializer_list>
+#include <vector>
 #include <cstdint>
 
 namespace boken { class level; }
@@ -11,6 +13,7 @@ namespace boken { class system; }
 namespace boken { class text_renderer; }
 namespace boken { class tile_map; }
 namespace boken { enum class tile_id : uint32_t; }
+namespace boken { enum class tile_map_type : uint32_t; }
 
 namespace boken {
 
@@ -82,13 +85,16 @@ public:
 
     virtual ~game_renderer();
 
-    virtual void update_map_data(level const& lvl, tile_map const& tmap) = 0;
-    virtual void update_map_data(const_sub_region_range<tile_id> sub_region, tile_map const& tmap) = 0;
-    virtual void update_entity_data(level const& lvl, tile_map const& tmap) = 0;
-    virtual void update_item_data(level const& lvl, tile_map const& tmap) = 0;
+    virtual void set_level(level const& lvl) noexcept = 0;
+    virtual void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept = 0;
 
-    //virtual void update_entity_data(level const& lvl, tile_map const& tmap, std::vector<point2i> const& pos) = 0;
-    //virtual void update_item_data(level const& lvl, tile_map const& tmap, std::vector<point2i> const& pos) = 0;
+    virtual void update_map_data() = 0;
+    virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
+    virtual void update_entity_data() = 0;
+    virtual void update_item_data() = 0;
+
+    virtual void update_entity_data(std::vector<point2i> const& pos) = 0;
+    virtual void update_item_data(std::vector<point2i> const& pos) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual void update_tool_tip_visible(bool show) noexcept = 0;
@@ -96,10 +102,7 @@ public:
 
     virtual void set_message_window(message_log const* window) noexcept = 0;
 
-    virtual void render(duration_t delta, view const& v
-        , tile_map const& tmap_base
-        , tile_map const& tmap_entities
-        , tile_map const& tmap_items) const noexcept = 0;
+    virtual void render(duration_t delta, view const& v) const noexcept = 0;
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender);
