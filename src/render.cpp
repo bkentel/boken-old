@@ -17,6 +17,63 @@ namespace boken {
 game_renderer::~game_renderer() = default;
 
 class game_renderer_impl final : public game_renderer {
+    static auto position_to_pixel_(tile_map const& tmap) noexcept {
+        auto const tw = value_cast(tmap.tile_width());
+        auto const th = value_cast(tmap.tile_height());
+
+        return [=](auto const p) noexcept {
+            return point2<uint16_t> {
+                static_cast<uint16_t>(value_cast(p.x) * tw)
+              , static_cast<uint16_t>(value_cast(p.y) * th)};
+        };
+    }
+
+    template <typename Data, typename Positions, typename Ids>
+    void update_data_(Data& data, Positions const& poss, Ids const& ids, tile_map const& tmap) {
+        BK_ASSERT(poss.size() == ids.size());
+
+        auto const tranform_point = position_to_pixel_(tmap);
+
+        data.clear();
+        data.reserve(poss.size());
+
+        size_t i = 0;
+        std::transform(begin(poss), end(poss), back_inserter(data)
+          , [&](auto const p) noexcept {
+                auto const index = id_to_index(tmap, ids[i++]);
+                return data_t {
+                    tranform_point(p)
+                  , tmap.index_to_rect(index).top_left().template cast_to<uint16_t>()
+                  , 0xFFu};
+            });
+    }
+
+    template <typename Data, typename Updates>
+    void update_data_(Data& data, Updates const& updates, tile_map const& tmap) {
+        auto const tranform_point = position_to_pixel_(tmap);
+
+        auto first = begin(data);
+        auto last  = end(data);
+
+        for (auto const& update : updates) {
+            auto const p = tranform_point(update.prev_pos);
+            auto const it = std::find_if(first, last
+              , [p](data_t const& d) noexcept { return d.position == p; });
+
+            if (update.id == nullptr) {
+                data.erase(it);
+                first = begin(data);
+                last  = end(data);
+                continue;
+            }
+
+            BK_ASSERT(it != last);
+
+            it->position = tranform_point(update.next_pos);
+            it->tex_coord = tmap.index_to_rect(id_to_index(tmap, update.id))
+                .top_left().template cast_to<uint16_t>();
+        }
+    }
 public:
     game_renderer_impl(system& os, text_renderer& trender)
       : os_      {os}
@@ -32,11 +89,28 @@ public:
 
     void update_map_data() final override;
     void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
-    void update_entity_data() final override;
-    void update_item_data() final override;
 
-    void update_entity_data(std::vector<point2i> const& pos) final override {}
-    void update_item_data(std::vector<point2i> const& pos) final override {}
+    void update_entity_data() final override {
+        update_data_(entity_data
+                   , level_->entity_positions()
+                   , level_->entity_ids()
+                   , *tile_map_entities_);
+    }
+
+    void update_item_data() final override {
+        update_data_(item_data
+                   , level_->item_positions()
+                   , level_->item_ids()
+                   , *tile_map_items_);
+    }
+
+    void update_entity_data(std::vector<update_t<entity_id>> const& updates) final override {
+        update_data_(entity_data, updates, *tile_map_entities_);
+    }
+
+    void update_item_data(std::vector<update_t<item_id>> const& updates) final override {
+        update_data_(item_data, updates, *tile_map_items_);
+    }
 
     void update_tool_tip_text(std::string text) final override;
     void update_tool_tip_visible(bool show) noexcept final override;
@@ -123,8 +197,7 @@ void game_renderer_impl::update_map_data() {
         return 0xFFu << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
     };
 
-    auto const tw = value_cast(tmap.tile_width());
-    auto const th = value_cast(tmap.tile_height());
+    auto const transform_point = position_to_pixel_(tmap);
 
     auto const ids_range        = lvl.tile_ids(bounds);
     auto const region_ids_range = lvl.region_ids(bounds);
@@ -136,81 +209,14 @@ void game_renderer_impl::update_map_data() {
     for ( ; it0 != ids_range.second; ++it0, ++it1, ++dst) {
         auto const tid = *it0;
         auto const rid = *it1;
+        auto const index = id_to_index(tmap, tid);
 
-        dst->position.x = offset_type_x<uint16_t> {dst.x() * tw};
-        dst->position.y = offset_type_y<uint16_t> {dst.y() * th};
-
+        dst->position = transform_point(point2<ptrdiff_t> {dst.x(), dst.y()});
+        dst->tex_coord = tmap.index_to_rect(index).top_left().cast_to<uint16_t>();
         dst->color = (tid == tile_id::empty)
           ? region_color(rid)
           : 0xFF0000FFu;
-
-        auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, tid));
-
-        dst->tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
-        dst->tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
     }
-}
-
-void game_renderer_impl::update_entity_data() {
-    auto const& tmap = *tile_map_entities_;
-    auto const& lvl  = *level_;
-
-    auto const& epos = lvl.entity_positions();
-    auto const& eids = lvl.entity_ids();
-
-    BK_ASSERT(epos.size() == eids.size());
-
-    auto const tw = value_cast(tmap.tile_width());
-    auto const th = value_cast(tmap.tile_height());
-
-    entity_data.clear();
-    entity_data.reserve(epos.size());
-
-    size_t i = 0;
-    std::transform(begin(epos), end(epos), back_inserter(entity_data)
-      , [&](point2<uint16_t> const p) noexcept {
-            auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, eids[i++]));
-
-            auto const px = static_cast<uint16_t>(value_cast(p.x) * tw);
-            auto const py = static_cast<uint16_t>(value_cast(p.y) * th);
-            auto const tx = static_cast<uint16_t>(tex_rect.x0);
-            auto const ty = static_cast<uint16_t>(tex_rect.y0);
-
-            return data_t {point2<uint16_t> {px, py}
-                         , point2<uint16_t> {tx, ty}
-                         , 0xFFu};
-        });
-}
-
-void game_renderer_impl::update_item_data() {
-    auto const& tmap = *tile_map_items_;
-    auto const& lvl  = *level_;
-
-    auto const& ipos = lvl.item_positions();
-    auto const& iids = lvl.item_ids();
-
-    BK_ASSERT(ipos.size() == iids.size());
-
-    auto const tw = value_cast(tmap.tile_width());
-    auto const th = value_cast(tmap.tile_height());
-
-    item_data.clear();
-    item_data.reserve(ipos.size());
-
-    size_t i = 0;
-    std::transform(begin(ipos), end(ipos), back_inserter(item_data)
-      , [&](point2<uint16_t> const p) noexcept {
-            auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, iids[i++]));
-
-            auto const px = static_cast<uint16_t>(value_cast(p.x) * tw);
-            auto const py = static_cast<uint16_t>(value_cast(p.y) * th);
-            auto const tx = static_cast<uint16_t>(tex_rect.x0);
-            auto const ty = static_cast<uint16_t>(tex_rect.y0);
-
-            return data_t {point2<uint16_t> {px, py}
-                         , point2<uint16_t> {tx, ty}
-                         , 0xFFFFu};
-        });
 }
 
 void game_renderer_impl::update_tool_tip_text(std::string text) {

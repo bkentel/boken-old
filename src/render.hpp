@@ -93,8 +93,15 @@ public:
     virtual void update_entity_data() = 0;
     virtual void update_item_data() = 0;
 
-    virtual void update_entity_data(std::vector<point2i> const& pos) = 0;
-    virtual void update_item_data(std::vector<point2i> const& pos) = 0;
+    template <typename T>
+    struct update_t {
+        point2i prev_pos;
+        point2i next_pos;
+        T       id;
+    };
+
+    virtual void update_entity_data(std::vector<update_t<entity_id>> const& updates) = 0;
+    virtual void update_item_data(std::vector<update_t<item_id>> const& updates) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual void update_tool_tip_visible(bool show) noexcept = 0;

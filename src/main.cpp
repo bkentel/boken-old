@@ -333,42 +333,56 @@ struct game_state {
 
         if (result < 0) {
             message_window.println("There is nothing here to get.");
+            return;
         }
+
+        item_updates_.push_back({player.second, player.second, item_id {}});
     }
 
     void move_player(vec2i const v) {
         message_window.println(std::to_string(value_cast(v.x)) + " " + std::to_string(value_cast(v.y)));
 
-        the_world.current_level().move_by(entity_instance_id {}, v);
+        auto const player = get_player();
+
+        auto const result = the_world.current_level().move_by(player.first.instance(), v);
+        if (result == placement_result::ok) {
+            entity_updates_.push_back({player.second, player.second + v, player.first.definition()});
+        }
+
         advance(1);
     }
 
     void advance(int const steps) {
         auto& lvl = the_world.current_level();
 
-        lvl.transform_entities([&](entity& e, point2i const p) noexcept {
-            // the player
-            if (e.instance() == entity_instance_id {0}) {
-                return p;
+        lvl.transform_entities(
+            [&](entity& e, point2i const p) noexcept {
+                // the player
+                if (e.instance() == entity_instance_id {0}) {
+                    return p;
+                }
+
+                auto const temperment =
+                    e.property_value_or(database, entity_property::temperment, 0);
+
+                if (!random_chance_in_x(rng_superficial, 1, 10)) {
+                    return p;
+                }
+
+                constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+                constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+                auto const dir = static_cast<size_t>(random_uniform_int(rng_superficial, 0, 3));
+                auto const d   = vec2i {dir_x[dir], dir_y[dir]};
+
+                return p + d;
             }
-
-            auto const temperment =
-                e.property_value_or(database, entity_property::temperment, 0);
-
-            if (!random_chance_in_x(rng_superficial, 1, 10)) {
-                return p;
+          , [&](entity& e, point2i const p, point2i const q) noexcept {
+                entity_updates_.push_back({p, q, e.definition()});
             }
+        );
 
-            constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-            constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
-
-            auto const dir = static_cast<size_t>(random_uniform_int(rng_superficial, 0, 3));
-            auto const d   = vec2i {dir_x[dir], dir_y[dir]};
-
-            return p + d;
-        });
-
-        renderer.update_entity_data();
+        //renderer.update_entity_data();
     }
 
     void run() {
@@ -390,9 +404,20 @@ struct game_state {
             return;
         }
 
+        if (!entity_updates_.empty()) {
+            renderer.update_entity_data(entity_updates_);
+        }
+
+        if (!item_updates_.empty()) {
+            renderer.update_item_data(item_updates_);
+        }
+
         renderer.render(delta, current_view);
 
         last_frame_time = now;
+
+        entity_updates_.clear();
+        item_updates_.clear();
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -427,6 +452,9 @@ struct game_state {
     int last_mouse_y = 0;
     int last_tile_x  = 0;
     int last_tile_y  = 0;
+
+    std::vector<game_renderer::update_t<item_id>>   item_updates_;
+    std::vector<game_renderer::update_t<entity_id>> entity_updates_;
 
     timepoint_t last_frame_time {};
 

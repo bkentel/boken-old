@@ -212,6 +212,8 @@ struct axis_aligned_rect {
     constexpr type width()  const noexcept { return x1 - x0; }
     constexpr type height() const noexcept { return y1 - y0; }
     constexpr type area()   const noexcept { return width() * height(); }
+
+    constexpr point2<type> top_left() const noexcept { return {x0, y0}; }
 private:
     constexpr axis_aligned_rect(
         type const x0_, type const y0_

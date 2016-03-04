@@ -519,14 +519,20 @@ public:
         return move_entity_by_(static_cast<size_t>(i), v);
     }
 
-    void transform_entities(std::function<point2i (entity&, point2i)>&& f) final override {
+    void transform_entities(
+        std::function<point2i (entity&, point2i)>&& transform
+      , std::function<void (entity&, point2i, point2i)>&& on_success
+    ) final override {
         size_t i = 0;
         for (auto& e : entities_.intances) {
             auto const p = entities_.positions[i].cast_to<int>();
-            auto const q = f(e, p);
+            auto const q = transform(e, p);
 
             if (p != q) {
-                move_entity_by_(i, q - p);
+                auto const result = move_entity_by_(i, q - p);
+                if (result == placement_result::ok) {
+                    on_success(e, p, q);
+                }
             }
 
             ++i;
@@ -659,6 +665,8 @@ public:
 
         if (pile.empty()) {
             items_.intances.erase(it);
+            items_.positions.erase(items_.positions.begin() + off);
+            items_.ids.erase(items_.ids.begin() + off);
         }
 
         return n;

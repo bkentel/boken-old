@@ -90,7 +90,10 @@ public:
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
-    virtual void transform_entities(std::function<point2i (entity&, point2i)>&& f) = 0;
+    virtual void transform_entities(
+        std::function<point2i (entity&, point2i)>&& tranform
+      , std::function<void (entity&, point2i, point2i)>&& on_success
+    ) = 0;
 
     virtual placement_result add_item_at(unique_item i, point2i p) = 0;
     virtual placement_result add_entity_at(entity&& e, point2i p) = 0;
