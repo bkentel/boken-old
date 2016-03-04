@@ -4,7 +4,7 @@
 #include "types.hpp"
 #include "hash.hpp"
 
-#include <cstdint>
+namespace boken { class game_database; }
 
 namespace boken {
 
@@ -22,7 +22,8 @@ enum class entity_property : uint32_t {
 #   pragma warning(pop)
 #endif
 
-using entity_properties = property_set<entity_property, int32_t>;
+using entity_property_value = int32_t;
+using entity_properties = property_set<entity_property, entity_property_value>;
 
 struct entity_definition : basic_definition {
     using definition_type     = entity_id;
@@ -45,5 +46,11 @@ struct entity_definition : basic_definition {
     entity_id id;
     entity_properties properties;
 };
+
+bool has_property(game_database const& data, entity_id const& def, entity_property property) noexcept;
+bool has_property(entity_definition const& def, entity_property property) noexcept;
+
+entity_property_value property_value_or(game_database const& data, entity_id const& def, entity_property property, entity_property_value value) noexcept;
+entity_property_value property_value_or(entity_definition const& def, entity_property property, entity_property_value value) noexcept;
 
 } //namespace boken

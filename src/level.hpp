@@ -12,10 +12,12 @@
 
 namespace boken { class entity; }
 namespace boken { class item; }
+namespace boken { class item_pile; }
 namespace boken { class random_state; }
 namespace boken { class tile_flags; }
 namespace boken { struct tile_data; }
 namespace boken { struct tile_data_set; }
+namespace boken { class world; }
 namespace boken { enum class tile_type : uint16_t; }
 namespace boken { enum class tile_id : uint32_t; }
 
@@ -29,8 +31,12 @@ struct tile_view {
     tile_data  const* const data;
 };
 
-enum class placement_result : unsigned {
+enum class placement_result : uint32_t {
     ok, failed_obstacle, failed_entity, failed_bounds, failed_bad_id
+};
+
+enum class move_item_result : uint32_t {
+    ok, failed_full, failed_over_weight
 };
 
 struct region_info {
@@ -55,10 +61,12 @@ public:
     virtual recti  bounds() const noexcept = 0;
 
     virtual item   const* find(item_instance_id   id) const noexcept = 0;
-    virtual entity const* find(entity_instance_id id) const noexcept = 0;
 
-    virtual entity const* entity_at(point2i p) const noexcept = 0;
-    virtual item   const* item_at(point2i p)   const noexcept = 0;
+    virtual std::pair<entity const*, point2i> find(entity_instance_id id) const noexcept = 0;
+    virtual std::pair<entity*, point2i> find(entity_instance_id id) noexcept = 0;
+
+    virtual entity    const* entity_at(point2i p) const noexcept = 0;
+    virtual item_pile const* item_at(point2i p)   const noexcept = 0;
 
     bool is_entity_at(point2i const p) const noexcept {
         return !!entity_at(p);
@@ -98,6 +106,11 @@ public:
     virtual const_sub_region_range<tile_id>
         update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
 
+    using move_item_callback = std::function<void (move_item_result, item const&)>;
+    virtual int move_items(point2i from, entity& to, move_item_callback const& on_fail) = 0;
+    virtual int move_items(point2i from, item& to, move_item_callback const& on_fail) = 0;
+    virtual int move_items(point2i from, item_pile& to, move_item_callback const& on_fail) = 0;
+
     //===--------------------------------------------------------------------===
     //                         Block-based data access
     //===--------------------------------------------------------------------===
@@ -112,6 +125,6 @@ public:
     virtual const_sub_region_range<uint16_t> region_ids(recti area) const noexcept = 0;
 };
 
-std::unique_ptr<level> make_level(random_state& rng, sizeix width, sizeiy height);
+std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix width, sizeiy height);
 
 } //namespace boken

@@ -370,9 +370,10 @@ struct generate_rect_room {
 
 class level_impl : public level {
 public:
-    level_impl(random_state& rng, sizeix const width, sizeiy const height)
+    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height)
       : bounds_  {offix {0}, offiy {0}, width, height}
       , data_    {width, height}
+      , world_   {w}
     {
         bsp_generator::param_t p;
         p.width  = sizeix {width};
@@ -384,20 +385,38 @@ public:
         generate(rng);
     }
 
-    auto entity_at_(point2i const p) const noexcept {
-        return std::find_if(
-            begin(entities_.positions), end(entities_.positions)
-          , [p](auto const& q) {
-                return q == p;
-            });
+    template <typename Container, typename Predicate>
+    static auto find_iterator_to_(Container&& c, Predicate pred) noexcept {
+        return std::find_if(std::begin(c), std::end(c), pred);
     }
 
-    auto item_at_(point2i const p) const noexcept {
-        return std::find_if(
-            begin(items_.positions), end(items_.positions)
-          , [p](auto const& q) {
-                return q == p;
-            });
+    template <typename Container, typename Predicate>
+    static ptrdiff_t find_offset_to_(Container&& c, Predicate pred) noexcept {
+        auto const first = std::begin(c);
+        auto const last  = std::end(c);
+        auto const it    = std::find_if(first, last, pred);
+
+        return (it == last)
+          ? ptrdiff_t {-1}
+          : std::distance(first, it);
+    }
+
+    static entity_instance_id get_id(entity_instance_id const id) noexcept {
+        return id;
+    }
+
+    static entity_instance_id get_id(entity const& e) noexcept {
+        return e.instance();
+    }
+
+    template <typename T>
+    static auto find_by_id_(T const id) noexcept {
+        return [id](auto const& id_) noexcept { return get_id(id_) == id; };
+    }
+
+    template <typename T>
+    static auto find_by_pos_(point2<T> const p) noexcept {
+        return [p](auto const q) noexcept { return p == q; };
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -419,22 +438,44 @@ public:
         return nullptr;
     }
 
-    entity const* find(entity_instance_id const id) const noexcept final override {
-        return nullptr;
+    std::pair<entity const*, point2i>
+    find(entity_instance_id const id) const noexcept final override {
+        return const_cast<level_impl*>(this)->find(id);
+    }
+
+    std::pair<entity*, point2i>
+    find(entity_instance_id id) noexcept final override {
+        auto const i = find_offset_to_(entities_.intances, find_by_id_(id));
+        if (i < 0) {
+            return {nullptr, {}};
+        }
+
+        return {
+            (entities_.intances.data() + i)
+          , (entities_.positions.data() + i)->cast_to<int>()
+        };
     }
 
     entity const* entity_at(point2i const p) const noexcept final override {
-        auto const it = entity_at_(p);
-        if (it == end(entities_.positions)) {
+        auto const i = find_offset_to_(entities_.positions, find_by_pos_(p));
+        if (i < 0) {
             return nullptr;
         }
 
-        auto const i = std::distance(begin(entities_.positions), it);
         return entities_.intances.data() + i;
     }
 
-    item const* item_at(point2i const p) const noexcept final override {
-        return nullptr;
+    item_pile const* item_at(point2i const p) const noexcept final override {
+        return const_cast<level_impl*>(this)->item_at(p);
+    }
+
+    item_pile* item_at(point2i const p) noexcept {
+        auto const i = find_offset_to_(items_.positions, find_by_pos_(p));
+        if (i < 0) {
+            return nullptr;
+        }
+
+        return items_.intances.data() + i;
     }
 
     placement_result can_place_entity_at(point2i const p) const noexcept final override {
@@ -470,16 +511,10 @@ public:
     }
 
     placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
-        using namespace container_algorithms;
-        auto const it = find_if(entities_.intances
-          , [id](entity const& e) noexcept { return id == e.instance(); });
-
-        if (it == end(entities_.intances)) {
+        auto const i = find_offset_to_(entities_.intances, find_by_id_(id));
+        if (i < 0) {
             return placement_result::failed_bad_id;
         }
-
-        auto const i = std::distance(begin(entities_.intances), it);
-        BK_ASSERT(i >= 0);
 
         return move_entity_by_(static_cast<size_t>(i), v);
     }
@@ -503,19 +538,22 @@ public:
             return result;
         }
 
-        auto const& w = i.get_deleter().source_world();
-
-        auto const instance = i.get();
-        auto const itm = w.find(instance);
+        auto const itm = i.get_deleter().source_world().find(i.get());
         if (!itm) {
             return placement_result::failed_bad_id;
         }
 
-        BK_ASSERT(itm->instance() == instance);
+        BK_ASSERT(itm->instance() == i.get());
 
-        items_.ids.push_back(itm->definition());
-        items_.positions.push_back(p.cast_to<uint16_t>());
-        items_.intances.push_back(instance);
+        auto pile = item_at(p);
+        if (!pile) {
+            items_.ids.push_back(itm->definition());
+            items_.positions.push_back(p.cast_to<uint16_t>());
+            items_.intances.push_back(item_pile {});
+            pile = &items_.intances.back();
+        }
+
+        pile->add_item(std::move(i));
 
         return placement_result::ok;
     }
@@ -599,6 +637,57 @@ public:
           , r.x0,      r.y0
           , b.width(), b.height()
           , r.width(), r.height());
+    }
+
+    template <typename Check, typename Move>
+    int move_items_(point2i const p, Check check, Move move) {
+        auto const off = find_offset_to_(items_.positions, find_by_pos_(p));
+        if (off < 0) {
+            return -1;
+        }
+
+        auto const it = items_.intances.begin() + off;
+        auto& pile = *it;
+        int n = 0;
+
+        for (auto i = pile.size(); i > 0; --i) {
+            if (check(pile[i - 1])) {
+                move(pile.remove_item(i - 1));
+                ++n;
+            }
+        }
+
+        if (pile.empty()) {
+            items_.intances.erase(it);
+        }
+
+        return n;
+    }
+
+    int move_items(point2i const from, entity& to, move_item_callback const& on_fail) final override {
+        return move_items_(from
+          , [&](item_instance_id const id) noexcept {
+              auto const itm = boken::find(world_, id);
+              BK_ASSERT(!!itm);
+              return to.can_add_item(*itm);
+          }
+          , [&](unique_item itm) noexcept {
+              to.add_item(std::move(itm));
+          });
+    }
+
+    int move_items(point2i const from, item& to, move_item_callback const& on_fail) final override {
+        return 0;
+    }
+
+    int move_items(point2i const from, item_pile& to, move_item_callback const& on_fail) final override {
+        return move_items_(from
+          , [&](item_instance_id) noexcept {
+              return true;
+          }
+          , [&](unique_item itm) noexcept {
+              to.add_item(std::move(itm));
+          });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -826,7 +915,7 @@ private:
     struct items_t {
         std::vector<point2<uint16_t>> positions;
         std::vector<item_id>          ids;
-        std::vector<item_instance_id> intances;
+        std::vector<item_pile>        intances;
     } items_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
@@ -851,6 +940,8 @@ private:
         std::vector<tile_flags> flags;
         std::vector<uint16_t>   region_ids;
     } data_;
+
+    world& world_;
 };
 
 tile_view level_impl::at(point2i const p) const noexcept {
@@ -882,8 +973,8 @@ tile_view level_impl::at(point2i const p) const noexcept {
     };
 }
 
-std::unique_ptr<level> make_level(random_state& rng, sizeix const width, sizeiy const height) {
-    return std::make_unique<level_impl>(rng, width, height);
+std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix const width, sizeiy const height) {
+    return std::make_unique<level_impl>(rng, w, width, height);
 }
 
 void level_impl::merge_walls_at(random_state& rng, recti const area) {

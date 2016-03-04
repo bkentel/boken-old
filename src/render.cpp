@@ -172,7 +172,7 @@ void game_renderer_impl::update_item_data(level const& lvl, tile_map const& tmap
 
             return data_t {point2<uint16_t> {px, py}
                          , point2<uint16_t> {tx, ty}
-                         , 0xFFu};
+                         , 0xFFFFu};
         });
 }
 

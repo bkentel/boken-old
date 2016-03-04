@@ -98,12 +98,21 @@ item const* world_impl::find(item_instance_id const id) const noexcept {
 
 entity const* world_impl::find(entity_instance_id const id) const noexcept {
     for (auto const& lvl : levels_) {
-        if (auto const e = lvl->find(id)) {
-            return e;
+        auto const result = lvl->find(id);
+        if (result.first) {
+            return result.first;
         }
     }
 
     return nullptr;
+}
+
+entity const* find(world const& w, entity_instance_id const id) noexcept {
+    return w.find(id);
+}
+
+item const* find(world const& w, item_instance_id const id) noexcept {
+    return w.find(id);
 }
 
 std::unique_ptr<world> make_world() {

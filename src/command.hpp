@@ -29,6 +29,8 @@ enum class command_type : uint32_t {
   , move_w    = djb2_hash_32c("move_w")
   , move_nw   = djb2_hash_32c("move_nw")
 
+  , get_all_items = djb2_hash_32c("get_all_items")
+
   , reset_zoom = djb2_hash_32c("reset_zoom")
   , reset_view = djb2_hash_32c("reset_view")
 };

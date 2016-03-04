@@ -113,4 +113,44 @@ game_database_impl::game_database_impl() {
     tile_map_items_.add_mapping(entity_id {djb2_hash_32("dagger")}, 3);
 }
 
+bool has_property(game_database const& data, entity_id const& def, entity_property const property) noexcept {
+    auto const edef = data.find(def);
+    return !!edef && has_property(*edef, property);
+}
+
+bool has_property(entity_definition const& def, entity_property const property) noexcept {
+    return def.properties.has_property(property);
+}
+
+entity_property_value property_value_or(game_database const& data, entity_id const& def, entity_property const property, entity_property_value const value) noexcept {
+    auto const edef = data.find(def);
+    return !edef
+      ? value
+      : property_value_or(*edef, property, value);
+}
+
+entity_property_value property_value_or(entity_definition const& def, entity_property const property, entity_property_value const value) noexcept {
+    return def.properties.value_or(property, value);
+}
+
+bool has_property(game_database const& data, item_id const& def, item_property const property) noexcept {
+    auto const idef = data.find(def);
+    return !!idef && has_property(*idef, property);
+}
+
+bool has_property(item_definition const& def, item_property const property) noexcept {
+    return def.properties.has_property(property);
+}
+
+item_property_value property_value_or(game_database const& data, item_id const& def, item_property const property, item_property_value const value) noexcept {
+    auto const idef = data.find(def);
+    return !idef
+      ? value
+      : property_value_or(*idef, property, value);
+}
+
+item_property_value property_value_or(item_definition const& def, item_property const property, item_property_value const value) noexcept {
+    return def.properties.value_or(property, value);
+}
+
 } //namespace boken

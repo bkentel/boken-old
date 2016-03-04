@@ -66,6 +66,7 @@
     <ClInclude Include="src\command.hpp" />
     <ClInclude Include="src\item.hpp" />
     <ClInclude Include="src\object.hpp" />
+    <ClInclude Include="src\item_pile.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

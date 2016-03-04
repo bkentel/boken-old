@@ -130,12 +130,32 @@ inline constexpr bool operator==(
     return value_cast(a) == value_cast(b);
 }
 
+template <typename T, typename Tag> inline constexpr
+bool operator==(tagged_integral_value<T, Tag> const a, std::nullptr_t) noexcept {
+    return value_cast(a) == 0;
+}
+
+template <typename T, typename Tag> inline constexpr
+bool operator==(std::nullptr_t, tagged_integral_value<T, Tag> const a) noexcept {
+    return a == nullptr;
+}
+
 template <typename T, typename U, typename Tag>
 inline constexpr bool operator!=(
     tagged_integral_value<T, Tag> const a
   , tagged_integral_value<U, Tag> const b
 ) noexcept {
     return !(a == b);
+}
+
+template <typename T, typename Tag> inline constexpr
+bool operator!=(tagged_integral_value<T, Tag> const a, std::nullptr_t) noexcept {
+    return !(a == nullptr);
+}
+
+template <typename T, typename Tag> inline constexpr
+bool operator!=(std::nullptr_t, tagged_integral_value<T, Tag> const a) noexcept {
+    return !(a == nullptr);
 }
 
 //===------------------------------------------------------------------------===

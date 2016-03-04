@@ -87,6 +87,9 @@ public:
     virtual void update_entity_data(level const& lvl, tile_map const& tmap) = 0;
     virtual void update_item_data(level const& lvl, tile_map const& tmap) = 0;
 
+    //virtual void update_entity_data(level const& lvl, tile_map const& tmap, std::vector<point2i> const& pos) = 0;
+    //virtual void update_item_data(level const& lvl, tile_map const& tmap, std::vector<point2i> const& pos) = 0;
+
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual void update_tool_tip_visible(bool show) noexcept = 0;
     virtual void update_tool_tip_position(point2i p) noexcept = 0;

@@ -105,6 +105,7 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
     case placement_result::failed_obstacle :
+        w.free_entity(id);
         break;
     }
 
@@ -157,7 +158,7 @@ struct game_state {
         auto const level_h = 80;
 
         auto& lvl = the_world.add_new_level(nullptr
-          , make_level(rng_substantive, sizeix {level_w}, sizeiy {level_h}));
+          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}));
 
         auto const player_def = database.find(entity_id {djb2_hash_32("player")});
         BK_ASSERT(!!player_def);
@@ -287,6 +288,7 @@ struct game_state {
         case ct::move_sw : move_player(vec2i {-1,  1}); break;
         case ct::move_w  : move_player(vec2i {-1,  0}); break;
         case ct::move_nw : move_player(vec2i {-1, -1}); break;
+        case ct::get_all_items : get_all_items(); break;
         case ct::reset_view:
             current_view.x_off   = 0.0f;
             current_view.y_off   = 0.0f;
@@ -305,6 +307,29 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    std::pair<entity const&, point2i> get_player() const {
+        return const_cast<game_state*>(this)->get_player();
+    }
+
+    std::pair<entity&, point2i> get_player() {
+        auto const result = the_world.current_level().find(entity_instance_id {});
+        BK_ASSERT(result.first);
+        return {*result.first, result.second};
+    }
+
+    void get_all_items() {
+        auto& lvl = the_world.current_level();
+        auto const player = get_player();
+
+        auto const result = lvl.move_items(player.second, player.first
+          , [&](move_item_result const result, item const& itm) {
+          });
+
+        if (result < 0) {
+            message_window.println("There is nothing here to get.");
+        }
+    }
+
     void move_player(vec2i const v) {
         message_window.println(std::to_string(value_cast(v.x)) + " " + std::to_string(value_cast(v.y)));
 

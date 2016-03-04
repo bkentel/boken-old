@@ -67,6 +67,9 @@ void command_translator_impl::translate(kb_event const& event) const {
     case 74 : // SDL_SCANCODE_HOME = 74
         handler_(command_type::reset_view, 0);
         break;
+    case 54 : // SDL_SCANCODE_COMMA = 54
+        handler_(command_type::get_all_items, 0);
+        break;
     default:
         break;
     }
