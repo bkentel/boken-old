@@ -156,6 +156,147 @@ struct game_state {
         return {tx, ty};
     }
 
+    // @param p Position in world coordinates
+    void update_tile_at(point2i const p) {
+        auto& lvl = the_world.current_level();
+
+        if (!intersects(lvl.bounds(), p)) {
+            return;
+        }
+
+        if (lvl.at(p).type == tile_type::tunnel) {
+            return;
+        }
+
+        tile_data_set const data {
+            tile_data {}
+          , tile_flags {0}
+          , tile_id::tunnel
+          , tile_type::tunnel
+          , 0
+        };
+
+        renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
+    }
+
+    template <size_t N>
+    struct static_string_buffer {
+        static_string_buffer() noexcept
+          : first {0}
+          , buffer()
+        {
+        }
+
+        explicit operator bool() const noexcept {
+            return first >= 0 && first < N;
+        }
+
+        template <typename... Args>
+        bool append(char const* const fmt, Args&&... args) noexcept {
+            if (!(*this)) {
+                return false;
+            }
+
+            auto const n = snprintf(
+                buffer.data() + first
+              , N - first
+              , fmt
+              , std::forward<Args>(args)...);
+
+            first = (n < 0) ? N : first + n;
+            return !!(*this);
+        }
+
+        string_view to_string_view() const noexcept {
+            return string_view {buffer.data(), static_cast<size_t>(first)};
+        }
+
+        std::string to_string() const {
+            return std::string {buffer.data(), static_cast<size_t>(first)};
+        }
+
+        ptrdiff_t first;
+        std::array<char, N> buffer;
+    };
+
+    //! @param p Position in window coordinates
+    void show_tool_tip(point2i const p) {
+        renderer.update_tool_tip_visible(true);
+        renderer.update_tool_tip_position(p);
+
+        auto const p0 = window_to_world(p);
+        auto const q  = window_to_world({last_mouse_x, last_mouse_y});
+
+        if (p0 == q) {
+            return; // the tile the mouse points to is unchanged from last time
+        }
+
+        auto  const& lvl    = the_world.current_level();
+        auto  const& tile   = lvl.at(p0);
+
+        static_string_buffer<256> buffer;
+
+        auto const print_entity = [&]() noexcept {
+            auto* const entity = lvl.entity_at(p0);
+            if (!entity) {
+                return true;
+            }
+
+            auto* const def = database.find(entity->definition());
+
+            return buffer.append(
+                "Entities:\n"
+                " Instance  : %0#10x\n"
+                " Definition: %0#10x (%s)\n"
+                " Name      : %s\n"
+              , value_cast(entity->instance())
+              , value_cast(entity->definition()), (def ? def->id_string.c_str() : "{empty}")
+              , (def ? def->name.c_str() : "{empty}"));
+        };
+
+        auto const print_items = [&]() noexcept {
+            auto* const pile = lvl.item_at(p0);
+            if (!pile) {
+                return true;
+            }
+
+            buffer.append("Items:\n");
+
+            int i = 0;
+            for (auto const& id : *pile) {
+                if (!buffer.append(" Item: %d\n", i++)) {
+                    break;
+                }
+
+                auto* const itm = the_world.find(id);
+                BK_ASSERT(!!itm);
+
+                auto* const def = database.find(itm->definition());
+
+                buffer.append(
+                    " Instance  : %0#10x\n"
+                    " Definition: %0#10x (%s)\n"
+                    " Name      : %s\n"
+                  , value_cast(itm->instance())
+                  , value_cast(itm->definition()), (def ? def->id_string.c_str() : "{empty}")
+                  , (def ? def->name.c_str() : "{empty}"));
+            }
+
+            return !!buffer;
+        };
+
+        auto const result =
+            buffer.append(
+                "Position: %d, %d\n"
+                "Region  : %d\n"
+              , value_cast(p0.x), value_cast(p0.y)
+              , tile.region_id)
+         && print_entity()
+         && print_items();
+
+        renderer.update_tool_tip_text(buffer.to_string());
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -199,70 +340,70 @@ struct game_state {
         renderer.update_item_data();
     }
 
-    void show_tool_tip(point2i const p) {
-        renderer.update_tool_tip_visible(true);
-        renderer.update_tool_tip_position(p);
-
-        auto const q = window_to_world(p);
-        if (q == point2i {last_tile_x, last_tile_y}) {
-            return;
-        }
-
-        auto const& tile      = the_world.current_level().at(q);
-        auto const& region_id = tile.region_id;
-
-        renderer.update_tool_tip_text(std::to_string(region_id));
-    }
-
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
-            if (kmods.test(kb_modifiers::m_shift)) {
-                show_tool_tip({last_mouse_x, last_mouse_y});
-            }
             cmd_translator.translate(event);
         }
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        if (event.button_state[0]) {
-            auto&      lvl = the_world.current_level();
-            auto const p   = window_to_world({event.x, event.y});
-
-            if (!intersects(lvl.bounds(), p)) {
-                return;
+        switch (event.button_state_bits()) {
+        case 0b0000 :
+            // no buttons down
+            break;
+        case 0b0001 :
+            // left mouse button only
+            if (event.button_change[0] == mouse_event::button_change_t::went_down) {
+                update_tile_at(window_to_world({event.x, event.y}));
             }
-
-            tile_data_set const data {
-                tile_data {}
-              , tile_flags {0}
-              , tile_id::tunnel
-              , tile_type::tunnel
-              , 0
-            };
-
-            renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
+            break;
+        case 0b0010 :
+            // middle mouse button only
+            break;
+        case 0b0100 :
+            // right mouse button only
+            break;
+        case 0b1000 :
+            // extra mouse button only
+            break;
+        default :
+            break;
         }
     }
 
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        if (kmods.none() && event.button_state[2]) {
-            current_view.x_off += static_cast<float>(event.dx);
-            current_view.y_off += static_cast<float>(event.dy);
-        }
-
-        if (kmods.test(kb_modifiers::m_shift)) {
-            show_tool_tip({event.x, event.y});
+        switch (event.button_state_bits()) {
+        case 0b0000 :
+            // no buttons down
+            if (kmods.test(kb_modifiers::m_shift)) {
+                show_tool_tip({event.x, event.y});
+            }
+            break;
+        case 0b0001 :
+            // left mouse button only
+            break;
+        case 0b0010 :
+            // middle mouse button only
+            break;
+        case 0b0100 :
+            // right mouse button only
+            if (kmods.none()) {
+                current_view.x_off += static_cast<float>(event.dx);
+                current_view.y_off += static_cast<float>(event.dy);
+            }
+            break;
+        case 0b1000 :
+            // extra mouse button only
+            break;
+        default :
+            break;
         }
 
         last_mouse_x = event.x;
         last_mouse_y = event.y;
-
-        auto const p = window_to_world({event.x, event.y});
-        last_tile_x = value_cast(p.x);
-        last_tile_y = value_cast(p.y);
     }
 
     void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
@@ -381,8 +522,6 @@ struct game_state {
                 entity_updates_.push_back({p, q, e.definition()});
             }
         );
-
-        //renderer.update_entity_data();
     }
 
     void run() {
@@ -450,8 +589,6 @@ struct game_state {
 
     int last_mouse_x = 0;
     int last_mouse_y = 0;
-    int last_tile_x  = 0;
-    int last_tile_y  = 0;
 
     std::vector<game_renderer::update_t<item_id>>   item_updates_;
     std::vector<game_renderer::update_t<entity_id>> entity_updates_;

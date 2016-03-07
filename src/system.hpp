@@ -140,6 +140,14 @@ struct mouse_event {
     int dx;
     int dy;
 
+    uint32_t button_state_bits() const noexcept {
+        uint32_t result {};
+        for (size_t i = 0; i < button_count; ++i) {
+            result |= (button_state[i] ? 1u : 0u) << i;
+        }
+        return result;
+    }
+
     std::array<button_change_t, button_count> button_change;
     std::array<bool,            button_count> button_state;
 };

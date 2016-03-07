@@ -82,6 +82,9 @@ void text_layout::layout(text_renderer& trender, std::string text) {
 void text_layout::layout(text_renderer& trender) {
     data_.clear();
 
+    auto const line_gap = int32_t {trender.line_gap()};
+    auto const max_w    = int32_t {value_cast(max_width_)};
+
     auto     it      = text_.data();
     auto     last    = text_.data() + text_.size();
     uint32_t prev_cp = 0;
@@ -89,14 +92,26 @@ void text_layout::layout(text_renderer& trender) {
     int32_t  x       = 0;
     int32_t  y       = 0;
 
+    auto const next_line = [&] {
+        y      += line_gap;
+        x      =  0;
+        line_h =  line_gap;
+    };
+
     while (it != last) {
         auto const cp = next_code_point(it, last);
-        auto const metrics = trender.load_metrics(prev_cp, cp);
 
-        if (x + value_cast(metrics.size.x) > value_cast(max_width_)) {
-            y      += line_h;
-            x      =  0;
-            line_h =  0;
+        if (cp == '\n') {
+            next_line();
+            continue; // consume the newline
+        }
+
+        auto const metrics = trender.load_metrics(prev_cp, cp);
+        auto const glyph_w = int32_t {value_cast(metrics.size.x)};
+        auto const glyph_h = int32_t {value_cast(metrics.size.y)};
+
+        if (x + glyph_w > max_w) {
+            next_line();
         }
 
         data_.push_back(data_t {
@@ -106,8 +121,8 @@ void text_layout::layout(text_renderer& trender) {
           , 0xFFFFFFFFu
         });
 
-        line_h =  std::max<int32_t>(line_h, value_cast(metrics.size.y));
-        x      += value_cast(metrics.size.x);
+        line_h =  std::max(line_h, glyph_h);
+        x      += glyph_w;
     }
 }
 
@@ -115,8 +130,15 @@ void text_layout::update(text_renderer& trender) const noexcept {
     auto it   = text_.data();
     auto last = text_.data() + text_.size();
 
-    for (size_t i = 0; it != last; ++i) {
-        data_[i].texture = trender.load_metrics(next_code_point(it, last)).texture;
+    size_t i = 0;
+    while (it != last) {
+        auto const cp = next_code_point(it, last);
+
+        if (cp == '\n') {
+            continue;
+        }
+
+        data_[i++].texture = trender.load_metrics(cp).texture;
     }
 }
 
