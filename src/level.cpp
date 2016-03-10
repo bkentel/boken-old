@@ -7,6 +7,7 @@
 #include "utility.hpp"          // for find_if
 #include "world.hpp"
 #include "item.hpp"
+#include "spatial_map.hpp"
 
 #include <bkassert/assert.hpp>  // for BK_ASSERT
 
@@ -369,22 +370,6 @@ struct generate_rect_room {
 };
 
 class level_impl : public level {
-public:
-    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height)
-      : bounds_  {offix {0}, offiy {0}, width, height}
-      , data_    {width, height}
-      , world_   {w}
-    {
-        bsp_generator::param_t p;
-        p.width  = sizeix {width};
-        p.height = sizeiy {height};
-        p.min_room_size = sizei {3};
-        p.room_chance_num = sizei {80};
-
-        bsp_gen_ = make_bsp_generator(p);
-        generate(rng);
-    }
-
     template <typename Container, typename Predicate>
     static auto find_iterator_to_(Container&& c, Predicate pred) noexcept {
         return std::find_if(std::begin(c), std::end(c), pred);
@@ -401,22 +386,55 @@ public:
           : std::distance(first, it);
     }
 
-    static entity_instance_id get_id(entity_instance_id const id) noexcept {
+    static entity_instance_id get_id_(entity_instance_id const id) noexcept {
         return id;
     }
 
-    static entity_instance_id get_id(entity const& e) noexcept {
+    static entity_instance_id get_id_(entity const& e) noexcept {
         return e.instance();
     }
 
     template <typename T>
     static auto find_by_id_(T const id) noexcept {
-        return [id](auto const& id_) noexcept { return get_id(id_) == id; };
+        return [id](auto const& id_) noexcept { return get_id_(id_) == id; };
     }
 
     template <typename T>
     static auto find_by_pos_(point2<T> const p) noexcept {
         return [p](auto const q) noexcept { return p == q; };
+    }
+public:
+    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height)
+      : bounds_  {offix {0}, offiy {0}, width, height}
+      , data_    {width, height}
+      , world_   {w}
+    {
+        bsp_generator::param_t p;
+        p.width  = sizeix {width};
+        p.height = sizeiy {height};
+        p.min_room_size = sizei {3};
+        p.room_chance_num = sizei {80};
+
+        bsp_gen_ = make_bsp_generator(p);
+        generate(rng);
+    }
+
+    entity* entity_at_(point2i const p) noexcept {
+        auto const i = find_offset_to_(entities_.positions, find_by_pos_(p));
+        return (i < 0) ?  nullptr : entities_.intances.data() + i;
+    }
+
+    entity const* entity_at_(point2i const p) const noexcept {
+        return const_cast<level_impl*>(this)->entity_at_(p);
+    }
+
+    item_pile* item_at_(point2i const p) noexcept {
+        auto const i = find_offset_to_(items_.positions, find_by_pos_(p));
+        return (i < 0) ?  nullptr : items_.intances.data() + i;
+    }
+
+    item_pile const* item_at_(point2i const p) const noexcept {
+        return const_cast<level_impl*>(this)->item_at_(p);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -434,15 +452,6 @@ public:
         return bounds_;
     }
 
-    item const* find(item_instance_id const id) const noexcept final override {
-        return nullptr;
-    }
-
-    std::pair<entity const*, point2i>
-    find(entity_instance_id const id) const noexcept final override {
-        return const_cast<level_impl*>(this)->find(id);
-    }
-
     std::pair<entity*, point2i>
     find(entity_instance_id id) noexcept final override {
         auto const i = find_offset_to_(entities_.intances, find_by_id_(id));
@@ -456,26 +465,17 @@ public:
         };
     }
 
-    entity const* entity_at(point2i const p) const noexcept final override {
-        auto const i = find_offset_to_(entities_.positions, find_by_pos_(p));
-        if (i < 0) {
-            return nullptr;
-        }
+    std::pair<entity const*, point2i>
+    find(entity_instance_id const id) const noexcept final override {
+        return const_cast<level_impl*>(this)->find(id);
+    }
 
-        return entities_.intances.data() + i;
+    entity const* entity_at(point2i const p) const noexcept final override {
+        return entity_at_(p);
     }
 
     item_pile const* item_at(point2i const p) const noexcept final override {
-        return const_cast<level_impl*>(this)->item_at(p);
-    }
-
-    item_pile* item_at(point2i const p) noexcept {
-        auto const i = find_offset_to_(items_.positions, find_by_pos_(p));
-        if (i < 0) {
-            return nullptr;
-        }
-
-        return items_.intances.data() + i;
+        return item_at_(p);
     }
 
     placement_result can_place_entity_at(point2i const p) const noexcept final override {
@@ -519,6 +519,9 @@ public:
         return move_entity_by_(static_cast<size_t>(i), v);
     }
 
+    void begin_combat(point2i attacker, point2i defender
+        , std::function<void (entity& att, entity& def)> const& combat_proc) noexcept final override;
+
     void transform_entities(
         std::function<point2i (entity&, point2i)>&& transform
       , std::function<void (entity&, point2i, point2i)>&& on_success
@@ -551,7 +554,7 @@ public:
 
         BK_ASSERT(itm->instance() == i.get());
 
-        auto pile = item_at(p);
+        auto pile = item_at_(p);
         if (!pile) {
             items_.ids.push_back(itm->definition());
             items_.positions.push_back(p.cast_to<uint16_t>());
@@ -1054,6 +1057,32 @@ level_impl::update_tile_rect(
       , bounds_.width(),     bounds_.height()
       , update_area.width(), update_area.height()
     );
+}
+
+void level_impl::begin_combat(
+    point2i const attacker
+  , point2i const defender
+  , std::function<void (entity& att, entity& def)> const& combat_proc
+) noexcept {
+    if (attacker == defender) {
+        return; //TODO
+    }
+
+    auto* eatt = entity_at_(attacker);
+    if (!eatt) {
+        return; //TODO
+    }
+
+    auto* edef = entity_at_(defender);
+    if (!edef) {
+        return; //TODO
+    }
+
+    combat_proc(*eatt, *edef);
+
+    if (!eatt->is_alive()) {
+
+    }
 }
 
 } //namespace boken

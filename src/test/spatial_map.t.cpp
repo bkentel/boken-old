@@ -3,74 +3,77 @@
 
 #include "spatial_map.hpp"
 
-namespace bk = boken;
+TEST_CASE("spatial map") {
+    using namespace boken;
 
-namespace { namespace test_0 {
-
-using id_t    = uint32_t;
-using point_t = bk::point2i;
-
-struct data_t {
-    id_t    id;
-    point_t position;
-};
-
-id_t id_of(data_t const& d) noexcept {
-    return d.id;
-}
-
-point_t position_of(data_t const& d) noexcept {
-    return d.position;
-}
-
-}} // namespace {anonymous}::test_0
-
-TEST_CASE("spatial_map") {
-    using namespace test_0;
-
-    auto const id_to_pos = [](int const i) noexcept {
-        return point_t {i , i + 1};
+    struct key_t {
+        float operator()(float const f) const noexcept {
+            return f;
+        }
     };
 
-    std::vector<data_t> data;
-    {
-        constexpr size_t n = 10;
-        data.reserve(n);
-
-        int i = 0;
-        std::generate_n(back_inserter(data), n, [&]() mutable {
-            ++i;
-            return data_t {static_cast<id_t>(i), id_to_pos(i)};
-        });
-    }
-
-    auto smap = bk::spatial_map<id_t, point_t> {100, 80};
-    smap.insert(begin(data), end(data));
-
-    SECTION("sanity tests") {
-        // size
-        REQUIRE(smap.size() == data.size());
-
-        // at
-        for (int i = 0; i < static_cast<int>(data.size()); ++i) {
-            id_t const* id = smap.at(id_to_pos(i + 1));
-            REQUIRE(!!id);
-            REQUIRE(*id == static_cast<uint32_t>(i + 1));
+    struct property_t {
+        int operator()(float const f) const noexcept {
+            return f < 0.0f ? -1 : 1;
         }
+    };
 
-        // near
-        auto const d = bk::ceil_as<int>(std::sqrt(value_cast(
-            distance2(point_t {0, 0}, data.back().position))));
+    constexpr int16_t width  = 20;
+    constexpr int16_t height = 10;
+    spatial_map<float, key_t, property_t, int16_t> map {width, height};
 
-        auto const n0 = smap.near(point_t {0, 0}, d, [](auto, auto) {});
-        REQUIRE(static_cast<size_t>(n0) == data.size());
+    REQUIRE(map.size() == 0);
+
+    // insert 3 new unique values
+    REQUIRE(map.insert({1, 2}, 2.0f));
+    REQUIRE(map.insert({1, 1}, 1.0f));
+    REQUIRE(map.insert({2, 1}, 3.0f));
+
+    // insert 3 duplicated
+    REQUIRE(!map.insert({1, 2}, 2.0f));
+    REQUIRE(!map.insert({1, 1}, 1.0f));
+    REQUIRE(!map.insert({2, 1}, 3.0f));
+
+    // update an existing value
+    REQUIRE(!map.insert_or_replace({2, 1}, 4.0f));
+    REQUIRE(!!map.find({2, 1}));
+    REQUIRE(*map.find({2, 1}) == 4.0f);
+
+    REQUIRE(map.size() == 3);
+
+    {
+        auto const range = map.positions_range();
+        REQUIRE(std::distance(range.first, range.second) == 3);
     }
 
-    SECTION("update") {
-        smap.update_all([](id_t, point_t const p) noexcept {
-            return p + bk::vec2i {-1, 1};
-        });
+    {
+        auto const range = map.properties_range();
+        REQUIRE(std::distance(range.first, range.second) == 3);
     }
+
+    // find by pos
+    REQUIRE(!!map.find({1, 1}));
+    REQUIRE(*map.find({1, 1}) == 1.0f);
+
+    // find by key
+    REQUIRE(!!map.find(1.0f));
+    REQUIRE(*map.find(1.0f) == 1.0f);
+
+    // erase invalid by pos
+    REQUIRE(!map.erase({0, 0}));
+    REQUIRE(map.size() == 3);
+
+    // erase invalid by key
+    REQUIRE(!map.erase(0.0f));
+    REQUIRE(map.size() == 3);
+
+    // erase by pos
+    REQUIRE(map.erase({1, 1}));
+    REQUIRE(map.size() == 2);
+
+    // erase by key
+    REQUIRE(map.erase(4.0f));
+    REQUIRE(map.size() == 1);
 }
 
 #endif // !defined(BK_NO_TESTS)

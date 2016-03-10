@@ -45,6 +45,7 @@ struct entity_definition : basic_definition {
 
     entity_id id;
     entity_properties properties;
+    int16_t health_per_level {1}; //TODO
 };
 
 bool has_property(game_database const& data, entity_id const& def, entity_property property) noexcept;

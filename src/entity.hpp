@@ -15,9 +15,20 @@ class entity
 public:
     using object::object;
 
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // stats
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    bool is_alive() const noexcept;
+    bool modify_health(int16_t delta) noexcept;
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // item / inventory management
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     bool can_add_item(item const& itm);
     void add_item(unique_item itm);
 private:
+    int16_t max_health_;
+    int16_t cur_health_;
     item_pile items_;
 };
 

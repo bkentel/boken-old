@@ -60,10 +60,8 @@ public:
     virtual sizeiy height() const noexcept = 0;
     virtual recti  bounds() const noexcept = 0;
 
-    virtual item   const* find(item_instance_id   id) const noexcept = 0;
-
-    virtual std::pair<entity const*, point2i> find(entity_instance_id id) const noexcept = 0;
     virtual std::pair<entity*, point2i> find(entity_instance_id id) noexcept = 0;
+    virtual std::pair<entity const*, point2i> find(entity_instance_id id) const noexcept = 0;
 
     virtual entity    const* entity_at(point2i p) const noexcept = 0;
     virtual item_pile const* item_at(point2i p)   const noexcept = 0;
@@ -90,6 +88,9 @@ public:
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
+    virtual void begin_combat(point2i attacker, point2i defender
+      , std::function<void (entity& att, entity& def)> const& combat_proc) noexcept = 0;
+
     virtual void transform_entities(
         std::function<point2i (entity&, point2i)>&& tranform
       , std::function<void (entity&, point2i, point2i)>&& on_success
@@ -97,6 +98,9 @@ public:
 
     virtual placement_result add_item_at(unique_item i, point2i p) = 0;
     virtual placement_result add_entity_at(entity&& e, point2i p) = 0;
+
+    //virtual void remove_entity_at(point2i p) noexcept;
+    //virtual void kill_entity_at(point2i p) noexcept;
 
     virtual std::pair<point2i, placement_result>
         add_item_nearest_random(random_state& rng, item&& i, point2i p, int max_distance) = 0;

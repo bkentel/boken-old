@@ -112,6 +112,8 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     return result;
 }
 
+
+
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
@@ -427,14 +429,14 @@ struct game_state {
             break;
         case ct::move_here:
             break;
-        case ct::move_n  : move_player(vec2i { 0, -1}); break;
-        case ct::move_ne : move_player(vec2i { 1, -1}); break;
-        case ct::move_e  : move_player(vec2i { 1,  0}); break;
-        case ct::move_se : move_player(vec2i { 1,  1}); break;
-        case ct::move_s  : move_player(vec2i { 0,  1}); break;
-        case ct::move_sw : move_player(vec2i {-1,  1}); break;
-        case ct::move_w  : move_player(vec2i {-1,  0}); break;
-        case ct::move_nw : move_player(vec2i {-1, -1}); break;
+        case ct::move_n  : player_move(vec2i { 0, -1}); break;
+        case ct::move_ne : player_move(vec2i { 1, -1}); break;
+        case ct::move_e  : player_move(vec2i { 1,  0}); break;
+        case ct::move_se : player_move(vec2i { 1,  1}); break;
+        case ct::move_s  : player_move(vec2i { 0,  1}); break;
+        case ct::move_sw : player_move(vec2i {-1,  1}); break;
+        case ct::move_w  : player_move(vec2i {-1,  0}); break;
+        case ct::move_nw : player_move(vec2i {-1, -1}); break;
         case ct::get_all_items : get_all_items(); break;
         case ct::reset_view:
             current_view.x_off   = 0.0f;
@@ -480,17 +482,27 @@ struct game_state {
         item_updates_.push_back({player.second, player.second, item_id {}});
     }
 
-    void move_player(vec2i const v) {
-        message_window.println(std::to_string(value_cast(v.x)) + " " + std::to_string(value_cast(v.y)));
+    void player_move(vec2i const v) {
+        auto& lvl = the_world.current_level();
 
         auto const player = get_player();
+        auto const p0 = player.second;
+        auto const p1 = p0 + v;
 
-        auto const result = the_world.current_level().move_by(player.first.instance(), v);
-        if (result == placement_result::ok) {
-            entity_updates_.push_back({player.second, player.second + v, player.first.definition()});
+        switch (lvl.move_by(player.first.instance(), v)) {
+        case placement_result::ok:
+            entity_updates_.push_back({p0, p1, player.first.definition()});
+            advance(1);
+            break;
+        case placement_result::failed_entity:
+            //lvl.begin_combat(p0, p1);
+            advance(1);
+            break;
+        case placement_result::failed_obstacle: break;
+        case placement_result::failed_bounds:   break;
+        case placement_result::failed_bad_id:   break;
+        default: break;
         }
-
-        advance(1);
     }
 
     void advance(int const steps) {
