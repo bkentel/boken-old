@@ -26,6 +26,9 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     bool can_add_item(item const& itm);
     void add_item(unique_item itm);
+
+    item_pile const& items() const noexcept { return items_; }
+    item_pile&       items()       noexcept { return items_; }
 private:
     int16_t max_health_;
     int16_t cur_health_;

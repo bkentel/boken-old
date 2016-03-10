@@ -121,11 +121,17 @@ public:
     //===--------------------------------------------------------------------===
     //                         Block-based data access
     //===--------------------------------------------------------------------===
-    virtual std::vector<point2<uint16_t>> const& entity_positions() const noexcept = 0;
-    virtual std::vector<entity_id>        const& entity_ids()       const noexcept = 0;
+    virtual std::pair<point2<uint16_t> const*, point2<uint16_t> const*>
+        entity_positions() const noexcept = 0;
 
-    virtual std::vector<point2<uint16_t>> const& item_positions() const noexcept = 0;
-    virtual std::vector<item_id>          const& item_ids()       const noexcept = 0;
+    virtual std::pair<entity_id const*, entity_id const*>
+        entity_ids() const noexcept = 0;
+
+    virtual std::pair<point2<uint16_t> const*, point2<uint16_t> const*>
+        item_positions() const noexcept = 0;
+
+    virtual std::pair<item_id const*, item_id const*>
+        item_ids() const noexcept = 0;
 
     virtual const_sub_region_range<tile_id> tile_ids(recti area) const noexcept = 0;
 

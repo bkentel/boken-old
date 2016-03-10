@@ -32,4 +32,23 @@ private:
     std::vector<item_instance_id> items_;
 };
 
+//! check(item_instance_id) = 0 ~> ok
+//! check(item_instance_id) = 1 ~> skip
+//! check(item_instance_id) = 2 ~> terminate
+//! check(item_instance_id) = X ~> terminate
+template <typename Check>
+int merge_item_piles(item_pile& from, item_pile& to, Check check) {
+    int n {};
+    for (auto i = from.size(); i > 0; --i) {
+        switch (check(from[i - 1])) {
+        case 0:  to.add_item(from.remove_item(i - 1)); ++n; break;
+        case 1:  continue;
+        case 2:  return n;
+        default: return n;
+        }
+    }
+
+    return n;
+}
+
 } //namespace boken

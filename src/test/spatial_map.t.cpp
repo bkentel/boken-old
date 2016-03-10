@@ -25,17 +25,17 @@ TEST_CASE("spatial map") {
     REQUIRE(map.size() == 0);
 
     // insert 3 new unique values
-    REQUIRE(map.insert({1, 2}, 2.0f));
-    REQUIRE(map.insert({1, 1}, 1.0f));
-    REQUIRE(map.insert({2, 1}, 3.0f));
+    REQUIRE(map.insert({1, 2}, 2.0f).second);
+    REQUIRE(map.insert({1, 1}, 1.0f).second);
+    REQUIRE(map.insert({2, 1}, 3.0f).second);
 
     // insert 3 duplicated
-    REQUIRE(!map.insert({1, 2}, 2.0f));
-    REQUIRE(!map.insert({1, 1}, 1.0f));
-    REQUIRE(!map.insert({2, 1}, 3.0f));
+    REQUIRE(!map.insert({1, 2}, 2.0f).second);
+    REQUIRE(!map.insert({1, 1}, 1.0f).second);
+    REQUIRE(!map.insert({2, 1}, 3.0f).second);
 
     // update an existing value
-    REQUIRE(!map.insert_or_replace({2, 1}, 4.0f));
+    REQUIRE(!map.insert_or_replace({2, 1}, 4.0f).second);
     REQUIRE(!!map.find({2, 1}));
     REQUIRE(*map.find({2, 1}) == 4.0f);
 
@@ -56,8 +56,8 @@ TEST_CASE("spatial map") {
     REQUIRE(*map.find({1, 1}) == 1.0f);
 
     // find by key
-    REQUIRE(!!map.find(1.0f));
-    REQUIRE(*map.find(1.0f) == 1.0f);
+    REQUIRE(!!map.find(1.0f).first);
+    REQUIRE(*map.find(1.0f).first == 1.0f);
 
     // erase invalid by pos
     REQUIRE(!map.erase({0, 0}));

@@ -29,18 +29,17 @@ class game_renderer_impl final : public game_renderer {
     }
 
     template <typename Data, typename Positions, typename Ids>
-    void update_data_(Data& data, Positions const& poss, Ids const& ids, tile_map const& tmap) {
-        BK_ASSERT(poss.size() == ids.size());
-
+    void update_data_(Data& data, Positions const& ps, Ids const& ids, tile_map const& tmap) {
         auto const tranform_point = position_to_pixel_(tmap);
 
         data.clear();
-        data.reserve(poss.size());
+        data.reserve(static_cast<size_t>(
+            std::distance(ps.first, ps.second)));
 
         size_t i = 0;
-        std::transform(begin(poss), end(poss), back_inserter(data)
+        std::transform(ps.first, ps.second, back_inserter(data)
           , [&](auto const p) noexcept {
-                auto const index = id_to_index(tmap, ids[i++]);
+                auto const index = id_to_index(tmap, *(ids.first + i++));
                 return data_t {
                     tranform_point(p)
                   , tmap.index_to_rect(index).top_left().template cast_to<uint16_t>()
