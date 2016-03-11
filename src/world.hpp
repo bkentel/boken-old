@@ -4,20 +4,22 @@
 #include <memory>
 #include <functional>
 
+namespace boken { class item; }
+namespace boken { class entity; }
+namespace boken { class level; }
+
 namespace boken {
 
-class item;
-class entity;
-class level;
-
-//====---
-// (Singular) World state.
-//====---
+//=====--------------------------------------------------------------------=====
+// All state associated with the game world as a whole.
+//=====--------------------------------------------------------------------=====
 class world {
 public:
     virtual ~world();
 
-    virtual item   const* find(item_instance_id   id) const noexcept = 0;
+    //! @returns The instance associated with a given id. Otherwise, a nullptr
+    //! if no such definition exists.
+    virtual item const* find(item_instance_id id) const noexcept = 0;
     virtual entity const* find(entity_instance_id id) const noexcept = 0;
 
     virtual unique_item create_item(std::function<item (item_instance_id)> f) = 0;

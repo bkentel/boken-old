@@ -17,6 +17,9 @@ namespace boken { enum class tile_map_type : uint32_t; }
 
 namespace boken {
 
+//=====--------------------------------------------------------------------=====
+// The current "view" into the world.
+//=====--------------------------------------------------------------------=====
 class view {
 public:
     view() = default;
@@ -77,6 +80,9 @@ public:
     float scale_y = 1.0f;
 };
 
+//=====--------------------------------------------------------------------=====
+// Responsible for rendering all the various game and ui objects.
+//=====--------------------------------------------------------------------=====
 class game_renderer {
 public:
     using clock_t     = std::chrono::high_resolution_clock;
