@@ -373,7 +373,7 @@ class level_impl : public level {
 public:
     level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height)
       : bounds_   {offix {0}, offiy {0}, width, height}
-      , entities_ {value_cast<uint16_t>(width), value_cast<uint16_t>(height)}
+      , entities_ {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
       , items_    {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
       , data_     {width, height}
       , world_    {w}
@@ -406,7 +406,11 @@ public:
     std::pair<entity*, point2i>
     find(entity_instance_id const id) noexcept final override {
         auto const result = entities_.find(id);
-        return {result.first, result.second.cast_to<int32_t>()};
+        if (!result.first) {
+            return {nullptr, point2i {}};
+        }
+
+        return {world_.find(*result.first), result.second.cast_to<int32_t>()};
     }
 
     std::pair<entity const*, point2i>
@@ -415,7 +419,8 @@ public:
     }
 
     entity const* entity_at(point2i const p) const noexcept final override {
-        return entities_.find(p.cast_to<uint16_t>());
+        auto const id = entities_.find(p.cast_to<uint16_t>());
+        return id ? world_.find(*id) : nullptr;
     }
 
     item_pile const* item_at(point2i const p) const noexcept final override {
@@ -446,7 +451,7 @@ public:
 
     placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
         auto result = placement_result::failed_bad_id;
-        entities_.move_to_if(id, [&](entity const&, point2<uint16_t> const p) noexcept {
+        entities_.move_to_if(id, [&](entity_instance_id, point2<uint16_t> const p) noexcept {
             auto const p0 = p.cast_to<int32_t>() + v;
             result = can_place_entity_at(p0);
             return std::make_pair(p0.cast_to<uint16_t>(), result == placement_result::ok);
@@ -470,13 +475,15 @@ public:
 
         for (size_t i = 0; i < entities_.size(); ++i, ++v_it, ++p_it) {
             auto const p = p_it->cast_to<int32_t>();
-            auto const q = transform(*v_it, p);
+            auto&      e = *world_.find(*v_it);
+
+            auto const q = transform(e, p);
             if (p == q) {
                 continue;
             }
 
-            if (move_by(v_it->instance(), q - p) == placement_result::ok) {
-                on_success(*v_it, p, q);
+            if (move_by(e.instance(), q - p) == placement_result::ok) {
+                on_success(e, p, q);
             }
         }
     }
@@ -509,7 +516,7 @@ public:
         return placement_result::ok;
     }
 
-    placement_result add_entity_at(entity&& e, point2i const p) final override {
+    placement_result add_entity_at(unique_entity e, point2i const p) final override {
         auto const result = can_place_entity_at(p);
         if (result != placement_result::ok) {
             return result;
@@ -522,12 +529,12 @@ public:
     }
 
     std::pair<point2i, placement_result>
-    add_item_nearest_random(random_state& rng, item&& i, point2i p, int max_distance) final override {
+    add_item_nearest_random(random_state& rng, unique_item i, point2i p, int max_distance) final override {
         return {p, placement_result::failed_obstacle};
     }
 
     std::pair<point2i, placement_result>
-    add_entity_nearest_random(random_state& rng, entity&& e, point2i const p, int const max_distance) final override {
+    add_entity_nearest_random(random_state& rng, unique_entity e, point2i const p, int const max_distance) final override {
         auto const where = find_random_nearest(rng, p, max_distance
           , [&](point2i const q) {
                 return add_entity_at(std::move(e), q) == placement_result::ok;
@@ -838,15 +845,19 @@ private:
     recti bounds_;
 
     struct get_entity_instance_id_t {
-        entity_instance_id operator()(entity const& e) const noexcept {
-            return e.instance();
+        entity_instance_id operator()(entity_instance_id const id) const noexcept {
+            return id;
         }
     };
 
     struct get_entity_id_t {
-        entity_id operator()(entity const& e) const noexcept {
-            return e.definition();
+        get_entity_id_t(world const& w) noexcept : world_ {w} {}
+
+        entity_id operator()(entity_instance_id const id) const noexcept {
+            return world_.find(id)->definition();
         }
+
+        world const& world_;
     };
 
     struct get_item_instance_id_t {
@@ -867,8 +878,8 @@ private:
         world const& world_;
     };
 
-    spatial_map<entity,    get_entity_instance_id_t, get_entity_id_t, uint16_t> entities_;
-    spatial_map<item_pile, get_item_instance_id_t,   get_item_id_t,   uint16_t> items_;
+    spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, uint16_t> entities_;
+    spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, uint16_t> items_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
     std::vector<region_info> regions_;

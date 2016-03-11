@@ -22,12 +22,11 @@ public:
     virtual item const* find(item_instance_id id) const noexcept = 0;
     virtual entity const* find(entity_instance_id id) const noexcept = 0;
 
-    virtual unique_item create_item(std::function<item (item_instance_id)> f) = 0;
+    virtual item* find(item_instance_id id) noexcept = 0;
+    virtual entity* find(entity_instance_id id) noexcept = 0;
 
-    virtual entity_instance_id create_entity_id() = 0;
-
-    virtual void free_item(item_instance_id id) = 0;
-    virtual void free_entity(entity_instance_id id) = 0;
+    virtual unique_item create_item(std::function<item (item_instance_id)> const& f) = 0;
+    virtual unique_entity create_entity(std::function<entity (entity_instance_id)> const& f) = 0;
 
     virtual int total_levels() const noexcept = 0;
 

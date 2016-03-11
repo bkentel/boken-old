@@ -65,11 +65,11 @@ struct keydef_t {
 };
 
 placement_result create_item_at(point2i const p, world& w, level& l, item_definition const& def) {
-    auto id = w.create_item([&](item_instance_id const instance) {
+    auto itm = w.create_item([&](item_instance_id const instance) {
         return item {instance, def.id};
     });
 
-    auto const result = l.add_item_at(std::move(id), p);
+    auto const result = l.add_item_at(std::move(itm), p);
 
     switch (result) {
     default :
@@ -90,8 +90,11 @@ placement_result create_item_at(point2i const p, world& w, level& l, item_defini
 }
 
 placement_result create_entity_at(point2i const p, world& w, level& l, entity_definition const& def) {
-    auto const id     = w.create_entity_id();
-    auto const result = l.add_entity_at(entity {id, def.id}, p);
+    auto ent = w.create_entity([&](entity_instance_id const instance) {
+        return entity {instance, def.id};
+    });
+
+    auto const result = l.add_entity_at(std::move(ent), p);
 
     switch (result) {
     default :
@@ -105,14 +108,11 @@ placement_result create_entity_at(point2i const p, world& w, level& l, entity_de
     case placement_result::failed_bounds :
     case placement_result::failed_entity :
     case placement_result::failed_obstacle :
-        w.free_entity(id);
         break;
     }
 
     return result;
 }
-
-
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

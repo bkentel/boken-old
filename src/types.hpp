@@ -208,24 +208,32 @@ using entity_instance_id = tagged_integral_value<uint32_t, tag_id_instance_entit
 using item_id            = tagged_integral_value<uint32_t, tag_id_item>;
 using item_instance_id   = tagged_integral_value<uint32_t, tag_id_instance_item>;
 
-// size is used by the standard, so "sz" it is.
-template <typename T>
-inline constexpr size_type<T> sz(T const n) noexcept {
-    return size_type<T> {n};
-}
-
 class item_deleter {
 public:
     using pointer = item_instance_id;
 
     item_deleter(world* const w) noexcept : world_ {w} { }
 
-    void operator()(item_instance_id const id) const noexcept;
+    void operator()(pointer const id) const noexcept;
     world const& source_world() const noexcept { return *world_; }
 private:
     world* world_;
 };
 
 using unique_item = std::unique_ptr<item_instance_id, item_deleter const&>;
+
+class entity_deleter {
+public:
+    using pointer = entity_instance_id;
+
+    entity_deleter(world* const w) noexcept : world_ {w} { }
+
+    void operator()(pointer const id) const noexcept;
+    world const& source_world() const noexcept { return *world_; }
+private:
+    world* world_;
+};
+
+using unique_entity = std::unique_ptr<entity_instance_id, entity_deleter const&>;
 
 } //namespace boken

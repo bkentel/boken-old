@@ -6,8 +6,6 @@
 namespace bk = ::boken;
 
 TEST_CASE("axis_aligned_rect") {
-    using bk::sz;
-
     SECTION("from points") {
         constexpr bk::axis_aligned_rect<int> r {
             bk::offset_type_x<int> {1}

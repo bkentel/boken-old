@@ -97,15 +97,15 @@ public:
     ) = 0;
 
     virtual placement_result add_item_at(unique_item i, point2i p) = 0;
-    virtual placement_result add_entity_at(entity&& e, point2i p) = 0;
+    virtual placement_result add_entity_at(unique_entity e, point2i p) = 0;
 
     //virtual void remove_entity_at(point2i p) noexcept;
     //virtual void kill_entity_at(point2i p) noexcept;
 
     virtual std::pair<point2i, placement_result>
-        add_item_nearest_random(random_state& rng, item&& i, point2i p, int max_distance) = 0;
+        add_item_nearest_random(random_state& rng, unique_item i, point2i p, int max_distance) = 0;
     virtual std::pair<point2i, placement_result>
-        add_entity_nearest_random(random_state& rng, entity&& e, point2i p, int max_distance) = 0;
+        add_entity_nearest_random(random_state& rng, unique_entity e, point2i p, int max_distance) = 0;
 
     virtual placement_result move_by(item_instance_id   id, vec2i v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i v) noexcept = 0;
