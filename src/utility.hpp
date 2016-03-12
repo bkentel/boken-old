@@ -354,4 +354,67 @@ sub_region_range<T> make_sub_region_range(
     };
 }
 
+template <size_t N>
+class static_string_buffer {
+public:
+    static_assert(N > 0, "");
+
+    static_string_buffer() noexcept
+      : first_ {0}
+      , buffer_()
+    {
+    }
+
+    explicit operator bool() const noexcept {
+        return first_ >= 0 && first_ < N - 1;
+    }
+
+    template <typename... Args>
+    bool append(char const* const fmt, Args&&... args) noexcept {
+        if (!(*this)) {
+            return false;
+        }
+
+        auto const n = snprintf(
+            buffer_.data() + first_
+          , N - first_
+          , fmt
+          , std::forward<Args>(args)...);
+
+        return (n < 0)              ? false                      // error
+             : (first_ + n > N - 1) ? ((first_  = N - 1), false) // overflow
+                                    : ((first_ += n), true);     // ok
+    }
+
+    void clear() noexcept {
+        first_ = 0;
+        buffer_[0] = '\0';
+    }
+
+    bool full()  const noexcept { return first_ >= N - 1; }
+    bool empty() const noexcept { return first_ == 0; }
+    size_t capacity() const noexcept { return N; }
+    size_t size() const noexcept { return static_cast<size_t>(first_); }
+
+    char const* begin() const noexcept { return buffer_.data(); }
+    char*       begin()       noexcept { return buffer_.data(); }
+
+    char const* end() const noexcept { return buffer_.data() + first_; }
+    char*       end()       noexcept { return buffer_.data() + first_; }
+
+    char const* data() const noexcept { return buffer_.data(); }
+    char*       data()       noexcept { return buffer_.data(); }
+
+    string_view to_string_view() const noexcept {
+        return string_view {buffer_.data(), static_cast<size_t>(first_)};
+    }
+
+    std::string to_string() const {
+        return std::string {buffer_.data(), static_cast<size_t>(first_)};
+    }
+private:
+    ptrdiff_t first_;
+    std::array<char, N> buffer_;
+};
+
 } //namespace boken

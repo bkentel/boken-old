@@ -6,6 +6,45 @@
 #include <array>
 #include <vector>
 
+TEST_CASE("static_string_buffer") {
+    using namespace boken;
+    static_string_buffer<16> buffer;
+
+    REQUIRE(buffer.capacity() == 16u);
+    REQUIRE(buffer.size() == 0);
+    REQUIRE(buffer.empty());
+    REQUIRE(buffer.begin() == buffer.end());
+
+    REQUIRE(buffer.append("0123456789ABCDE"));
+    REQUIRE(buffer.size() == 15u);
+    REQUIRE(buffer.full());
+    REQUIRE(!buffer);
+    REQUIRE(buffer.data()[15] == '\0');
+    REQUIRE(buffer.to_string_view() == "0123456789ABCDE");
+
+    buffer.clear();
+    REQUIRE(buffer.size() == 0);
+    REQUIRE(!buffer.full());
+    REQUIRE(!!buffer);
+
+    REQUIRE(!buffer.append("0123456789ABCDEF"));
+    REQUIRE(buffer.size() == 15u);
+    REQUIRE(buffer.full());
+    REQUIRE(!buffer);
+    REQUIRE(buffer.data()[15] == '\0');
+    REQUIRE(buffer.to_string_view() == "0123456789ABCDE");
+
+    buffer.clear();
+    REQUIRE(buffer.size() == 0);
+    REQUIRE(!buffer.full());
+    REQUIRE(!!buffer);
+
+    REQUIRE(buffer.append("%d", 123));
+    REQUIRE(buffer.size() == 3u);
+    REQUIRE(buffer.data()[3] == '\0');
+    REQUIRE(buffer.to_string_view() == "123");
+}
+
 namespace {
 
 void arity_0();

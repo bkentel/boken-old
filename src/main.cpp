@@ -181,46 +181,6 @@ struct game_state {
         renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
     }
 
-    template <size_t N>
-    struct static_string_buffer {
-        static_string_buffer() noexcept
-          : first {0}
-          , buffer()
-        {
-        }
-
-        explicit operator bool() const noexcept {
-            return first >= 0 && first < N;
-        }
-
-        template <typename... Args>
-        bool append(char const* const fmt, Args&&... args) noexcept {
-            if (!(*this)) {
-                return false;
-            }
-
-            auto const n = snprintf(
-                buffer.data() + first
-              , N - first
-              , fmt
-              , std::forward<Args>(args)...);
-
-            first = (n < 0) ? N : first + n;
-            return !!(*this);
-        }
-
-        string_view to_string_view() const noexcept {
-            return string_view {buffer.data(), static_cast<size_t>(first)};
-        }
-
-        std::string to_string() const {
-            return std::string {buffer.data(), static_cast<size_t>(first)};
-        }
-
-        ptrdiff_t first;
-        std::array<char, N> buffer;
-    };
-
     //! @param p Position in window coordinates
     void show_tool_tip(point2i const p) {
         renderer.update_tool_tip_visible(true);
