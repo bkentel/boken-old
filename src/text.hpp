@@ -41,7 +41,7 @@ public:
         uint32_t        color;
     };
 
-    text_layout();
+    text_layout() noexcept;
 
     text_layout(text_renderer& trender, std::string text);
 
@@ -55,6 +55,8 @@ public:
     bool is_visible() const noexcept;
     bool visible(bool state) noexcept;
 
+    recti extent() const noexcept;
+
     // ensure all required glyphs are still cached at the same locations
     void update(text_renderer& trender) const noexcept;
 
@@ -67,6 +69,8 @@ private:
     point2<int16_t>      position_;
     size_type_x<int16_t> max_width_;
     size_type_y<int16_t> max_height_;
+    size_type_x<int16_t> actual_width_;
+    size_type_y<int16_t> actual_height_;
     bool                 is_visible_;
 };
 

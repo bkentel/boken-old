@@ -111,6 +111,10 @@ public:
         if (!handle_) {
             throw sdl_error {SDL_GetError()};
         }
+
+        if (SDL_SetRenderDrawBlendMode(handle_.get(), SDL_BLENDMODE_BLEND)) {
+            throw sdl_error {SDL_GetError()};
+        }
     }
 
     operator SDL_Renderer*() const noexcept {
@@ -363,6 +367,13 @@ public:
 
     void render_present() final override {
         SDL_RenderPresent(renderer_);
+    }
+
+    void render_fill_rect(recti const r, uint32_t const color) final override {
+        set_draw_color(color);
+
+        SDL_Rect const r0 {r.x0, r.y0, r.width(), r.height()};
+        SDL_RenderFillRect(renderer_, &r0);
     }
 
     void render_background() final override {

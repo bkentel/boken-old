@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "math.hpp"
 
 #include <memory>
 #include <functional>
@@ -176,6 +177,8 @@ public:
 
     virtual void render_clear()   = 0;
     virtual void render_present() = 0;
+
+    virtual void render_fill_rect(recti r, uint32_t color) = 0;
 
     virtual void render_background() = 0;
 

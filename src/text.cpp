@@ -57,13 +57,15 @@ std::unique_ptr<text_renderer> make_text_renderer() {
 //                             text_layout
 //===------------------------------------------------------------------------===
 
-text_layout::text_layout()
-  : data_       {}
-  , text_       {}
-  , position_   {0, 0}
-  , max_width_  {std::numeric_limits<int16_t>::max()}
-  , max_height_ {std::numeric_limits<int16_t>::max()}
-  , is_visible_ {false}
+text_layout::text_layout() noexcept
+  : data_          {}
+  , text_          {}
+  , position_      {0, 0}
+  , max_width_     {std::numeric_limits<int16_t>::max()}
+  , max_height_    {std::numeric_limits<int16_t>::max()}
+  , actual_width_  {0}
+  , actual_height_ {0}
+  , is_visible_    {false}
 {
 }
 
@@ -85,17 +87,19 @@ void text_layout::layout(text_renderer& trender) {
     auto const line_gap = int32_t {trender.line_gap()};
     auto const max_w    = int32_t {value_cast(max_width_)};
 
-    auto     it      = text_.data();
-    auto     last    = text_.data() + text_.size();
-    uint32_t prev_cp = 0;
-    int32_t  line_h  = 0;
-    int32_t  x       = 0;
-    int32_t  y       = 0;
+    auto     it       = text_.data();
+    auto     last     = text_.data() + text_.size();
+    uint32_t prev_cp  = 0;
+    int32_t  line_h   = 0;
+    int32_t  x        = 0;
+    int32_t  y        = 0;
+    int32_t  actual_w = 0;
 
     auto const next_line = [&] {
-        y      += line_gap;
-        x      =  0;
-        line_h =  line_gap;
+        actual_w = std::max(actual_w, x);
+        y        += line_gap;
+        x        =  0;
+        line_h   =  line_gap;
     };
 
     while (it != last) {
@@ -124,6 +128,11 @@ void text_layout::layout(text_renderer& trender) {
         line_h =  std::max(line_h, glyph_h);
         x      += glyph_w;
     }
+
+    actual_w = std::max(actual_w, x);
+
+    actual_width_  = size_type_x<int16_t> {static_cast<int16_t>(actual_w)};
+    actual_height_ = size_type_y<int16_t> {static_cast<int16_t>(y + (x ? line_h : 0))};
 }
 
 void text_layout::update(text_renderer& trender) const noexcept {
@@ -162,6 +171,11 @@ bool text_layout::is_visible() const noexcept {
 
 bool text_layout::visible(bool state) noexcept {
     return std::swap(is_visible_, state), state;
+}
+
+recti text_layout::extent() const noexcept {
+    return {position_.x, position_.y
+          , actual_width_, actual_height_};
 }
 
 } //namespace boken

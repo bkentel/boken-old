@@ -67,6 +67,16 @@ public:
         // TODO unsafe conversion could happen here
         //static_assert(std::is_convertible<U, T>::value, "");
     }
+
+    template <typename U, typename =
+       std::enable_if_t<
+            (std::is_signed<T>::value   && std::is_signed<U>::value   && sizeof(U) <= sizeof(T))
+         || (std::is_unsigned<T>::value && std::is_unsigned<U>::value && sizeof(U) <= sizeof(T))
+         || (std::is_signed<T>::value   && std::is_unsigned<U>::value && sizeof(U) <  sizeof(T))>>
+    constexpr tagged_integral_value(tagged_integral_value<U, Tag> const n) noexcept
+      : value_ {value_cast<T>(n)}
+    {
+    }
 private:
     T value_ {};
 };

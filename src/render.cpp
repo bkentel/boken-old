@@ -318,6 +318,8 @@ void game_renderer_impl::render_text_(text_layout const& text) const noexcept {
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 
+    os_.render_fill_rect(text.extent(), 0x7F888888u);
+
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)});
     os_.render_set_data(render_data_type::texture
