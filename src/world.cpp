@@ -29,7 +29,10 @@ public:
 
         new (p) T {std::forward<Args>(args)...};
 
-        return {p, (next_free_ = i) + 1}; // ids start at 1
+        auto result = std::make_pair(p, next_free_ + 1); // ids start at 1
+        next_free_ = i;
+
+        return result;
     }
 
     void deallocate(size_t const i) noexcept {

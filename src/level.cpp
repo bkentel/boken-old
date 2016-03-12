@@ -522,7 +522,8 @@ public:
             return result;
         }
 
-        auto const insert_result = entities_.insert(p.cast_to<uint16_t>(), std::move(e));
+        //TODO these entities will never be deleted
+        auto const insert_result = entities_.insert(p.cast_to<uint16_t>(), e.release());
         BK_ASSERT(insert_result.second);
 
         return placement_result::ok;
