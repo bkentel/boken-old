@@ -56,31 +56,57 @@ public:
     //===--------------------------------------------------------------------===
     //                               Queries
     //===--------------------------------------------------------------------===
-    virtual sizeix width()  const noexcept = 0;
-    virtual sizeiy height() const noexcept = 0;
-    virtual recti  bounds() const noexcept = 0;
 
+    //! The width of the level in tiles.
+    virtual sizeix width()  const noexcept = 0;
+
+    //! The width of the level in tiles.
+    virtual sizeiy height() const noexcept = 0;
+
+    //! The bounds of the level in tiles.
+    virtual recti bounds() const noexcept = 0;
+
+    //! Return a pointer to and position of the entity with the given id.
+    //! Otherwise return {nullptr, {0, 0}}
+    //! @note A failure to find the entity could, for example, be because it
+    //! has died or been moved to another level.
     virtual std::pair<entity*, point2i> find(entity_instance_id id) noexcept = 0;
     virtual std::pair<entity const*, point2i> find(entity_instance_id id) const noexcept = 0;
 
-    virtual entity    const* entity_at(point2i p) const noexcept = 0;
-    virtual item_pile const* item_at(point2i p)   const noexcept = 0;
+    //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
+    //! is at the given position.
+    virtual entity const* entity_at(point2i p) const noexcept = 0;
 
+    //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
+    //! item_pile is at the given position.
+    virtual item_pile const* item_at(point2i p) const noexcept = 0;
+
+    //! Return whether an entity is at the given position.
     bool is_entity_at(point2i const p) const noexcept {
         return !!entity_at(p);
     }
 
+    //! Return whether an item is at the given position.
     bool is_item_at(point2i const p) const noexcept {
         return !!item_at(p);
     }
 
+    //! Return whether an entity can be placed at @p p. If not possible, return
+    //! the reason for why placement is impossible.
     virtual placement_result can_place_entity_at(point2i p) const noexcept = 0;
+
+    //! Return whether an item can be placed at @p p. If not possible, return
+    //! the reason for why placement is impossible.
     virtual placement_result can_place_item_at(point2i p) const noexcept = 0;
 
+    //! Return the number of regions in the level.
     virtual size_t region_count() const noexcept = 0;
+
+    //! Return information about the region with index @p i.
     virtual region_info region(size_t i) const noexcept = 0;
 
-    virtual tile_view at(point2i) const noexcept = 0;
+    //! Return all information about the tile at the given position.
+    virtual tile_view at(point2i p) const noexcept = 0;
     tile_view at(int x, int y) const noexcept {
         return at(point2i {x, y});
     }
@@ -102,6 +128,12 @@ public:
     //virtual void remove_entity_at(point2i p) noexcept;
     //virtual void kill_entity_at(point2i p) noexcept;
 
+    //! Attempt to place the item @i at the location given by @p p. If not
+    //! possible, randomly probe adjacent tiles no more than @p max_distance
+    //! from @p p. If still not possible the item @p i will be left unmodified.
+    //! Otherwise the level will take ownership of @p i.
+    //! @returns The actual position that item was placed. Otherwise {0, 0} and
+    //! the reason why placement failed.
     virtual std::pair<point2i, placement_result>
         add_item_nearest_random(random_state& rng, unique_item i, point2i p, int max_distance) = 0;
     virtual std::pair<point2i, placement_result>
