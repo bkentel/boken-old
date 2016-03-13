@@ -3,6 +3,21 @@
 
 namespace boken {
 
+entity_instance_id get_instance(entity const& e) noexcept {
+    return e.instance();
+}
+
+entity_id get_id(entity const& e) noexcept {
+    return e.definition();
+}
+
+//=====--------------------------------------------------------------------=====
+//                                  entity
+//=====--------------------------------------------------------------------=====
+int merge_item_piles(item_pile& from, entity& to, item_merge_f const& f) {
+    return 0; // TODO
+}
+
 bool entity::is_alive() const noexcept {
     return cur_health_ > 0;
 }

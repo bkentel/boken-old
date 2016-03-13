@@ -20,6 +20,7 @@ namespace boken { struct tile_data_set; }
 namespace boken { class world; }
 namespace boken { enum class tile_type : uint16_t; }
 namespace boken { enum class tile_id : uint32_t; }
+namespace boken { enum class item_merge_result : uint32_t; }
 
 namespace boken {
 
@@ -145,10 +146,10 @@ public:
     virtual const_sub_region_range<tile_id>
         update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
 
-    using move_item_callback = std::function<void (move_item_result, item const&)>;
-    virtual int move_items(point2i from, entity& to, move_item_callback const& on_fail) = 0;
-    virtual int move_items(point2i from, item& to, move_item_callback const& on_fail) = 0;
-    virtual int move_items(point2i from, item_pile& to, move_item_callback const& on_fail) = 0;
+    using item_merge_f = std::function<item_merge_result (item_instance_id)>;
+    virtual int move_items(point2i from, entity& to, item_merge_f const& f) = 0;
+    virtual int move_items(point2i from, item& to, item_merge_f const& f) = 0;
+    virtual int move_items(point2i from, item_pile& to, item_merge_f const& f) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access

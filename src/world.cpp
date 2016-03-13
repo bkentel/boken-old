@@ -142,16 +142,25 @@ entity* world_impl::find(entity_instance_id const id) noexcept {
       : &entities_[i];
 }
 
-entity const* find(world const& w, entity_instance_id const id) noexcept {
-    return w.find(id);
-}
-
-item const* find(world const& w, item_instance_id const id) noexcept {
-    return w.find(id);
-}
 
 std::unique_ptr<world> make_world() {
     return std::make_unique<world_impl>();
+}
+
+item const* find(world const& w, item_instance_id id) noexcept {
+    return w.find(id);
+}
+
+entity const* find(world const& w, entity_instance_id id) noexcept {
+    return w.find(id);
+}
+
+item* find(world& w, item_instance_id id) noexcept {
+    return w.find(id);
+}
+
+entity* find(world& w, entity_instance_id id) noexcept {
+    return w.find(id);
 }
 
 } //namespace boken

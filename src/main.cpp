@@ -431,8 +431,9 @@ struct game_state {
         auto const player = get_player();
 
         auto const result = lvl.move_items(player.second, player.first
-          , [&](move_item_result const result, item const& itm) {
-          });
+          , [&](item_instance_id const id) noexcept {
+                return item_merge_result::ok;
+            });
 
         if (result < 0) {
             message_window.println("There is nothing here to get.");

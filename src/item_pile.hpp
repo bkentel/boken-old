@@ -2,6 +2,10 @@
 
 #include "types.hpp"
 #include <vector>
+#include <functional>
+
+namespace boken { class entity; }
+namespace boken { class item; }
 
 namespace boken {
 
@@ -50,5 +54,17 @@ int merge_item_piles(item_pile& from, item_pile& to, Check check) {
 
     return n;
 }
+
+enum class item_merge_result : uint32_t {
+    ok
+  , skip
+  , terminate
+};
+
+using item_merge_f = std::function<item_merge_result (item_instance_id)>;
+
+int merge_item_piles(item_pile& from, item& to, item_merge_f const& f);
+int merge_item_piles(item_pile& from, entity& to, item_merge_f const& f);
+int merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f);
 
 } //namespace boken

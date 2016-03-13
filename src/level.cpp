@@ -1,13 +1,13 @@
 #include "level.hpp"
 
 #include "bsp_generator.hpp"    // for bsp_generator, etc
-#include "entity.hpp"           // for entity
 #include "random.hpp"           // for random_state (ptr only), etc
 #include "tile.hpp"             // for tile_data_set, tile_type, tile_flags, etc
 #include "utility.hpp"          // for find_if
-#include "world.hpp"
-#include "item.hpp"
+#include "item_pile.hpp"
 #include "spatial_map.hpp"
+
+#include "forward_declarations.hpp"
 
 #include <bkassert/assert.hpp>  // for BK_ASSERT
 
@@ -410,7 +410,7 @@ public:
             return {nullptr, point2i {}};
         }
 
-        return {world_.find(*result.first), result.second.cast_to<int32_t>()};
+        return {boken::find(world_, *result.first), result.second.cast_to<int32_t>()};
     }
 
     std::pair<entity const*, point2i>
@@ -420,7 +420,7 @@ public:
 
     entity const* entity_at(point2i const p) const noexcept final override {
         auto const id = entities_.find(p.cast_to<uint16_t>());
-        return id ? world_.find(*id) : nullptr;
+        return id ? boken::find(world_, *id) : nullptr;
     }
 
     item_pile const* item_at(point2i const p) const noexcept final override {
@@ -475,14 +475,14 @@ public:
 
         for (size_t i = 0; i < entities_.size(); ++i, ++v_it, ++p_it) {
             auto const p = p_it->cast_to<int32_t>();
-            auto&      e = *world_.find(*v_it);
+            auto&      e = *boken::find(world_, *v_it);
 
             auto const q = transform(e, p);
             if (p == q) {
                 continue;
             }
 
-            if (move_by(e.instance(), q - p) == placement_result::ok) {
+            if (move_by(get_instance(e), q - p) == placement_result::ok) {
                 on_success(e, p, q);
             }
         }
@@ -496,12 +496,12 @@ public:
             }
         }
 
-        auto const itm = world_.find(i.get());
+        auto const itm = boken::find(world_, i.get());
         if (!itm) {
             return placement_result::failed_bad_id;
         }
 
-        BK_ASSERT(itm->instance() == i.get());
+        BK_ASSERT(get_instance(*itm) == i.get());
 
         auto* pile = items_.find(p.cast_to<uint16_t>());
         if (!pile) {
@@ -601,18 +601,14 @@ public:
           , r.width(), r.height());
     }
 
-    int move_items(point2i const from, entity& to, move_item_callback const& on_fail) final override {
+    template <typename To>
+    int move_items_(point2i const from, To& to, item_merge_f const& f) {
         auto* const from_pile = items_.find(from.cast_to<uint16_t>());
         if (!from_pile) {
             return -1;
         }
 
-        auto const n = merge_item_piles(*from_pile, to.items()
-          , [&](item_instance_id const id) noexcept {
-              auto* const itm = boken::find(world_, id);
-              BK_ASSERT(!!itm);
-              return to.can_add_item(*itm) ? 0 : 1;
-          });
+        auto const n = merge_item_piles(*from_pile, to, f);
 
         if (from_pile->empty()) {
             items_.erase(from.cast_to<uint16_t>());
@@ -621,12 +617,16 @@ public:
         return n;
     }
 
-    int move_items(point2i const from, item& to, move_item_callback const& on_fail) final override {
-        return 0;
+    int move_items(point2i const from, entity& to, item_merge_f const& f) final override {
+        return move_items_(from, to, f);
     }
 
-    int move_items(point2i const from, item_pile& to, move_item_callback const& on_fail) final override {
-        return 0;
+    int move_items(point2i const from, item& to, item_merge_f const& f) final override {
+        return move_items_(from, to, f);
+    }
+
+    int move_items(point2i const from, item_pile& to, item_merge_f const& f) final override {
+        return move_items_(from, to, f);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -855,7 +855,7 @@ private:
         get_entity_id_t(world const& w) noexcept : world_ {w} {}
 
         entity_id operator()(entity_instance_id const id) const noexcept {
-            return world_.find(id)->definition();
+            return get_id(*boken::find(world_, id));
         }
 
         world const& world_;
@@ -873,7 +873,7 @@ private:
         item_id operator()(item_pile const& p) const noexcept {
             return p.empty()
               ? item_id {0}
-              : world_.find(*p.begin())->definition();
+              : get_id(*boken::find(world_, *p.begin()));
         }
 
         world const& world_;

@@ -1,12 +1,44 @@
 #include "item.hpp"
 #include "item_pile.hpp"
 #include "bkassert/assert.hpp"
+#include "forward_declarations.hpp"
 
 namespace boken {
+
+item_instance_id get_instance(item const& i) noexcept {
+    return i.instance();
+}
+
+item_id get_id(item const& i) noexcept {
+    return i.definition();
+}
+
+//=====--------------------------------------------------------------------=====
+//                                  item
+//=====--------------------------------------------------------------------=====
+int merge_item_piles(item_pile& from, item& to, item_merge_f const& f) {
+    return 0; // TODO
+}
 
 //=====--------------------------------------------------------------------=====
 //                                  item_pile
 //=====--------------------------------------------------------------------=====
+int merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f) {
+    using ir = item_merge_result;
+
+    int n {};
+    for (auto i = from.size(); i > 0; --i) {
+        switch (f(from[i - 1])) {
+        case ir::ok:        to.add_item(from.remove_item(i - 1)); ++n; break;
+        case ir::skip:      continue;
+        case ir::terminate: return n;
+        default:            break;
+        }
+    }
+
+    return n;
+}
+
 item_pile::~item_pile() {
     BK_ASSERT(items_.empty() || !!deleter_);
 

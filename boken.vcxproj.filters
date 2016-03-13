@@ -67,6 +67,7 @@
     <ClInclude Include="src\item.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\item_pile.hpp" />
+    <ClInclude Include="src\forward_declarations.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
