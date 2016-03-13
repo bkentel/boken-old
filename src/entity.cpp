@@ -15,7 +15,7 @@ entity_id get_id(entity const& e) noexcept {
 //                                  entity
 //=====--------------------------------------------------------------------=====
 int merge_item_piles(item_pile& from, entity& to, item_merge_f const& f) {
-    return 0; // TODO
+    return merge_item_piles(from, to.items(), f);
 }
 
 bool entity::is_alive() const noexcept {

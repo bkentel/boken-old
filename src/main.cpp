@@ -430,8 +430,20 @@ struct game_state {
         auto& lvl = the_world.current_level();
         auto const player = get_player();
 
+        static_string_buffer<128> buffer;
+
         auto const result = lvl.move_items(player.second, player.first
           , [&](item_instance_id const id) noexcept {
+                auto* const itm = the_world.find(id);
+                BK_ASSERT(!!itm);
+
+                auto* const idef = database.find(itm->definition());
+
+                buffer.clear();
+                buffer.append("Picked up %s.", idef ? idef->name.c_str() : "{unknown}");
+
+                message_window.println(buffer.to_string());
+
                 return item_merge_result::ok;
             });
 
