@@ -21,6 +21,7 @@ namespace boken { class world; }
 namespace boken { enum class tile_type : uint16_t; }
 namespace boken { enum class tile_id : uint32_t; }
 namespace boken { enum class item_merge_result : uint32_t; }
+namespace boken { enum class merge_item_result : uint32_t; }
 
 namespace boken {
 
@@ -34,10 +35,6 @@ struct tile_view {
 
 enum class placement_result : uint32_t {
     ok, failed_obstacle, failed_entity, failed_bounds, failed_bad_id
-};
-
-enum class move_item_result : uint32_t {
-    ok, failed_full, failed_over_weight
 };
 
 struct region_info {
@@ -77,6 +74,7 @@ public:
     //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
     //! is at the given position.
     virtual entity const* entity_at(point2i p) const noexcept = 0;
+    virtual entity* entity_at(point2i p) noexcept = 0;
 
     //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
     //! item_pile is at the given position.
@@ -115,9 +113,6 @@ public:
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
-    virtual void begin_combat(point2i attacker, point2i defender
-      , std::function<void (entity& att, entity& def)> const& combat_proc) noexcept = 0;
-
     virtual void transform_entities(
         std::function<point2i (entity&, point2i)>&& tranform
       , std::function<void (entity&, point2i, point2i)>&& on_success
@@ -126,8 +121,8 @@ public:
     virtual placement_result add_item_at(unique_item i, point2i p) = 0;
     virtual placement_result add_entity_at(unique_entity e, point2i p) = 0;
 
-    //virtual void remove_entity_at(point2i p) noexcept;
-    //virtual void kill_entity_at(point2i p) noexcept;
+    virtual bool remove_entity_at(point2i p) noexcept = 0;
+    virtual bool remove_entity(entity_instance_id id) noexcept = 0;
 
     //! Attempt to place the item @i at the location given by @p p. If not
     //! possible, randomly probe adjacent tiles no more than @p max_distance
@@ -147,9 +142,9 @@ public:
         update_tile_at(random_state& rng, point2i p, tile_data_set const& data) noexcept = 0;
 
     using item_merge_f = std::function<item_merge_result (item_instance_id)>;
-    virtual int move_items(point2i from, entity& to, item_merge_f const& f) = 0;
-    virtual int move_items(point2i from, item& to, item_merge_f const& f) = 0;
-    virtual int move_items(point2i from, item_pile& to, item_merge_f const& f) = 0;
+    virtual merge_item_result move_items(point2i from, entity& to, item_merge_f const& f) = 0;
+    virtual merge_item_result move_items(point2i from, item& to, item_merge_f const& f) = 0;
+    virtual merge_item_result move_items(point2i from, item_pile& to, item_merge_f const& f) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access

@@ -3,6 +3,9 @@
 
 namespace boken {
 
+//=====--------------------------------------------------------------------=====
+//                               free functions
+//=====--------------------------------------------------------------------=====
 entity_instance_id get_instance(entity const& e) noexcept {
     return e.instance();
 }
@@ -11,11 +14,18 @@ entity_id get_id(entity const& e) noexcept {
     return e.definition();
 }
 
+merge_item_result merge_item_piles(item_pile& from, entity& to, item_merge_f const& f) {
+    return merge_item_piles(from, to.items(), f);
+}
+
 //=====--------------------------------------------------------------------=====
 //                                  entity
 //=====--------------------------------------------------------------------=====
-int merge_item_piles(item_pile& from, entity& to, item_merge_f const& f) {
-    return merge_item_piles(from, to.items(), f);
+entity::entity(entity_instance_id const instance, entity_id const id) noexcept
+  : object {instance, id}
+  , max_health_ {1}
+  , cur_health_ {1}
+{
 }
 
 bool entity::is_alive() const noexcept {

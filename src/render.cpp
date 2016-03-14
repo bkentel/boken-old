@@ -50,6 +50,10 @@ class game_renderer_impl final : public game_renderer {
     template <typename Data, typename Updates>
     void update_data_(Data& data, Updates const& updates, tile_map const& tmap) {
         auto const tranform_point = position_to_pixel_(tmap);
+        auto const get_texture_coord = [&](auto const& id) noexcept {
+            return tmap.index_to_rect(id_to_index(tmap, id))
+              .top_left().template cast_to<uint16_t>();
+        };
 
         auto first = begin(data);
         auto last  = end(data);
@@ -59,6 +63,14 @@ class game_renderer_impl final : public game_renderer {
             auto const it = std::find_if(first, last
               , [p](data_t const& d) noexcept { return d.position == p; });
 
+            // new data
+            if (it == last) {
+                data.push_back({
+                    p, get_texture_coord(update.id), 0xFF00FF00u});
+                continue;
+            }
+
+            // data to remove
             if (update.id == nullptr) {
                 data.erase(it);
                 first = begin(data);
@@ -66,11 +78,9 @@ class game_renderer_impl final : public game_renderer {
                 continue;
             }
 
-            BK_ASSERT(it != last);
-
+            // data to update
             it->position = tranform_point(update.next_pos);
-            it->tex_coord = tmap.index_to_rect(id_to_index(tmap, update.id))
-                .top_left().template cast_to<uint16_t>();
+            it->tex_coord = get_texture_coord(update.id);
         }
     }
 public:

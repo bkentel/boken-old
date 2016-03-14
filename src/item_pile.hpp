@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "forward_declarations.hpp"
 #include <vector>
 #include <functional>
 
@@ -55,16 +56,26 @@ int merge_item_piles(item_pile& from, item_pile& to, Check check) {
     return n;
 }
 
+//! Result of an item_merge_f
 enum class item_merge_result : uint32_t {
-    ok
-  , skip
-  , terminate
+    ok        //!< the item should be merged
+  , skip      //!< the item shoudl be skipped
+  , terminate //!< all subsequent merges should be skipped
+};
+
+//! result of merging two item_piles
+enum class merge_item_result : uint32_t {
+    ok_merged_none //!< ok, but nothing was moved
+  , ok_merged_some //!< ok, at least one item was moved, but not all
+  , ok_merged_all  //!< ok, all items were moved and the source pile is not empty
+  , failed_bad_source
+  , failed_bad_destination
 };
 
 using item_merge_f = std::function<item_merge_result (item_instance_id)>;
 
-int merge_item_piles(item_pile& from, item& to, item_merge_f const& f);
-int merge_item_piles(item_pile& from, entity& to, item_merge_f const& f);
-int merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f);
+merge_item_result merge_item_piles(item_pile& from, item& to, item_merge_f const& f);
+merge_item_result merge_item_piles(item_pile& from, entity& to, item_merge_f const& f);
+merge_item_result merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f);
 
 } //namespace boken

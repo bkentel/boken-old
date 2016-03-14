@@ -418,9 +418,13 @@ public:
         return const_cast<level_impl*>(this)->find(id);
     }
 
-    entity const* entity_at(point2i const p) const noexcept final override {
+    entity* entity_at(point2i const p) noexcept final override {
         auto const id = entities_.find(p.cast_to<uint16_t>());
         return id ? boken::find(world_, *id) : nullptr;
+    }
+
+    entity const* entity_at(point2i const p) const noexcept final override {
+        return const_cast<level_impl*>(this)->entity_at(p);
     }
 
     item_pile const* item_at(point2i const p) const noexcept final override {
@@ -459,9 +463,6 @@ public:
 
         return result;
     }
-
-    void begin_combat(point2i attacker, point2i defender
-        , std::function<void (entity& att, entity& def)> const& combat_proc) noexcept final override;
 
     void transform_entities(
         std::function<point2i (entity&, point2i)>&& transform
@@ -527,6 +528,14 @@ public:
         BK_ASSERT(insert_result.second);
 
         return placement_result::ok;
+    }
+
+    bool remove_entity_at(point2i const p) noexcept final override {
+        return entities_.erase(p.cast_to<uint16_t>());
+    }
+
+    bool remove_entity(entity_instance_id const id) noexcept final override {
+        return entities_.erase(id);
     }
 
     std::pair<point2i, placement_result>
@@ -602,30 +611,30 @@ public:
     }
 
     template <typename To>
-    int move_items_(point2i const from, To& to, item_merge_f const& f) {
+    merge_item_result move_items_(point2i const from, To& to, item_merge_f const& f) {
         auto* const from_pile = items_.find(from.cast_to<uint16_t>());
         if (!from_pile) {
-            return -1;
+            return merge_item_result::failed_bad_source;
         }
 
-        auto const n = merge_item_piles(*from_pile, to, f);
+        auto const result = merge_item_piles(*from_pile, to, f);
 
         if (from_pile->empty()) {
             items_.erase(from.cast_to<uint16_t>());
         }
 
-        return n;
+        return result;
     }
 
-    int move_items(point2i const from, entity& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i const from, entity& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
-    int move_items(point2i const from, item& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i const from, item& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
-    int move_items(point2i const from, item_pile& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i const from, item_pile& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
@@ -1010,32 +1019,6 @@ level_impl::update_tile_rect(
       , bounds_.width(),     bounds_.height()
       , update_area.width(), update_area.height()
     );
-}
-
-void level_impl::begin_combat(
-    point2i const attacker
-  , point2i const defender
-  , std::function<void (entity& att, entity& def)> const& combat_proc
-) noexcept {
-    //if (attacker == defender) {
-    //    return; //TODO
-    //}
-
-    //auto* eatt = entity_at_(attacker);
-    //if (!eatt) {
-    //    return; //TODO
-    //}
-
-    //auto* edef = entity_at_(defender);
-    //if (!edef) {
-    //    return; //TODO
-    //}
-
-    //combat_proc(*eatt, *edef);
-
-    //if (!eatt->is_alive()) {
-
-    //}
 }
 
 } //namespace boken

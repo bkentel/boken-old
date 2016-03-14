@@ -64,31 +64,6 @@ struct keydef_t {
     key_t       type;
 };
 
-placement_result create_item_at(point2i const p, world& w, level& l, item_definition const& def) {
-    auto itm = w.create_item([&](item_instance_id const instance) {
-        return item {instance, def.id};
-    });
-
-    auto const result = l.add_item_at(std::move(itm), p);
-
-    switch (result) {
-    default :
-        BK_ASSERT_SAFE(false);
-        break;
-    case placement_result::failed_bad_id :
-        BK_ASSERT_SAFE(false);
-        break;
-    case placement_result::ok :
-        break;
-    case placement_result::failed_bounds :
-    case placement_result::failed_entity :
-    case placement_result::failed_obstacle :
-        break;
-    }
-
-    return result;
-}
-
 placement_result create_entity_at(point2i const p, world& w, level& l, entity_definition const& def) {
     auto ent = w.create_entity([&](entity_instance_id const instance) {
         return entity {instance, def.id};
@@ -294,7 +269,7 @@ struct game_state {
                 create_entity_at(p, the_world, lvl, *edef);
             }
 
-            create_item_at(p, the_world, lvl, *database.find(item_id {djb2_hash_32("dagger")}));
+            create_item_at(p, "dagger");
         }
 
         renderer.update_map_data();
@@ -447,12 +422,72 @@ struct game_state {
                 return item_merge_result::ok;
             });
 
-        if (result < 0) {
+        switch (result) {
+        case merge_item_result::ok_merged_none:
+            break;
+        case merge_item_result::ok_merged_some:
+        case merge_item_result::ok_merged_all:
+            item_updates_.push_back({player.second, player.second, item_id {}});
+            break;
+        case merge_item_result::failed_bad_source:
             message_window.println("There is nothing here to get.");
-            return;
+            break;
+        case merge_item_result::failed_bad_destination:
+        default:
+            BK_ASSERT(false);
+            break;
+        }
+    }
+
+    placement_result create_item_at(point2i const p, item_definition const& def) {
+        auto& lvl = the_world.current_level();
+
+        auto itm = the_world.create_item([&](item_instance_id const instance) {
+            return item {instance, def.id};
+        });
+
+        auto const result = lvl.add_item_at(std::move(itm), p);
+
+        switch (result) {
+        case placement_result::ok :
+            item_updates_.push_back({p, p, def.id});
+            break;
+        default                                : BK_ASSERT_SAFE(false); break;
+        case placement_result::failed_bad_id   : BK_ASSERT_SAFE(false); break;
+        case placement_result::failed_bounds   : break;
+        case placement_result::failed_entity   : BK_ASSERT_SAFE(false); break;
+        case placement_result::failed_obstacle : break;
         }
 
-        item_updates_.push_back({player.second, player.second, item_id {}});
+        return result;
+    }
+
+    placement_result create_item_at(point2i const p, string_view const def) {
+        auto const id = item_id {djb2_hash_32(def.begin(), def.end())};
+        auto const* const idef = database.find(id);
+        if (!idef) {
+            return placement_result::failed_bad_id;
+        }
+
+        return create_item_at(p, *idef);
+    }
+
+    void do_combat(point2i const att_pos, point2i const def_pos) {
+        auto& lvl = the_world.current_level();
+
+        auto* const att = lvl.entity_at(att_pos);
+        auto* const def = lvl.entity_at(def_pos);
+
+        BK_ASSERT(!!att && !!def);
+        BK_ASSERT(att->is_alive() && def->is_alive());
+
+        def->modify_health(-1);
+
+        if (!def->is_alive()) {
+            create_item_at(def_pos, "dagger");
+            lvl.remove_entity(def->instance());
+            entity_updates_.push_back({def_pos, def_pos, entity_id {}});
+        }
     }
 
     void player_move(vec2i const v) {
@@ -468,8 +503,7 @@ struct game_state {
             advance(1);
             break;
         case placement_result::failed_entity:
-            //lvl.begin_combat(p0, p1);
-            advance(1);
+            do_combat(p0, p1);
             break;
         case placement_result::failed_obstacle: break;
         case placement_result::failed_bounds:   break;

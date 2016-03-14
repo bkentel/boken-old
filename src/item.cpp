@@ -16,27 +16,39 @@ item_id get_id(item const& i) noexcept {
 //=====--------------------------------------------------------------------=====
 //                                  item
 //=====--------------------------------------------------------------------=====
-int merge_item_piles(item_pile& from, item& to, item_merge_f const& f) {
-    return 0; // TODO
+merge_item_result merge_item_piles(item_pile& from, item& to, item_merge_f const& f) {
+    return merge_item_result::ok_merged_all; //TODO
 }
 
 //=====--------------------------------------------------------------------=====
 //                                  item_pile
 //=====--------------------------------------------------------------------=====
-int merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f) {
+merge_item_result merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f) {
     using ir = item_merge_result;
 
-    int n {};
+    auto result = merge_item_result::ok_merged_none;
+    auto const get_result = [&]() noexcept {
+        return from.empty() ? merge_item_result::ok_merged_all
+                            : result;
+    };
+
     for (auto i = from.size(); i > 0; --i) {
         switch (f(from[i - 1])) {
-        case ir::ok:        to.add_item(from.remove_item(i - 1)); ++n; break;
-        case ir::skip:      continue;
-        case ir::terminate: return n;
-        default:            break;
+        case ir::ok:
+            to.add_item(from.remove_item(i - 1));
+            result = merge_item_result::ok_merged_some;
+            break;
+        case ir::skip:
+            continue;
+        case ir::terminate:
+            return get_result();
+        default:
+            BK_ASSERT(false);
+            break;
         }
     }
 
-    return n;
+    return get_result();
 }
 
 item_pile::~item_pile() {

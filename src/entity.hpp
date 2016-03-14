@@ -13,7 +13,7 @@ namespace boken {
 class entity
   : public object<entity_instance_id, entity_definition> {
 public:
-    using object::object;
+    entity(entity_instance_id instance, entity_id id) noexcept;
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // stats
