@@ -110,7 +110,7 @@ public:
     virtual void update_item_data(std::vector<update_t<item_id>> const& updates) = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
-    virtual void update_tool_tip_visible(bool show) noexcept = 0;
+    virtual bool update_tool_tip_visible(bool show) noexcept = 0;
     virtual void update_tool_tip_position(point2i p) noexcept = 0;
 
     virtual void set_message_window(message_log const* window) noexcept = 0;

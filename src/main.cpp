@@ -158,13 +158,13 @@ struct game_state {
 
     //! @param p Position in window coordinates
     void show_tool_tip(point2i const p) {
-        renderer.update_tool_tip_visible(true);
-        renderer.update_tool_tip_position(p);
-
         auto const p0 = window_to_world(p);
         auto const q  = window_to_world({last_mouse_x, last_mouse_y});
 
-        if (p0 == q) {
+        auto const was_visible = renderer.update_tool_tip_visible(true);
+        renderer.update_tool_tip_position(p);
+
+        if (was_visible && p0 == q) {
             return; // the tile the mouse points to is unchanged from last time
         }
 
@@ -226,8 +226,10 @@ struct game_state {
             buffer.append(
                 "Position: %d, %d\n"
                 "Region  : %d\n"
+                "Tile    : %s\n"
               , value_cast(p0.x), value_cast(p0.y)
-              , tile.region_id)
+              , tile.region_id
+              , enum_to_string(lvl.at(p0).id).data())
          && print_entity()
          && print_items();
 
@@ -488,6 +490,8 @@ struct game_state {
             lvl.remove_entity(def->instance());
             entity_updates_.push_back({def_pos, def_pos, entity_id {}});
         }
+
+        advance(1);
     }
 
     void player_move(vec2i const v) {

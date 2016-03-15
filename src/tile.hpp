@@ -45,6 +45,8 @@ enum class tile_id : uint32_t {
   , door_ns_open   = djb2_hash_32c("door_ns_open")
   , door_ew_closed = djb2_hash_32c("door_ew_closed")
   , door_ew_open   = djb2_hash_32c("door_ew_open")
+  , stair_down = djb2_hash_32c("stair_down")
+  , stair_up   = djb2_hash_32c("stair_up")
 };
 
 #if defined(_MSC_VER)

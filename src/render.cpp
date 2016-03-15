@@ -122,7 +122,7 @@ public:
     }
 
     void update_tool_tip_text(std::string text) final override;
-    void update_tool_tip_visible(bool show) noexcept final override;
+    bool update_tool_tip_visible(bool show) noexcept final override;
     void update_tool_tip_position(point2i p) noexcept final override;
 
     void set_message_window(message_log const* const window) noexcept final override {
@@ -232,8 +232,8 @@ void game_renderer_impl::update_tool_tip_text(std::string text) {
     tool_tip_.layout(trender_, std::move(text));
 }
 
-void game_renderer_impl::update_tool_tip_visible(bool const show) noexcept {
-    tool_tip_.visible(show);
+bool game_renderer_impl::update_tool_tip_visible(bool const show) noexcept {
+    return tool_tip_.visible(show);
 }
 
 void game_renderer_impl::update_tool_tip_position(point2i const p) noexcept {
@@ -328,7 +328,7 @@ void game_renderer_impl::render_text_(text_layout const& text) const noexcept {
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 
-    os_.render_fill_rect(text.extent(), 0x7F888888u);
+    os_.render_fill_rect(text.extent(), 0xDF666666u);
 
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)});

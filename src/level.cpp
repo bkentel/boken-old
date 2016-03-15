@@ -681,6 +681,8 @@ public:
 
     void place_doors(random_state& rng, recti area);
 
+    void place_stairs(random_state& rng, recti area);
+
     void merge_walls_at(random_state& rng, recti area);
 
     void update_tile_ids(random_state& rng, recti area);
@@ -732,71 +734,7 @@ public:
         }
     }
 
-    void generate(random_state& rng) {
-        std::fill(begin(data_.types), end(data_.types), tile_type::empty);
-        std::fill(begin(data_.flags), end(data_.flags), tile_flags {tile_flags::f_solid});
-
-        auto&       bsp = *bsp_gen_;
-        auto const& p   = bsp.params();
-
-        bsp.clear();
-        bsp.generate(rng);
-
-        regions_.clear();
-        regions_.reserve(bsp.size());
-        std::transform(std::begin(bsp), std::end(bsp), back_inserter(regions_)
-          , [](auto const& node) noexcept {
-                return region_info {node.rect, 0, 0, 0};
-            });
-
-        std::vector<tile_data_set> buffer;
-        {
-            auto const size = std::max_element(std::begin(bsp), std::end(bsp)
-              , [](auto const& node_a, auto const& node_b) noexcept {
-                    return node_a.rect.area() < node_b.rect.area();
-                })->rect.area();
-
-            buffer.reserve(static_cast<size_t>(std::max(0, size)));
-        }
-
-        tile_data_set default_tile {
-            tile_data  {}
-          , tile_flags {tile_flags::f_solid}
-          , tile_id    {}
-          , tile_type  {tile_type::empty}
-          , uint16_t   {}
-        };
-
-        auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
-
-        auto const roll_room_chance = [&]() noexcept {
-            return random_chance_in_x(rng, value_cast(p.room_chance_num)
-                                         , value_cast(p.room_chance_den));
-        };
-
-        for (auto& region : regions_) {
-            auto const rect = region.bounds;
-            fill_rect(data_.region_ids, width(), rect, default_tile.region_id++);
-
-            if (!roll_room_chance()) {
-                continue;
-            }
-
-            buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
-            region.tile_count = gen_rect(rng, rect, buffer);
-
-            copy_region(buffer.data(), &tile_data_set::id,    rect, data_.ids);
-            copy_region(buffer.data(), &tile_data_set::type,  rect, data_.types);
-            copy_region(buffer.data(), &tile_data_set::flags, rect, data_.flags);
-
-            buffer.resize(0);
-        }
-
-        generate_make_connections(rng);
-        merge_walls_at(rng, bounds_);
-        place_doors(rng, bounds_);
-        update_tile_ids(rng, bounds_);
-    }
+    void generate(random_state& rng);
 
     const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data);
 
@@ -994,6 +932,121 @@ void level_impl::place_doors(random_state& rng, recti const area) {
             this->data_at_(data_.flags, x, y) = tile_flags {tile_flags::f_solid};
         }
     );
+}
+
+void level_impl::place_stairs(random_state& rng, recti const area) {
+    auto const candidates = static_cast<int32_t>(std::count_if(begin(regions_), end(regions_)
+      , [](region_info const& info) noexcept {
+            return info.tile_count > 0;
+        }));
+
+    BK_ASSERT(candidates > 0);
+
+    auto const get_random_region = [&]() noexcept {
+        auto i = static_cast<size_t>(random_uniform_int(rng, 0, candidates));
+        return *std::find_if(begin(regions_), end(regions_), [&](region_info const& info) noexcept {
+            return info.tile_count > 0 && i--;
+        });
+    };
+
+    auto const random_point_in_rect = [&](recti const r) noexcept {
+        return point2i {
+            random_uniform_int(rng, r.x0, r.x1 - 1)
+          , random_uniform_int(rng, r.y0, r.y1 - 1)
+        };
+    };
+
+    auto const find_stair_pos = [&](recti const r) noexcept {
+        for (;;) {
+            auto p = random_point_in_rect(r);
+            if (data_at_(data_.types, p) == tile_type::floor) {
+                return p;
+            }
+        }
+
+        return point2i {r.x0, r.y0};
+    };
+
+    auto const make_stair_at = [&](point2i const p, tile_id const id) noexcept {
+        data_at_(data_.types, p) = tile_type::stair;
+        data_at_(data_.ids, p)   = id;
+        data_at_(data_.flags, p) = tile_flags {};
+    };
+
+    make_stair_at(find_stair_pos(get_random_region().bounds)
+                , tile_id::stair_up);
+
+    make_stair_at(find_stair_pos(get_random_region().bounds)
+                , tile_id::stair_down);
+
+}
+
+void level_impl::generate(random_state& rng) {
+    std::fill(begin(data_.types), end(data_.types), tile_type::empty);
+    std::fill(begin(data_.flags), end(data_.flags), tile_flags {tile_flags::f_solid});
+
+    auto&       bsp = *bsp_gen_;
+    auto const& p   = bsp.params();
+
+    bsp.clear();
+    bsp.generate(rng);
+
+    regions_.clear();
+    regions_.reserve(bsp.size());
+    std::transform(std::begin(bsp), std::end(bsp), back_inserter(regions_)
+      , [](auto const& node) noexcept {
+          return region_info {node.rect, 0, 0, 0};
+      });
+
+    // reserve enough space for the largest region
+    std::vector<tile_data_set> buffer;
+    {
+        auto const size = std::max_element(std::begin(bsp), std::end(bsp)
+          , [](auto const& node_a, auto const& node_b) noexcept {
+              return node_a.rect.area() < node_b.rect.area();
+          })->rect.area();
+
+        buffer.reserve(static_cast<size_t>(std::max(0, size)));
+    }
+
+    tile_data_set default_tile {
+        tile_data  {}
+      , tile_flags {tile_flags::f_solid}
+      , tile_id    {}
+      , tile_type  {tile_type::empty}
+      , uint16_t   {}
+    };
+
+    auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
+
+    auto const roll_room_chance = [&]() noexcept {
+        return random_chance_in_x(rng, value_cast(p.room_chance_num)
+                                     , value_cast(p.room_chance_den));
+    };
+
+    for (auto& region : regions_) {
+        auto const rect = region.bounds;
+        fill_rect(data_.region_ids, width(), rect, default_tile.region_id++);
+
+        if (!roll_room_chance()) {
+            continue;
+        }
+
+        buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
+        region.tile_count = gen_rect(rng, rect, buffer);
+
+        copy_region(buffer.data(), &tile_data_set::id,    rect, data_.ids);
+        copy_region(buffer.data(), &tile_data_set::type,  rect, data_.types);
+        copy_region(buffer.data(), &tile_data_set::flags, rect, data_.flags);
+
+        buffer.resize(0);
+    }
+
+    generate_make_connections(rng);
+    merge_walls_at(rng, bounds_);
+    place_stairs(rng, bounds_);
+    place_doors(rng, bounds_);
+    update_tile_ids(rng, bounds_);
 }
 
 const_sub_region_range<tile_id>
