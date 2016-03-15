@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.hpp"
-#include "forward_declarations.hpp"
 #include <vector>
 #include <functional>
 

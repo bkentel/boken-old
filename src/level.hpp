@@ -124,7 +124,7 @@ public:
     virtual bool remove_entity_at(point2i p) noexcept = 0;
     virtual bool remove_entity(entity_instance_id id) noexcept = 0;
 
-    //! Attempt to place the item @i at the location given by @p p. If not
+    //! Attempt to place the item @p i at the location given by @p p. If not
     //! possible, randomly probe adjacent tiles no more than @p max_distance
     //! from @p p. If still not possible the item @p i will be left unmodified.
     //! Otherwise the level will take ownership of @p i.

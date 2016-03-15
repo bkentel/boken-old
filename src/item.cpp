@@ -93,7 +93,7 @@ unique_item item_pile::remove_item(size_t const pos) {
     BK_ASSERT(!!deleter_);
 
     auto const id = items_[pos];
-    items_.erase(std::begin(items_) + pos);
+    items_.erase(std::begin(items_) + static_cast<ptrdiff_t>(pos));
     return unique_item {id, *deleter_};
 }
 

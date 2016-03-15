@@ -28,9 +28,10 @@ ptrdiff_t find_offset_to(Container&& c, Predicate pred) noexcept {
         : std::distance(first, it);
 }
 
+//! @returns a begin / end iterator pair for the container (vector).
 template <typename Container>
 auto vector_to_range(Container&& c) noexcept {
-    using iterator_cat = decltype(c.begin())::iterator_category;
+    using iterator_cat = typename decltype(c.begin())::iterator_category;
     static_assert(std::is_same<std::random_access_iterator_tag, iterator_cat>::value, "");
     return std::make_pair(c.data(), c.data() + c.size());
 }

@@ -21,7 +21,7 @@ class game_renderer_impl final : public game_renderer {
         auto const tw = value_cast(tmap.tile_width());
         auto const th = value_cast(tmap.tile_height());
 
-        return [=](auto const p) noexcept {
+        return [tw, th](auto const p) noexcept {
             return point2<uint16_t> {
                 static_cast<uint16_t>(value_cast(p.x) * tw)
               , static_cast<uint16_t>(value_cast(p.y) * th)};

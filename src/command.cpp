@@ -97,6 +97,7 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(move_nw);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        BK_ENUM_MAPPING(get_all_items);
         default:
             break;
     }
@@ -120,6 +121,7 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(move_nw);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        BK_ENUM_MAPPING(get_all_items);
         default:
             break;
     }

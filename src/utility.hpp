@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.hpp" //string_view
+
 #include <bkassert/assert.hpp>
 
 #include <type_traits>
@@ -8,6 +10,7 @@
 #include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <cstdarg>
 
 namespace boken {
 
@@ -132,6 +135,7 @@ inline constexpr void call_destructor(T& t)
     noexcept(std::is_nothrow_destructible<T>::value)
 {
     t.~T();
+    (void)t; // spurious unused warning
 }
 
 template <size_t StackSize>
@@ -354,11 +358,28 @@ sub_region_range<T> make_sub_region_range(
     };
 }
 
+namespace detail {
+#ifndef _MSC_VER
+#   define BK_PRINTF_ATTRIBUTE __attribute__ ((__format__(__printf__, 1, 5)))
+#else
+#   define BK_PRINTF_ATTRIBUTE
+#endif
+
+bool static_string_buffer_append(
+    char const* fmt
+  , char*       buffer
+  , ptrdiff_t&  offset
+  , size_t      size
+  , va_list     args) noexcept;
+#undef BK_PRINTF_ATTRIBUTE
+
+} // namespace detail
+
 template <size_t N>
 class static_string_buffer {
-public:
     static_assert(N > 0, "");
-
+    static constexpr auto last_index = static_cast<ptrdiff_t>(N - 1);
+public:
     static_string_buffer() noexcept
       : first_ {0}
       , buffer_()
@@ -366,24 +387,19 @@ public:
     }
 
     explicit operator bool() const noexcept {
-        return first_ >= 0 && first_ < N - 1;
+        return first_ >= 0 && first_ < last_index;
     }
 
-    template <typename... Args>
-    bool append(char const* const fmt, Args&&... args) noexcept {
-        if (!(*this)) {
-            return false;
-        }
+    bool append(char const* const fmt, ...) noexcept {
+        va_list args;
+        va_start(args, fmt);
 
-        auto const n = snprintf(
-            buffer_.data() + first_
-          , N - first_
-          , fmt
-          , std::forward<Args>(args)...);
+        auto const result = detail::static_string_buffer_append(
+            fmt, buffer_.data(), first_, N, args);
 
-        return (n < 0)              ? false                      // error
-             : (first_ + n > N - 1) ? ((first_  = N - 1), false) // overflow
-                                    : ((first_ += n), true);     // ok
+        va_end(args);
+
+        return result;
     }
 
     void clear() noexcept {
@@ -391,7 +407,7 @@ public:
         buffer_[0] = '\0';
     }
 
-    bool full()  const noexcept { return first_ >= N - 1; }
+    bool full()  const noexcept { return first_ >= last_index; }
     bool empty() const noexcept { return first_ == 0; }
     size_t capacity() const noexcept { return N; }
     size_t size() const noexcept { return static_cast<size_t>(first_); }

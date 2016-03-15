@@ -15,5 +15,6 @@ public:
 };
 
 item const* find(world const& w, item_instance_id id) noexcept;
+item* find(world& w, item_instance_id id) noexcept;
 
 } //namespace boken

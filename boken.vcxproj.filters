@@ -37,6 +37,7 @@
     </ClCompile>
     <ClCompile Include="src\entity.cpp" />
     <ClCompile Include="src\item.cpp" />
+    <ClCompile Include="src\utility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />

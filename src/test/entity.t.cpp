@@ -14,7 +14,6 @@ TEST_CASE("property_set") {
         a, b, c, d, e
     };
 
-    using pair_t = std::pair<test_enum, char>;
     property_set<test_enum, char> properties;
 
     REQUIRE(properties.size() == 0u);

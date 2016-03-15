@@ -59,6 +59,7 @@ set(SOURCES
     src/system_sdl.cpp
     src/text.cpp
     src/tile.cpp
+    src/utility.cpp
     src/world.cpp)
 
 set(SOURCES_EXTERNAL

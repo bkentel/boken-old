@@ -36,5 +36,6 @@ private:
 };
 
 entity const* find(world const& w, entity_instance_id id) noexcept;
+entity* find(world& w, entity_instance_id id) noexcept;
 
 } //namespace boken

@@ -6,38 +6,42 @@
 TEST_CASE("spatial map") {
     using namespace boken;
 
+    struct value_t {
+        int value;
+    };
+
     struct key_t {
-        float operator()(float const f) const noexcept {
-            return f;
+        int operator()(value_t const v) const noexcept {
+            return v.value;
         }
     };
 
     struct property_t {
-        int operator()(float const f) const noexcept {
-            return f < 0.0f ? -1 : 1;
+        int operator()(value_t const v) const noexcept {
+            return v.value < 0 ? -1 : 1;
         }
     };
 
     constexpr int16_t width  = 20;
     constexpr int16_t height = 10;
-    spatial_map<float, key_t, property_t, int16_t> map {width, height};
+    spatial_map<value_t, key_t, property_t, int16_t> map {width, height};
 
     REQUIRE(map.size() == 0);
 
     // insert 3 new unique values
-    REQUIRE(map.insert({1, 2}, 2.0f).second);
-    REQUIRE(map.insert({1, 1}, 1.0f).second);
-    REQUIRE(map.insert({2, 1}, 3.0f).second);
+    REQUIRE(map.insert({1, 2}, {2}).second);
+    REQUIRE(map.insert({1, 1}, {1}).second);
+    REQUIRE(map.insert({2, 1}, {3}).second);
 
     // insert 3 duplicated
-    REQUIRE(!map.insert({1, 2}, 2.0f).second);
-    REQUIRE(!map.insert({1, 1}, 1.0f).second);
-    REQUIRE(!map.insert({2, 1}, 3.0f).second);
+    REQUIRE(!map.insert({1, 2}, {2}).second);
+    REQUIRE(!map.insert({1, 1}, {1}).second);
+    REQUIRE(!map.insert({2, 1}, {3}).second);
 
     // update an existing value
-    REQUIRE(!map.insert_or_replace({2, 1}, 4.0f).second);
+    REQUIRE(!map.insert_or_replace({2, 1}, {4}).second);
     REQUIRE(!!map.find({2, 1}));
-    REQUIRE(*map.find({2, 1}) == 4.0f);
+    REQUIRE(map.find({2, 1})->value == 4);
 
     REQUIRE(map.size() == 3);
 
@@ -53,18 +57,18 @@ TEST_CASE("spatial map") {
 
     // find by pos
     REQUIRE(!!map.find({1, 1}));
-    REQUIRE(*map.find({1, 1}) == 1.0f);
+    REQUIRE(map.find({1, 1})->value == 1);
 
     // find by key
-    REQUIRE(!!map.find(1.0f).first);
-    REQUIRE(*map.find(1.0f).first == 1.0f);
+    REQUIRE(!!map.find(1).first);
+    REQUIRE(map.find(1).first->value == 1);
 
     // erase invalid by pos
     REQUIRE(!map.erase({0, 0}));
     REQUIRE(map.size() == 3);
 
     // erase invalid by key
-    REQUIRE(!map.erase(0.0f));
+    REQUIRE(!map.erase(0));
     REQUIRE(map.size() == 3);
 
     // erase by pos
@@ -72,7 +76,7 @@ TEST_CASE("spatial map") {
     REQUIRE(map.size() == 2);
 
     // erase by key
-    REQUIRE(map.erase(4.0f));
+    REQUIRE(map.erase(4));
     REQUIRE(map.size() == 1);
 }
 
