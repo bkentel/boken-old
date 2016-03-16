@@ -111,9 +111,9 @@ uint32_t id_to_index(tile_map const& map, tile_id const id) noexcept {
     case ti::wall_1110: return to_index(10, 12); // new
     case ti::wall_1111: return to_index(14, 12); // nesw
     case ti::door_ns_closed: return to_index( 3, 11);
-    case ti::door_ns_open:   return to_index( 3, 11);
+    case ti::door_ns_open:   return to_index( 6, 11);
     case ti::door_ew_closed: return to_index( 4, 12);
-    case ti::door_ew_open:   return to_index( 4, 12);
+    case ti::door_ew_open:   return to_index( 6, 11);
     case ti::stair_down: return to_index( 14, 3);
     case ti::stair_up:   return to_index( 12, 3);
     case ti::invalid:

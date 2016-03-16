@@ -494,6 +494,27 @@ struct game_state {
         advance(1);
     }
 
+    void interact_obstacle(entity& e, point2i const cur_pos, point2i const obstacle_pos) {
+        auto& lvl = the_world.current_level();
+
+        auto const tile = lvl.at(obstacle_pos);
+        if (tile.type == tile_type::door) {
+            auto const id = (tile.id == tile_id::door_ns_closed)
+                ? tile_id::door_ns_open
+                : tile_id::door_ew_open;
+
+            tile_data_set const data {
+                tile_data {}
+                , tile_flags {0}
+                , id
+                , tile.type
+                , 0
+            };
+
+            renderer.update_map_data(lvl.update_tile_at(rng_superficial, obstacle_pos, data));
+        }
+    }
+
     void player_move(vec2i const v) {
         auto& lvl = the_world.current_level();
 
@@ -509,7 +530,10 @@ struct game_state {
         case placement_result::failed_entity:
             do_combat(p0, p1);
             break;
-        case placement_result::failed_obstacle: break;
+        case placement_result::failed_obstacle: {
+            interact_obstacle(player.first, p0, p1);
+            break;
+        }
         case placement_result::failed_bounds:   break;
         case placement_result::failed_bad_id:   break;
         default: break;
