@@ -530,12 +530,11 @@ struct game_state {
         case placement_result::failed_entity:
             do_combat(p0, p1);
             break;
-        case placement_result::failed_obstacle: {
+        case placement_result::failed_obstacle:
             interact_obstacle(player.first, p0, p1);
             break;
-        }
-        case placement_result::failed_bounds:   break;
-        case placement_result::failed_bad_id:   break;
+        case placement_result::failed_bounds: break;
+        case placement_result::failed_bad_id: break;
         default: break;
         }
     }

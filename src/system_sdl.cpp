@@ -518,8 +518,8 @@ int sdl_system::do_events() {
         case SDL_KEYUP :
             handler_key_(kb_event {
                 event.key.timestamp
-                , static_cast<uint32_t>(event.key.keysym.scancode)
-                , static_cast<uint32_t>(event.key.keysym.sym)
+                , static_cast<kb_scancode>(event.key.keysym.scancode)
+                , static_cast<kb_keycode>(event.key.keysym.sym)
                 , event.key.keysym.mod
                 , !!event.key.repeat
                 , event.key.state == SDL_PRESSED
