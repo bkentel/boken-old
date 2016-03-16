@@ -59,6 +59,7 @@ set(SOURCES
     src/system_sdl.cpp
     src/text.cpp
     src/tile.cpp
+    src/unicode.cpp
     src/utility.cpp
     src/world.cpp)
 
@@ -71,6 +72,7 @@ set(SOURCES_TEST
     src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/spatial_map.t.cpp
+    src/test/unicode.t.cpp
     src/test/utility.t.cpp)
 
 include_directories(src)

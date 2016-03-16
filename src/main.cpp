@@ -104,6 +104,7 @@ struct game_state {
         os.on_mouse_move([&](mouse_event a, kb_modifiers b) { on_mouse_move(a, b); });
         os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
         os.on_mouse_button([&](mouse_event a, kb_modifiers b) { on_mouse_button(a, b); });
+        os.on_text_input([&](text_input_event const e) { on_text_input(e); });
 
         cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
 
@@ -286,6 +287,10 @@ struct game_state {
         if (event.went_down) {
             cmd_translator.translate(event);
         }
+    }
+
+    void on_text_input(text_input_event const event) {
+        cmd_translator.translate(event);
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {

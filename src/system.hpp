@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "math.hpp"
+#include "config.hpp"
 
 #include <memory>
 #include <functional>
@@ -566,6 +567,11 @@ struct kb_event {
     bool        went_down;
 };
 
+struct text_input_event {
+    uint32_t timestamp;
+    string_view text;
+};
+
 struct read_only_pointer_t {
     read_only_pointer_t() noexcept = default;
 
@@ -669,6 +675,9 @@ public:
 
     using on_mouse_wheel_handler = std::function<void (int wy, int wx, kb_modifiers)>;
     virtual void on_mouse_wheel(on_mouse_wheel_handler handler) = 0;
+
+    using on_text_input_handler = std::function<void (text_input_event)>;
+    virtual void on_text_input(on_text_input_handler handler) = 0;
 
     virtual bool is_running() = 0;
     virtual int do_events() = 0;

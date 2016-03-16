@@ -1,5 +1,6 @@
 #include "command.hpp"
 #include "system.hpp" // kb_event
+#include "unicode.hpp"
 
 namespace boken {
 
@@ -9,6 +10,7 @@ class command_translator_impl final : public command_translator {
 public:
     command_translator_impl();
     void on_command(command_handler_t handler) final override;
+    void translate(text_input_event const& event) const final override;
     void translate(kb_event const& event) const final override;
 private:
     command_handler_t handler_;
@@ -23,52 +25,68 @@ void command_translator_impl::on_command(command_handler_t handler) {
     handler_ = std::move(handler);
 }
 
+void command_translator_impl::translate(text_input_event const& event) const {
+    utf8_decoder_iterator it {event.text.data()};
+    auto const cp = *it;
+
+    switch (cp) {
+    case ',' :
+        handler_(command_type::get_all_items, 0);
+        break;
+    case '<' :
+        handler_(command_type::move_up, 0);
+        break;
+    case '>' :
+        handler_(command_type::move_down, 0);
+        break;
+    default:
+        break;
+    }
+}
+
 void command_translator_impl::translate(kb_event const& event) const {
     switch (event.scancode) {
-    case 79 : // SDL_SCANCODE_RIGHT = 79
+    case kb_scancode::k_right :
         handler_(command_type::move_e, 0);
         break;
-    case 80 : // SDL_SCANCODE_LEFT = 80
+    case kb_scancode::k_left :
         handler_(command_type::move_w, 0);
         break;
-    case 81 : // SDL_SCANCODE_DOWN = 81
+    case kb_scancode::k_down :
         handler_(command_type::move_s, 0);
         break;
-    case 82 : // SDL_SCANCODE_UP = 82
+    case kb_scancode::k_up :
         handler_(command_type::move_n, 0);
         break;
-    case 89 : // SDL_SCANCODE_KP_1 = 89
+    case kb_scancode::k_kp_1 :
         handler_(command_type::move_sw, 0);
         break;
-    case 90 : // SDL_SCANCODE_KP_2 = 90
+    case kb_scancode::k_kp_2 :
         handler_(command_type::move_s, 0);
         break;
-    case 91 : // SDL_SCANCODE_KP_3 = 91
+    case kb_scancode::k_kp_3 :
         handler_(command_type::move_se, 0);
         break;
-    case 92 : // SDL_SCANCODE_KP_4 = 92
+    case kb_scancode::k_kp_4 :
         handler_(command_type::move_w, 0);
         break;
-    case 93 : // SDL_SCANCODE_KP_5 = 93
+    case kb_scancode::k_kp_5 :
         handler_(command_type::move_here, 0);
         break;
-    case 94 : // SDL_SCANCODE_KP_6 = 94
+    case kb_scancode::k_kp_6 :
         handler_(command_type::move_e, 0);
         break;
-    case 95 : // SDL_SCANCODE_KP_7 = 95
+    case kb_scancode::k_kp_7 :
         handler_(command_type::move_nw, 0);
         break;
-    case 96 : // SDL_SCANCODE_KP_8 = 96
+    case kb_scancode::k_kp_8 :
         handler_(command_type::move_n, 0);
         break;
-    case 97 : // SDL_SCANCODE_KP_9 = 97
+    case kb_scancode::k_kp_9 :
         handler_(command_type::move_ne, 0);
         break;
-    case 74 : // SDL_SCANCODE_HOME = 74
+    case kb_scancode::k_home :
         handler_(command_type::reset_view, 0);
-        break;
-    case 54 : // SDL_SCANCODE_COMMA = 54
-        handler_(command_type::get_all_items, 0);
         break;
     default:
         break;
@@ -95,9 +113,11 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(move_sw);
         BK_ENUM_MAPPING(move_w);
         BK_ENUM_MAPPING(move_nw);
+        BK_ENUM_MAPPING(move_up);
+        BK_ENUM_MAPPING(move_down);
+        BK_ENUM_MAPPING(get_all_items);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
-        BK_ENUM_MAPPING(get_all_items);
         default:
             break;
     }
@@ -119,9 +139,11 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(move_sw);
         BK_ENUM_MAPPING(move_w);
         BK_ENUM_MAPPING(move_nw);
+        BK_ENUM_MAPPING(move_up);
+        BK_ENUM_MAPPING(move_down);
+        BK_ENUM_MAPPING(get_all_items);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
-        BK_ENUM_MAPPING(get_all_items);
         default:
             break;
     }

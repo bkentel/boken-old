@@ -238,6 +238,7 @@ public:
         handler_mouse_move_   = [](auto, auto) noexcept {};
         handler_mouse_button_ = [](auto, auto) noexcept {};
         handler_mouse_wheel_  = [](auto, auto, auto) noexcept {};
+        handler_text_input_   = [](auto) noexcept {};
     }
 
     static kb_modifiers get_key_mods() noexcept {
@@ -352,6 +353,10 @@ public:
 
     void on_mouse_wheel(on_mouse_wheel_handler handler) final override {
         handler_mouse_wheel_ = std::move(handler);
+    }
+
+    void on_text_input(on_text_input_handler handler) final override {
+        handler_text_input_ = std::move(handler);
     }
 
     bool is_running() final override {
@@ -471,6 +476,7 @@ private:
     on_mouse_move_handler   handler_mouse_move_;
     on_mouse_button_handler handler_mouse_button_;
     on_mouse_wheel_handler  handler_mouse_wheel_;
+    on_text_input_handler   handler_text_input_;
 
     mouse_event last_mouse_event_ {};
 
@@ -513,6 +519,11 @@ int sdl_system::do_events() {
             break;
         case SDL_QUIT:
             running_ = !handler_quit_();
+            break;
+        case SDL_TEXTINPUT :
+            handler_text_input_(text_input_event {
+                event.text.timestamp
+              , event.text.text});
             break;
         case SDL_KEYDOWN :
         case SDL_KEYUP :

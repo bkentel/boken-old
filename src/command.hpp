@@ -8,6 +8,7 @@
 #include <cstdint>
 
 namespace boken { struct kb_event; }
+namespace boken { struct text_input_event; }
 
 namespace boken {
 
@@ -28,6 +29,9 @@ enum class command_type : uint32_t {
   , move_sw   = djb2_hash_32c("move_sw")
   , move_w    = djb2_hash_32c("move_w")
   , move_nw   = djb2_hash_32c("move_nw")
+
+  , move_up   = djb2_hash_32c("move_up")
+  , move_down = djb2_hash_32c("move_down")
 
   , get_all_items = djb2_hash_32c("get_all_items")
 
@@ -51,6 +55,7 @@ public:
     virtual ~command_translator();
 
     virtual void on_command(command_handler_t handler) = 0;
+    virtual void translate(text_input_event const& event) const = 0;
     virtual void translate(kb_event const& event) const = 0;
 };
 

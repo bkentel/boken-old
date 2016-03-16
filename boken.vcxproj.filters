@@ -38,6 +38,10 @@
     <ClCompile Include="src\entity.cpp" />
     <ClCompile Include="src\item.cpp" />
     <ClCompile Include="src\utility.cpp" />
+    <ClCompile Include="src\unicode.cpp" />
+    <ClCompile Include="src\test\unicode.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -69,6 +73,7 @@
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\item_pile.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
+    <ClInclude Include="src\unicode.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
