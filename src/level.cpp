@@ -489,7 +489,7 @@ public:
         }
     }
 
-    placement_result add_item_at(unique_item i, point2i const p) final override {
+    placement_result add_item_at(unique_item&& i, point2i const p) final override {
         {
             auto const result = can_place_item_at(p);
             if (result != placement_result::ok) {
@@ -517,7 +517,7 @@ public:
         return placement_result::ok;
     }
 
-    placement_result add_entity_at(unique_entity e, point2i const p) final override {
+    placement_result add_entity_at(unique_entity&& e, point2i const p) final override {
         auto const result = can_place_entity_at(p);
         if (result != placement_result::ok) {
             return result;
@@ -539,12 +539,12 @@ public:
     }
 
     std::pair<point2i, placement_result>
-    add_item_nearest_random(random_state& rng, unique_item i, point2i p, int max_distance) final override {
+    add_item_nearest_random(random_state& rng, unique_item&& i, point2i p, int max_distance) final override {
         return {p, placement_result::failed_obstacle};
     }
 
     std::pair<point2i, placement_result>
-    add_entity_nearest_random(random_state& rng, unique_entity e, point2i const p, int const max_distance) final override {
+    add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i const p, int const max_distance) final override {
         auto const where = find_random_nearest(rng, p, max_distance
           , [&](point2i const q) {
                 return add_entity_at(std::move(e), q) == placement_result::ok;
@@ -636,6 +636,14 @@ public:
 
     merge_item_result move_items(point2i const from, item_pile& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
+    }
+
+    point2i stair_up(int const i) const noexcept final override {
+        return stair_up_;
+    }
+
+    point2i stair_down(int const i) const noexcept final override {
+        return stair_down_;
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -790,8 +798,6 @@ private:
         return check_bounds_(value_cast(p.x), value_cast(p.y));
     }
 
-    recti bounds_;
-
     struct get_entity_instance_id_t {
         entity_instance_id operator()(entity_instance_id const id) const noexcept {
             return id;
@@ -829,8 +835,13 @@ private:
     spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, uint16_t> entities_;
     spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, uint16_t> items_;
 
+    recti bounds_;
+
     std::unique_ptr<bsp_generator> bsp_gen_;
     std::vector<region_info> regions_;
+
+    point2i stair_up_   {0, 0};
+    point2i stair_down_ {0, 0};
 
     struct data_t {
         explicit data_t(size_t const size)
@@ -935,6 +946,7 @@ void level_impl::place_doors(random_state& rng, recti const area) {
 }
 
 void level_impl::place_stairs(random_state& rng, recti const area) {
+    // the number of candidate regions where a stair might be placed.
     auto const candidates = static_cast<int32_t>(std::count_if(begin(regions_), end(regions_)
       , [](region_info const& info) noexcept {
             return info.tile_count > 0;
@@ -942,6 +954,7 @@ void level_impl::place_stairs(random_state& rng, recti const area) {
 
     BK_ASSERT(candidates > 0);
 
+    // choose a random candidate
     auto const get_random_region = [&]() noexcept {
         auto i = static_cast<size_t>(random_uniform_int(rng, 0, candidates));
         return *std::find_if(begin(regions_), end(regions_), [&](region_info const& info) noexcept {
@@ -949,6 +962,7 @@ void level_impl::place_stairs(random_state& rng, recti const area) {
         });
     };
 
+    // choose a random location within a rect
     auto const random_point_in_rect = [&](recti const r) noexcept {
         return point2i {
             random_uniform_int(rng, r.x0, r.x1 - 1)
@@ -956,6 +970,7 @@ void level_impl::place_stairs(random_state& rng, recti const area) {
         };
     };
 
+    // find a random valid position within the chosen candidate
     auto const find_stair_pos = [&](recti const r) noexcept {
         for (;;) {
             auto p = random_point_in_rect(r);
@@ -971,13 +986,14 @@ void level_impl::place_stairs(random_state& rng, recti const area) {
         data_at_(data_.types, p) = tile_type::stair;
         data_at_(data_.ids, p)   = id;
         data_at_(data_.flags, p) = tile_flags {};
+        return p;
     };
 
-    make_stair_at(find_stair_pos(get_random_region().bounds)
-                , tile_id::stair_up);
+    stair_up_ = make_stair_at(find_stair_pos(get_random_region().bounds)
+                            , tile_id::stair_up);
 
-    make_stair_at(find_stair_pos(get_random_region().bounds)
-                , tile_id::stair_down);
+    stair_down_ = make_stair_at(find_stair_pos(get_random_region().bounds)
+                              , tile_id::stair_down);
 
 }
 

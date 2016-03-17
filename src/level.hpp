@@ -110,6 +110,10 @@ public:
         return at(point2i {x, y});
     }
 
+    //! Returns the location of the stairs with index @p i.
+    virtual point2i stair_up(int const i) const noexcept = 0;
+    virtual point2i stair_down(int const i) const noexcept = 0;
+
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
@@ -118,8 +122,8 @@ public:
       , std::function<void (entity&, point2i, point2i)>&& on_success
     ) = 0;
 
-    virtual placement_result add_item_at(unique_item i, point2i p) = 0;
-    virtual placement_result add_entity_at(unique_entity e, point2i p) = 0;
+    virtual placement_result add_item_at(unique_item&& i, point2i p) = 0;
+    virtual placement_result add_entity_at(unique_entity&& e, point2i p) = 0;
 
     virtual bool remove_entity_at(point2i p) noexcept = 0;
     virtual bool remove_entity(entity_instance_id id) noexcept = 0;
@@ -131,9 +135,9 @@ public:
     //! @returns The actual position that item was placed. Otherwise {0, 0} and
     //! the reason why placement failed.
     virtual std::pair<point2i, placement_result>
-        add_item_nearest_random(random_state& rng, unique_item i, point2i p, int max_distance) = 0;
+        add_item_nearest_random(random_state& rng, unique_item&& i, point2i p, int max_distance) = 0;
     virtual std::pair<point2i, placement_result>
-        add_entity_nearest_random(random_state& rng, unique_entity e, point2i p, int max_distance) = 0;
+        add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i p, int max_distance) = 0;
 
     virtual placement_result move_by(item_instance_id   id, vec2i v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i v) noexcept = 0;

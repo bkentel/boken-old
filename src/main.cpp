@@ -64,32 +64,21 @@ struct keydef_t {
     key_t       type;
 };
 
-placement_result create_entity_at(point2i const p, world& w, level& l, entity_definition const& def) {
-    auto ent = w.create_entity([&](entity_instance_id const instance) {
-        return entity {instance, def.id};
-    });
+template <typename T>
+inline T make_id(string_view const s) noexcept {
+    return T {djb2_hash_32(s.begin(), s.end())};
+}
 
-    auto const result = l.add_entity_at(std::move(ent), p);
-
-    switch (result) {
-    default :
-        BK_ASSERT_SAFE(false);
-        break;
-    case placement_result::failed_bad_id :
-        BK_ASSERT_SAFE(false);
-        break;
-    case placement_result::ok :
-        break;
-    case placement_result::failed_bounds :
-    case placement_result::failed_entity :
-    case placement_result::failed_obstacle :
-        break;
-    }
-
-    return result;
+template <typename T, size_t N>
+inline constexpr T make_id(char const (&s)[N]) noexcept {
+    return T {djb2_hash_32c(s)};
 }
 
 struct game_state {
+    enum class placement_type {
+        at, near
+    };
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -240,22 +229,20 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void generate() {
-        auto const level_w = 100;
-        auto const level_h = 80;
+    void generate_player() {
+        auto& lvl = the_world.current_level();
 
-        auto& lvl = the_world.add_new_level(nullptr
-          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}));
+        auto const result = create_object<entity, placement_type::at>(
+            lvl.stair_up(0), "player");
 
-        renderer.set_level(the_world.current_level());
+        BK_ASSERT(result.second == placement_result::ok);
+    }
 
-        auto const player_def = database.find(entity_id {djb2_hash_32("player")});
-        BK_ASSERT(!!player_def);
+    void generate_entities() {
+        auto& lvl = the_world.current_level();
 
-        auto const edef = database.find(entity_id {djb2_hash_32("rat_small")});
+        auto const edef = database.find(make_id<entity_id>("rat_small"));
         BK_ASSERT(!!edef);
-
-        bool placed_player = false;
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -266,14 +253,41 @@ struct game_state {
             point2i const p {region.bounds.x0 + region.bounds.width()  / 2
                            , region.bounds.y0 + region.bounds.height() / 2};
 
-            if (!placed_player && create_entity_at(p, the_world, lvl, *player_def) == placement_result::ok) {
-                placed_player = true;
-            } else {
-                create_entity_at(p, the_world, lvl, *edef);
+            create_object<entity, placement_type::near>(p, *edef, rng_substantive, 3);
+        }
+    }
+
+    void generate_items() {
+        auto& lvl = the_world.current_level();
+
+        auto const idef = database.find(make_id<item_id>("dagger"));
+        BK_ASSERT(!!idef);
+
+        for (size_t i = 0; i < lvl.region_count(); ++i) {
+            auto const& region = lvl.region(i);
+            if (region.tile_count <= 0) {
+                continue;
             }
 
-            create_item_at(p, "dagger");
+            point2i const p {region.bounds.x0 + region.bounds.width()  / 2
+                           , region.bounds.y0 + region.bounds.height() / 2};
+
+            create_object<item, placement_type::near>(p, *idef, rng_substantive, 3);
         }
+    }
+
+    void generate() {
+        auto const level_w = 100;
+        auto const level_h = 80;
+
+        auto& lvl = the_world.add_new_level(nullptr
+          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}));
+
+        renderer.set_level(the_world.current_level());
+
+        generate_player();
+        generate_entities();
+        generate_items();
 
         renderer.update_map_data();
         renderer.update_entity_data();
@@ -446,37 +460,117 @@ struct game_state {
         }
     }
 
-    placement_result create_item_at(point2i const p, item_definition const& def) {
-        auto& lvl = the_world.current_level();
+    template <typename Definition, typename Update, typename CreateF, typename PlacementF>
+    std::pair<placement_result, point2i> create_object_(
+        point2i    const  p
+      , Definition const& def
+      , Update&           update_list
+      , CreateF           create
+      , PlacementF        place
+    ) {
+        auto const pair = place(create());
 
-        auto itm = the_world.create_item([&](item_instance_id const instance) {
-            return item {instance, def.id};
-        });
-
-        auto const result = lvl.add_item_at(std::move(itm), p);
-
-        switch (result) {
+        switch (pair.first) {
         case placement_result::ok :
-            item_updates_.push_back({p, p, def.id});
+            update_list.push_back({p, pair.first, def.id});
             break;
         default                                : BK_ASSERT_SAFE(false); break;
         case placement_result::failed_bad_id   : BK_ASSERT_SAFE(false); break;
         case placement_result::failed_bounds   : break;
-        case placement_result::failed_entity   : BK_ASSERT_SAFE(false); break;
+        case placement_result::failed_entity   : break;
         case placement_result::failed_obstacle : break;
         }
 
-        return result;
+        return pair;
     }
 
-    placement_result create_item_at(point2i const p, string_view const def) {
-        auto const id = item_id {djb2_hash_32(def.begin(), def.end())};
-        auto const* const idef = database.find(id);
-        if (!idef) {
-            return placement_result::failed_bad_id;
-        }
+    unique_entity create_entity(entity_definition const& def) {
+        return the_world.create_entity([&](entity_instance_id const instance) {
+            return entity {instance, def.id};
+        });
+    }
 
-        return create_item_at(p, *idef);
+    unique_item create_item(item_definition const& def) {
+        return the_world.create_item([&](item_instance_id const instance) {
+            return item {instance, def.id};
+        });
+    }
+
+    unique_entity create_entity(string_view const def) {
+        auto const* const edef = database.find(make_id<entity_id>(def));
+        return the_world.create_entity([&](entity_instance_id const instance) {
+            return entity {instance, edef ? edef->id : entity_id {0}};
+        });
+    }
+
+    unique_item create_item(string_view const def) {
+        auto const* const idef = database.find(make_id<item_id>(def));
+        return the_world.create_item([&](item_instance_id const instance) {
+            return item {instance, idef ? idef->id : item_id {0}};
+        });
+    }
+
+    using placement_pair = std::pair<point2i, placement_result>;
+
+    template <typename... Args>
+    auto create_object_(std::integral_constant<int, 0>, Args&&...) noexcept {
+        return [&](unique_entity&& e, point2i const p) {
+            return placement_pair {
+                p, the_world.current_level().add_entity_at(std::move(e), p)};
+        };
+    }
+
+    template <typename... Args>
+    auto create_object_(std::integral_constant<int, 1>, Args&&...) noexcept {
+        return [&](unique_item&& i, point2i const p) {
+            return placement_pair {
+                p, the_world.current_level().add_item_at(std::move(i), p)};
+        };
+    }
+
+    template <typename... Args>
+    auto create_object_(std::integral_constant<int, 2>, random_state& rng, int32_t const radius, Args&&...) noexcept {
+        return [&, radius](unique_entity&& e, point2i const p) {
+            return the_world.current_level()
+              .add_entity_nearest_random(rng, std::move(e), p, radius);
+        };
+    }
+
+    template <typename... Args>
+    auto create_object_(std::integral_constant<int, 3>, random_state& rng, int32_t const radius, Args&&...) noexcept {
+        return [&, radius](unique_item&& i, point2i const p) {
+            return the_world.current_level()
+              .add_item_nearest_random(rng, std::move(i), p, radius);
+        };
+    }
+
+    template <typename Definition>
+    unique_entity create_object_from_def_(std::integral_constant<int, 0>, Definition const& def) {
+        return create_entity(def);
+    }
+
+    template <typename Definition>
+    unique_item create_object_from_def_(std::integral_constant<int, 1>, Definition const& def) {
+        return create_item(def);
+    }
+
+    template <typename T, placement_type Type, typename Definition, typename... Args>
+    placement_pair create_object(
+        point2i const     p
+      , Definition const& def
+      , Args&&...         args
+    ) {
+        static_assert(std::is_same<T, item>::value
+                   || std::is_same<T, entity>::value, "");
+
+        constexpr int a = (std::is_same<T, entity>::value) ? 0 : (1 << 0);
+        constexpr int b = (Type ==  placement_type::at)    ? 0 : (1 << 1);
+
+        auto const create = create_object_(std::integral_constant<int, a | b> {}
+          , std::forward<Args>(args)...);
+
+        return create(
+            create_object_from_def_(std::integral_constant<int, a> {}, def), p);
     }
 
     void do_combat(point2i const att_pos, point2i const def_pos) {
@@ -491,7 +585,7 @@ struct game_state {
         def->modify_health(-1);
 
         if (!def->is_alive()) {
-            create_item_at(def_pos, "dagger");
+            create_object<item, placement_type::at>(def_pos, "dagger");
             lvl.remove_entity(def->instance());
             entity_updates_.push_back({def_pos, def_pos, entity_id {}});
         }

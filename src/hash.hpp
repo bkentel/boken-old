@@ -10,23 +10,17 @@ constexpr inline uint32_t djb2_hash_32c(
   , char const* const s
   , ptrdiff_t   const i
 ) noexcept {
-    return i ? djb2_hash_32c((hash << 5) + hash
-                          + static_cast<uint8_t>(s[i]), s, i - 1)
-             : hash;
+    return i
+        ? djb2_hash_32c(
+            static_cast<uint32_t>(((static_cast<uint64_t>(hash) << 5) + hash + static_cast<uint8_t>(*s)) & 0xFFFFFFFFu)
+          , s + 1
+          , i - 1)
+        : hash;
 }
 
 template <size_t N>
 constexpr inline uint32_t djb2_hash_32c(char const (&s)[N]) noexcept {
     return djb2_hash_32c(5381u, s, N - 1);
-}
-
-constexpr inline uint32_t djb2_hash_32c(
-    uint32_t    const hash
-  , char const* const s
-) noexcept {
-    return *s ? djb2_hash_32c((hash << 5) + hash
-                           + static_cast<uint8_t>(*s), s + 1)
-              : hash;
 }
 
 template <typename It, typename Predicate>
