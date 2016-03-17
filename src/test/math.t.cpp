@@ -1,9 +1,71 @@
 #if !defined(BK_NO_TESTS)
 #include "catch.hpp"
-
 #include "math.hpp"
 
+#include <vector>
+#include <algorithm>
+
 namespace bk = ::boken;
+
+namespace boken {
+
+}
+
+TEST_CASE("points around rect") {
+    using namespace boken;
+
+    std::vector<point2i> points;
+    std::vector<point2i> expected;
+
+    auto const push_back = [&](point2i const p) {
+        points.push_back(p);
+    };
+
+    auto const is_equal = [&] {
+        REQUIRE(points.size() == expected.size());
+
+        std::sort(begin(points), end(points)
+          , [](point2i const p, point2i const q) noexcept {
+                return (p.y < q.y) || (p.y == q.y && p.x < q.x);
+            });
+
+        return std::equal(begin(points),   end(points)
+                        , begin(expected), end(expected));
+    };
+
+    SECTION("0") {
+        expected = {
+            {0, 0}
+        };
+
+        points_around(point2i {0, 0}, 0, push_back);
+        REQUIRE(is_equal());
+    }
+
+    SECTION("1") {
+        expected = {
+            {0, 0}, {1, 0}, {2, 0}
+          , {0, 1},         {2, 1}
+          , {0, 2}, {1, 2}, {2, 2}
+        };
+
+        points_around(point2i {1, 1}, 1, push_back);
+        REQUIRE(is_equal());
+    }
+
+    SECTION("2") {
+        expected = {
+            {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}
+          , {0, 1},                         {4, 1}
+          , {0, 2},                         {4, 2}
+          , {0, 3},                         {4, 3}
+          , {0, 4}, {1, 4}, {2, 4}, {3, 4}, {4, 4}
+        };
+
+        points_around(point2i {2, 2}, 2, push_back);
+        REQUIRE(is_equal());
+    }
+}
 
 TEST_CASE("axis_aligned_rect") {
     SECTION("from points") {
@@ -90,10 +152,10 @@ TEST_CASE("for_each_xy") {
 
     auto const r = recti {offix {1}, offiy {2}, sizeix {10}, sizeiy {5}};
 
-    for_each_xy(r, [](int const, int const) {
+    for_each_xy(r, [](point2i) {
     });
 
-    for_each_xy(r, [](int const, int const, bool const) {
+    for_each_xy(r, [](point2i, bool) {
     });
 }
 

@@ -32,17 +32,20 @@ template <size_t N, typename Check, typename Predicate>
 unsigned fold_neighbors_impl(
     std::array<int, N> const& xi
   , std::array<int, N> const& yi
-  , int const x
-  , int const y
+  , boken::point2i const p
   , Check check
   , Predicate pred
 ) {
+    using namespace boken;
+
     unsigned result {};
 
+    auto const x = value_cast(p.x);
+    auto const y = value_cast(p.y);
+
     for (size_t i = 0; i < N; ++i) {
-        auto const x0 = x + xi[i];
-        auto const y0 = y + yi[i];
-        auto const bit = check(x0, y0) && pred(x0, y0) ? 1u : 0u;
+        auto const q = point2i {x + xi[i], y + yi[i]};
+        auto const bit = check(q) && pred(q) ? 1u : 0u;
         result |= bit << (N - 1 - i);
     }
 
@@ -53,20 +56,20 @@ unsigned fold_neighbors_impl(
 // W[2]    E[1]
 //     S[0]
 template <typename Check, typename Predicate>
-unsigned fold_neighbors4(int const x, int const y, Check check, Predicate pred) {
+unsigned fold_neighbors4(boken::point2i const p, Check check, Predicate pred) {
     constexpr std::array<int, 4> yi {-1,  0, 0, 1};
     constexpr std::array<int, 4> xi { 0, -1, 1, 0};
-    return fold_neighbors_impl(xi, yi, x, y, check, pred);
+    return fold_neighbors_impl(xi, yi, p, check, pred);
 }
 
 // NW[7] N[6] NE[5]
 //  W[4]       E[3]
 // SW[2] S[1] SE[0]
 template <typename Check, typename Predicate>
-unsigned fold_neighbors9(int const x, int const y, Check check, Predicate pred) {
+unsigned fold_neighbors9(boken::point2i const p, Check check, Predicate pred) {
     constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
     constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
-    return fold_neighbors_impl(xi, yi, x, y, check, pred);
+    return fold_neighbors_impl(xi, yi, p, check, pred);
 }
 
 template <typename Vector>
@@ -92,24 +95,16 @@ std::pair<boken::point2<T>, bool> find_random_nearest(
   , std::vector<boken::point2i>& points
   , Predicate                    pred
 ) {
+    using namespace boken;
+
     BK_ASSERT(max_distance >= 0);
 
     points.clear();
-    points.reserve(static_cast<size_t>(max_distance * 8));
-
-    auto const ox = value_cast(origin.x);
-    auto const oy = value_cast(origin.y);
+    points.reserve(static_cast<size_t>(max_distance * 8 + 1));
 
     for (T d = 0; d <= max_distance; ++d) {
-        for (T i = 0; i < d * 2; ++i) {
-            points.push_back({ox - d, 0 - d + i});
-            points.push_back({ox + d, 0 - d + i});
-        }
-
-        for (T i = 1; i < d * 2 - 1; ++i) {
-            points.push_back({0 - d + i, oy - d});
-            points.push_back({0 - d + i, oy + d});
-        }
+        boken::points_around(origin, d
+          , [&](point2i const p) noexcept { points.push_back(p); });
 
         std::shuffle(begin(points), end(points), rng);
 
@@ -155,20 +150,20 @@ bool can_remove_wall_code(
 }
 
 template <typename Read, typename Check>
-bool can_remove_wall_at(int const x, int const y, Read read, Check check) noexcept {
+bool can_remove_wall_at(boken::point2i const p, Read read, Check check) noexcept {
     using namespace boken;
 
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
+    static_assert(noexcept(read(p)), "");
+    static_assert(noexcept(check(p)), "");
 
     auto const wall_type =
-        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::wall;
+        fold_neighbors9(p, check, [&](point2i const q) noexcept {
+            return read(q) == tile_type::wall;
         });
 
     auto const other_type =
-        fold_neighbors9(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::floor;
+        fold_neighbors9(p, check, [&](point2i const q) noexcept {
+            return read(q) == tile_type::floor;
         });
 
     return can_remove_wall_code(wall_type, other_type);
@@ -200,16 +195,16 @@ boken::tile_id wall_code_to_id(unsigned const code) noexcept {
 }
 
 template <typename Read, typename Check>
-boken::tile_id tile_type_to_id_at(int const x, int const y, Read read, Check check) noexcept {
+boken::tile_id tile_type_to_id_at(boken::point2i const p, Read read, Check check) noexcept {
     using namespace boken;
 
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
+    static_assert(noexcept(read(p)), "");
+    static_assert(noexcept(check(p)), "");
 
     using ti = tile_id;
     using tt = tile_type;
 
-    switch (read(x, y)) {
+    switch (read(p)) {
     default         : break;
     case tt::empty  : return ti::empty;
     case tt::floor  : return ti::floor;
@@ -217,8 +212,8 @@ boken::tile_id tile_type_to_id_at(int const x, int const y, Read read, Check che
     case tt::door   : break;
     case tt::stair  : break;
     case tt::wall   : return wall_code_to_id(
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            auto const type = read(x0, y0);
+        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+            auto const type = read(q);
             return type == tt::wall || type == tt::door;
         }));
     }
@@ -227,20 +222,20 @@ boken::tile_id tile_type_to_id_at(int const x, int const y, Read read, Check che
 }
 
 template <typename Read, typename Check>
-boken::tile_id can_place_door_at(int const x, int const y, Read read, Check check) noexcept {
+boken::tile_id can_place_door_at(boken::point2i const p, Read read, Check check) noexcept {
     using namespace boken;
 
-    static_assert(noexcept(read(x, y)), "");
-    static_assert(noexcept(check(x, y)), "");
+    static_assert(noexcept(read(p)), "");
+    static_assert(noexcept(check(p)), "");
 
     auto const wall_type =
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            return read(x0, y0) == tile_type::wall;
+        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+            return read(q) == tile_type::wall;
         });
 
     auto const other_type =
-        fold_neighbors4(x, y, check, [&](int const x0, int const y0) noexcept {
-            auto const type = read(x0, y0);
+        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+            auto const type = read(q);
             return type == tile_type::floor || type == tile_type::tunnel;
         });
 
@@ -258,12 +253,12 @@ void transform_area(
 ) {
     using namespace boken;
 
-    auto const transform_checked = [&](int const x, int const y) noexcept {
-        transform(x, y, check);
+    auto const transform_checked = [&](point2i const p) noexcept {
+        transform(p, check);
     };
 
-    auto const transform_unchecked = [&](int const x, int const y) noexcept {
-        transform(x, y, always_true {});
+    auto const transform_unchecked = [&](point2i const p) noexcept {
+        transform(p, always_true {});
     };
 
     bool const must_check = area.x0 == bounds.x0
@@ -540,7 +535,16 @@ public:
 
     std::pair<point2i, placement_result>
     add_item_nearest_random(random_state& rng, unique_item&& i, point2i p, int max_distance) final override {
-        return {p, placement_result::failed_obstacle};
+        auto const where = find_random_nearest(rng, p, max_distance
+          , [&](point2i const q) {
+                return add_item_at(std::move(i), q) == placement_result::ok;
+            });
+
+        if (!where.second) {
+            return {p, placement_result::failed_obstacle};
+        }
+
+        return {where.first, placement_result::ok};
     }
 
     std::pair<point2i, placement_result>
@@ -757,14 +761,14 @@ public:
 private:
     template <typename Vector>
     auto make_data_reader_(Vector&& v) const noexcept {
-        return [&](int const x, int const y) noexcept {
-            return data_at_(std::forward<Vector>(v), x, y);
+        return [&](point2i const p) noexcept {
+            return data_at_(std::forward<Vector>(v), p);
         };
     }
 
     auto make_bounds_checker_() const noexcept {
-        return [&](int const x, int const y) noexcept {
-            return check_bounds_(x, y);
+        return [&](point2i const p) noexcept {
+            return check_bounds_(p);
         };
     }
 
@@ -902,15 +906,15 @@ std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix const widt
 void level_impl::merge_walls_at(random_state& rng, recti const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](int const x, int const y, auto check) noexcept {
+      , [&](point2i const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
-            auto& type = this->data_at_(data_.types, x, y);
-            if (type != tile_type::wall || !can_remove_wall_at(x, y, read, check)) {
+            auto& type = this->data_at_(data_.types, p);
+            if (type != tile_type::wall || !can_remove_wall_at(p, read, check)) {
                 return;
             }
 
             type = tile_type::floor;
-            this->data_at_(data_.flags, x, y) = tile_flags {0};
+            this->data_at_(data_.flags, p) = tile_flags {0};
         }
     );
 }
@@ -918,11 +922,11 @@ void level_impl::merge_walls_at(random_state& rng, recti const area) {
 void level_impl::update_tile_ids(random_state& rng, recti const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](int const x, int const y, auto check) noexcept {
+      , [&](point2i const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
-            auto const id = tile_type_to_id_at(x, y, read, check);
+            auto const id = tile_type_to_id_at(p, read, check);
             if (id != tile_id::invalid) {
-                this->data_at_(data_.ids, x, y) = id;
+                this->data_at_(data_.ids, p) = id;
             }
         }
     );
@@ -931,16 +935,16 @@ void level_impl::update_tile_ids(random_state& rng, recti const area) {
 void level_impl::place_doors(random_state& rng, recti const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](int const x, int const y, auto check) noexcept {
-            auto const id = can_place_door_at(x, y, read, check);
+      , [&](point2i const p, auto check) noexcept {
+            auto const id = can_place_door_at(p, read, check);
             if (id == tile_id::invalid || random_coin_flip(rng)) {
                 return;
             }
 
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
-            this->data_at_(data_.types, x, y) = tile_type::door;
-            this->data_at_(data_.ids, x, y) = id;
-            this->data_at_(data_.flags, x, y) = tile_flags {tile_flags::f_solid};
+            this->data_at_(data_.types, p) = tile_type::door;
+            this->data_at_(data_.ids, p) = id;
+            this->data_at_(data_.flags, p) = tile_flags {tile_flags::f_solid};
         }
     );
 }

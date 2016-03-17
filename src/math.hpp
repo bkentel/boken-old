@@ -277,21 +277,21 @@ bool operator==(axis_aligned_rect<T> const& lhs, axis_aligned_rect<U> const& rhs
 }
 
 template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 3>) {
+void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 2>) {
     for (auto y = r.y0; y < r.y1; ++y) {
         bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
         for (auto x = r.x0; x < r.x1; ++x) {
             bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
-            f(x, y, on_edge);
+            f(point2<T> {x, y}, on_edge);
         }
     }
 }
 
 template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 2>) {
+void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 1>) {
     for (auto y = r.y0; y < r.y1; ++y) {
         for (auto x = r.x0; x < r.x1; ++x) {
-            f(x, y);
+            f(point2<T> {x, y});
         }
     }
 }
@@ -300,6 +300,32 @@ template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f) {
     constexpr int n = arity_of<F>::value;
     for_each_xy(r, f, std::integral_constant<int, n> {});
+}
+
+template <typename T, typename UnaryF>
+void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f)
+    noexcept (noexcept(f(std::declval<point2<T>>())))
+{
+    if (r.area() == 1) {
+        f(r.top_left());
+        return;
+    }
+
+    //top edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        f(point2<T> {x, r.y0});
+    }
+
+    //left and right edge
+    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
+        f(point2<T> {r.x0,     y});
+        f(point2<T> {r.x1 - 1, y});
+    }
+
+    // bottom edge
+    for (auto x = r.x0; x < r.x1; ++x) {
+        f(point2<T> {x, r.y1 - 1});
+    }
 }
 
 //
@@ -311,24 +337,20 @@ void for_each_xy(axis_aligned_rect<T> const r, F f) {
 //
 template <typename T, typename CenterF, typename EdgeF>
 void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
-    // inner tiles
     for_each_xy(shrink_rect(r), center);
+    for_each_xy_edge(r, edge);
+}
 
-    //top edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        edge(x, r.y0);
-    }
+template <typename T, typename UnaryF>
+void points_around(point2<T> const p, T const distance, UnaryF f)
+    noexcept (noexcept(f(p)))
+{
+    auto const d = distance;
+    auto const q = p - vec2<T> {d, d};
+    auto const s = d * 2 + 1;
 
-    //left and right edge
-    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
-        edge(r.x0,     y);
-        edge(r.x1 - 1, y);
-    }
-
-    // bottom edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        edge(x, r.y1 - 1);
-    }
+    for_each_xy_edge(axis_aligned_rect<T> {
+        q.x, q.y, size_type_x<T> {s}, size_type_y<T> {s}}, f);
 }
 
 template <typename T>
