@@ -222,8 +222,7 @@ class item_deleter {
 public:
     using pointer = item_instance_id;
 
-    item_deleter(world* const w) noexcept : world_ {w} { }
-
+    explicit item_deleter(world* const w) noexcept : world_ {w} { }
     void operator()(pointer const id) const noexcept;
     world const& source_world() const noexcept { return *world_; }
 private:
@@ -236,8 +235,7 @@ class entity_deleter {
 public:
     using pointer = entity_instance_id;
 
-    entity_deleter(world* const w) noexcept : world_ {w} { }
-
+    explicit entity_deleter(world* const w) noexcept : world_ {w} { }
     void operator()(pointer const id) const noexcept;
     world const& source_world() const noexcept { return *world_; }
 private:
