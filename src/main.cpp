@@ -323,6 +323,25 @@ struct game_state {
         renderer.update_item_data();
     }
 
+    void reset_view_to_player() {
+        auto const& tile_map = database.get_tile_map(tile_map_type::base);
+        auto const tw = value_cast<float>(tile_map.tile_width());
+        auto const th = value_cast<float>(tile_map.tile_height());
+
+        current_view.scale_x = 1.0f;
+        current_view.scale_y = 1.0f;
+
+        auto const p = get_player().second;
+
+        auto const px = value_cast(p.x) * tw + tw / 2;
+        auto const py = value_cast(p.y) * th + th / 2;
+
+        auto const r = os.render_get_client_rect();
+
+        current_view.x_off = -px + (r.width()  / 2.0f);
+        current_view.y_off = -py + (r.height() / 2.0f);
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -429,12 +448,7 @@ struct game_state {
         case ct::get_all_items : get_all_items(); break;
         case ct::move_down : do_change_level(); break;
         case ct::move_up   : do_change_level(); break;
-        case ct::reset_view:
-            current_view.x_off   = 0.0f;
-            current_view.y_off   = 0.0f;
-            current_view.scale_x = 1.0f;
-            current_view.scale_y = 1.0f;
-            break;
+        case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
             current_view.scale_y = 1.0f;

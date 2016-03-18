@@ -682,6 +682,8 @@ public:
     virtual bool is_running() = 0;
     virtual int do_events() = 0;
 
+    virtual recti render_get_client_rect() const = 0;
+
     virtual void render_clear()   = 0;
     virtual void render_present() = 0;
 

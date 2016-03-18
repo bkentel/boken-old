@@ -365,6 +365,12 @@ public:
 
     int do_events() final override;
 
+    recti render_get_client_rect() const final override {
+        SDL_Rect r {};
+        SDL_RenderGetViewport(renderer_, &r);
+        return {offix {0}, offiy {0}, sizeix {r.w}, sizeiy {r.h}};
+    }
+
     void render_clear() final override {
         SDL_SetRenderDrawColor(renderer_, 127, 127, 0, 255);
         SDL_RenderClear(renderer_);
