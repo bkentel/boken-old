@@ -446,8 +446,8 @@ struct game_state {
         case ct::move_w  : player_move(vec2i {-1,  0}); break;
         case ct::move_nw : player_move(vec2i {-1, -1}); break;
         case ct::get_all_items : get_all_items(); break;
-        case ct::move_down : do_change_level(); break;
-        case ct::move_up   : do_change_level(); break;
+        case ct::move_down : do_change_level(ct::move_down); break;
+        case ct::move_up   : do_change_level(ct::move_up); break;
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
@@ -586,16 +586,48 @@ struct game_state {
         advance(1);
     }
 
-    void do_change_level() {
-        auto const player = get_player();
-        auto const tile   = the_world.current_level().at(player.second);
+    //! Attempt to change levels at the current player position.
+    //! @param type Must be either command_type::move_down or
+    //! command_type::move_up.
+    void do_change_level(command_type const type) {
+        BK_ASSERT(type == command_type::move_down
+               || type == command_type::move_up);
 
-        auto const delta = tile.id == tile_id::stair_down ?  1
-                         : tile.id == tile_id::stair_up   ? -1
-                                                          :  0;
+        auto const player = get_player();
+
+        auto const delta = [&]() noexcept {
+            auto const tile   = the_world.current_level().at(player.second);
+
+            auto const tile_code = (tile.id == tile_id::stair_down)  ? 1
+                                 : (tile.id == tile_id::stair_up)    ? 2
+                                                                     : 0;
+            auto const move_code = (type == command_type::move_down) ? 1
+                                 : (type == command_type::move_up)   ? 2
+                                                                     : 0;
+            switch ((move_code << 2) | tile_code) {
+            case 0b0100 : // move_down & other
+            case 0b1000 : // move_up   & other
+                message_window.println("There are no stairs here.");
+                break;;
+            case 0b0101 : // move_down & stair_down
+                return 1;
+            case 0b1010 : // move_up   & stair_up
+                return -1;
+            case 0b0110 : // move_down & stair_up
+                message_window.println("You can't go down here.");
+                break;
+            case 0b1001 : // move_up   & stair_down
+                message_window.println("You can't go up here.");
+                break;
+            default:
+                BK_ASSERT(false); // some other command was given
+                break;
+            }
+
+            return 0;
+        }();
 
         if (delta == 0) {
-            message_window.println("There are no stairs here.");
             return;
         }
 
@@ -666,6 +698,7 @@ struct game_state {
         }
     }
 
+    //! Advance the game time by @p steps
     void advance(int const steps) {
         auto& lvl = the_world.current_level();
 
@@ -697,16 +730,7 @@ struct game_state {
         );
     }
 
-    void run() {
-        while (os.is_running()) {
-            os.do_events();
-            render(last_frame_time);
-        }
-    }
-
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Rendering
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //! Render the game
     void render(timepoint_t const last_frame) {
         using namespace std::chrono_literals;
 
@@ -730,6 +754,14 @@ struct game_state {
 
         entity_updates_.clear();
         item_updates_.clear();
+    }
+
+    //! The main game loop
+    void run() {
+        while (os.is_running()) {
+            os.do_events();
+            render(last_frame_time);
+        }
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
