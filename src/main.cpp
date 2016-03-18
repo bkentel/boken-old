@@ -287,18 +287,33 @@ struct game_state {
         }
     }
 
-    void generate() {
+    void generate_level(level* const parent, size_t const id) {
         auto const level_w = 100;
         auto const level_h = 80;
 
-        auto& lvl = the_world.add_new_level(nullptr
-          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}));
+        the_world.add_new_level(parent
+          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}, id));
 
-        renderer.set_level(the_world.current_level());
+        the_world.change_level(id);
+    }
 
-        generate_player();
+    void generate(size_t const id = 0) {
+        if (id == 0) {
+            generate_level(nullptr, id);
+            generate_player();
+        } else {
+            generate_level(&the_world.current_level(), id);
+        }
+
         generate_entities();
         generate_items();
+
+        set_current_level(id);
+    }
+
+    void set_current_level(size_t const id) {
+        BK_ASSERT(the_world.has_level(id));
+        renderer.set_level(the_world.change_level(id));
 
         item_updates_.clear();
         entity_updates_.clear();
@@ -412,6 +427,8 @@ struct game_state {
         case ct::move_w  : player_move(vec2i {-1,  0}); break;
         case ct::move_nw : player_move(vec2i {-1, -1}); break;
         case ct::get_all_items : get_all_items(); break;
+        case ct::move_down : do_change_level(); break;
+        case ct::move_up   : do_change_level(); break;
         case ct::reset_view:
             current_view.x_off   = 0.0f;
             current_view.y_off   = 0.0f;
@@ -553,6 +570,41 @@ struct game_state {
         }
 
         advance(1);
+    }
+
+    void do_change_level() {
+        auto const player = get_player();
+        auto const tile   = the_world.current_level().at(player.second);
+
+        auto const delta = tile.id == tile_id::stair_down ?  1
+                         : tile.id == tile_id::stair_up   ? -1
+                                                          :  0;
+
+        if (delta == 0) {
+            message_window.println("There are no stairs here.");
+            return;
+        }
+
+        auto const id = the_world.current_level().id();
+        if (id == 0 && delta < 0) {
+            message_window.println("You can't leave.");
+            return;
+        }
+
+        auto player_ent = the_world.current_level()
+          .remove_entity(player.first.instance());
+
+        if (!the_world.has_level(id + delta)) {
+            generate(id + delta);
+        } else {
+            set_current_level(id + delta);
+        }
+
+        auto const p = (delta > 0)
+          ? the_world.current_level().stair_up(0)
+          : the_world.current_level().stair_down(0);
+
+        add_entity_near(std::move(player_ent), p, 5, rng_substantive);
     }
 
     void interact_obstacle(entity& e, point2i const cur_pos, point2i const obstacle_pos) {

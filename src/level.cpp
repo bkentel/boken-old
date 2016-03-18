@@ -366,12 +366,13 @@ struct generate_rect_room {
 
 class level_impl : public level {
 public:
-    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height)
+    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height, size_t const id)
       : bounds_   {offix {0}, offiy {0}, width, height}
       , entities_ {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
       , items_    {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
       , data_     {width, height}
       , world_    {w}
+      , id_       {id}
     {
         bsp_generator::param_t p;
         p.width  = sizeix {width};
@@ -396,6 +397,10 @@ public:
 
     recti bounds() const noexcept final override {
         return bounds_;
+    }
+
+    size_t id() const noexcept final override {
+        return id_;
     }
 
     std::pair<entity*, point2i>
@@ -485,6 +490,10 @@ public:
     }
 
     placement_result add_item_at(unique_item&& i, point2i const p) final override {
+        if (!item_deleter_) {
+            item_deleter_ = &i.get_deleter();
+        }
+
         {
             auto const result = can_place_item_at(p);
             if (result != placement_result::ok) {
@@ -513,6 +522,10 @@ public:
     }
 
     placement_result add_entity_at(unique_entity&& e, point2i const p) final override {
+        if (!entity_deleter_) {
+            entity_deleter_ = &e.get_deleter();
+        }
+
         auto const result = can_place_entity_at(p);
         if (result != placement_result::ok) {
             return result;
@@ -525,12 +538,18 @@ public:
         return placement_result::ok;
     }
 
-    bool remove_entity_at(point2i const p) noexcept final override {
-        return entities_.erase(p.cast_to<uint16_t>());
+    unique_entity remove_entity_at(point2i const p) noexcept final override {
+        BK_ASSERT(!!entity_deleter_);
+        auto const result = entities_.erase(p.cast_to<uint16_t>());
+        return result.second
+          ? unique_entity {result.first, *entity_deleter_}
+          : unique_entity {entity_instance_id {}, *entity_deleter_};
     }
 
-    bool remove_entity(entity_instance_id const id) noexcept final override {
-        return entities_.erase(id);
+    unique_entity remove_entity(entity_instance_id const id) noexcept final override {
+        return entities_.erase(id).second
+          ? unique_entity {id, *entity_deleter_}
+          : unique_entity {entity_instance_id {}, *entity_deleter_};
     }
 
     std::pair<point2i, placement_result>
@@ -820,7 +839,7 @@ private:
 
     struct get_item_instance_id_t {
         item_instance_id operator()(item_pile const& p) const noexcept {
-            return *p.begin();
+            return p.empty() ? item_instance_id {0} : *p.begin();
         }
     };
 
@@ -838,6 +857,9 @@ private:
 
     spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, uint16_t> entities_;
     spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, uint16_t> items_;
+
+    item_deleter   const* item_deleter_   {};
+    entity_deleter const* entity_deleter_ {};
 
     recti bounds_;
 
@@ -868,6 +890,7 @@ private:
     } data_;
 
     world& world_;
+    size_t id_;
 };
 
 tile_view level_impl::at(point2i const p) const noexcept {
@@ -899,8 +922,14 @@ tile_view level_impl::at(point2i const p) const noexcept {
     };
 }
 
-std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix const width, sizeiy const height) {
-    return std::make_unique<level_impl>(rng, w, width, height);
+std::unique_ptr<level> make_level(
+    random_state& rng
+  , world& w
+  , sizeix const width
+  , sizeiy const height
+  , size_t const id
+) {
+    return std::make_unique<level_impl>(rng, w, width, height, id);
 }
 
 void level_impl::merge_walls_at(random_state& rng, recti const area) {

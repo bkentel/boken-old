@@ -33,7 +33,9 @@ public:
     virtual level&       current_level()       noexcept = 0;
     virtual level const& current_level() const noexcept = 0;
 
+    virtual bool   has_level(size_t const id) const noexcept = 0;
     virtual level& add_new_level(level* parent, std::unique_ptr<level> level) = 0;
+    virtual level& change_level(size_t const id) = 0;
 };
 
 std::unique_ptr<world> make_world();

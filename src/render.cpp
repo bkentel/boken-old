@@ -91,6 +91,9 @@ public:
     }
 
     void set_level(level const& lvl) noexcept final override {
+        entity_data.clear();
+        item_data.clear();
+        tile_data.clear();
         level_ = &lvl;
     }
 

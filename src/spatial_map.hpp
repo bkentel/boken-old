@@ -104,11 +104,11 @@ public:
         return move_to_(p, p0);
     }
 
-    bool erase(point_type const p) {
+    std::pair<key_type, bool> erase(point_type const p) {
         return erase_(p);
     }
 
-    bool erase(key_type const k) {
+    std::pair<key_type, bool> erase(key_type const k) {
         return erase_(k);
     }
 
@@ -186,17 +186,19 @@ private:
     }
 
     template <typename Key>
-    bool erase_(Key const k) noexcept {
+    std::pair<key_type, bool> erase_(Key const k) noexcept {
         auto const offset = find_offset_to_(k);
         if (offset < 0) {
-            return false;
+            return {key_type {}, false};
         }
+
+        auto const result_key = get_key_(*(values_.begin() + offset));
 
         positions_.erase(positions_.begin() + offset);
         properties_.erase(properties_.begin() + offset);
         values_.erase(values_.begin() + offset);
 
-        return true;
+        return {result_key, true};
     }
 
     ptrdiff_t find_offset_to_(point_type const p) const noexcept {

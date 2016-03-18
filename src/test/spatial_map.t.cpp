@@ -64,19 +64,19 @@ TEST_CASE("spatial map") {
     REQUIRE(map.find(1).first->value == 1);
 
     // erase invalid by pos
-    REQUIRE(!map.erase({0, 0}));
+    REQUIRE(!map.erase({0, 0}).second);
     REQUIRE(map.size() == 3);
 
     // erase invalid by key
-    REQUIRE(!map.erase(0));
+    REQUIRE(!map.erase(0).second);
     REQUIRE(map.size() == 3);
 
     // erase by pos
-    REQUIRE(map.erase({1, 1}));
+    REQUIRE(map.erase({1, 1}).second);
     REQUIRE(map.size() == 2);
 
     // erase by key
-    REQUIRE(map.erase(4));
+    REQUIRE(map.erase(4).second);
     REQUIRE(map.size() == 1);
 }
 

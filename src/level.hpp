@@ -64,6 +64,9 @@ public:
     //! The bounds of the level in tiles.
     virtual recti bounds() const noexcept = 0;
 
+    //! The identifier for the level; generally just an integer.
+    virtual size_t id() const noexcept = 0;
+
     //! Return a pointer to and position of the entity with the given id.
     //! Otherwise return {nullptr, {0, 0}}
     //! @note A failure to find the entity could, for example, be because it
@@ -125,8 +128,8 @@ public:
     virtual placement_result add_item_at(unique_item&& i, point2i p) = 0;
     virtual placement_result add_entity_at(unique_entity&& e, point2i p) = 0;
 
-    virtual bool remove_entity_at(point2i p) noexcept = 0;
-    virtual bool remove_entity(entity_instance_id id) noexcept = 0;
+    virtual unique_entity remove_entity_at(point2i p) noexcept = 0;
+    virtual unique_entity remove_entity(entity_instance_id id) noexcept = 0;
 
     //! Attempt to place the item @p i at the location given by @p p. If not
     //! possible, randomly probe adjacent tiles no more than @p max_distance
@@ -170,6 +173,6 @@ public:
     virtual const_sub_region_range<uint16_t> region_ids(recti area) const noexcept = 0;
 };
 
-std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix width, sizeiy height);
+std::unique_ptr<level> make_level(random_state& rng, world& w, sizeix width, sizeiy height, size_t id);
 
 } //namespace boken

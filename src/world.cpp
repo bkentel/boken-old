@@ -136,9 +136,24 @@ public:
         return *levels_[current_level_index_];
     }
 
+    bool has_level(size_t const id) const noexcept final override {
+        auto const it = std::find_if(begin(levels_), end(levels_)
+          , [&](auto const& lvl) noexcept { return lvl->id() == id; });
+
+        return it != end(levels_);
+    }
+
     level& add_new_level(level* parent, std::unique_ptr<level> level) final override {
         levels_.push_back(std::move(level));
         return *levels_.back();
+    }
+
+    level& change_level(size_t const id) final override {
+        if (id < levels_.size()) {
+            current_level_index_ = id;
+        }
+
+        return current_level();
     }
 private:
     item_deleter   item_deleter_   {this};
