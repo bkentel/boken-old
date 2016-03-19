@@ -69,10 +69,21 @@ text_layout::text_layout() noexcept
 {
 }
 
-text_layout::text_layout(text_renderer& trender, std::string text)
-  : text_layout {}
+text_layout::text_layout(
+    text_renderer& trender
+  , std::string text
+  , int16_t const max_width
+  , int16_t const max_height
+)
+  : data_          {}
+  , text_          {}
+  , position_      {0, 0}
+  , max_width_     {max_width}
+  , max_height_    {max_height}
+  , actual_width_  {0}
+  , actual_height_ {0}
+  , is_visible_    {true}
 {
-    is_visible_ = true;
     layout(trender, std::move(text));
 }
 
@@ -155,6 +166,10 @@ std::vector<text_layout::data_t> const& text_layout::data() const noexcept {
     return data_;
 }
 
+string_view text_layout::text() const noexcept {
+    return {text_};
+}
+
 void text_layout::move_to(int const x, int const y) noexcept {
     position_ = point2<int16_t> {
         clamp_as<int16_t>(x)
@@ -176,6 +191,14 @@ bool text_layout::visible(bool state) noexcept {
 recti text_layout::extent() const noexcept {
     return {position_.x, position_.y
           , actual_width_, actual_height_};
+}
+
+sizeix text_layout::max_width() const noexcept {
+    return max_width_;
+}
+
+sizeiy text_layout::max_height() const noexcept {
+    return max_height_;
 }
 
 } //namespace boken

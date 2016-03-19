@@ -230,6 +230,14 @@ private:
 using recti = axis_aligned_rect<int32_t>;
 
 template <typename T> inline constexpr
+axis_aligned_rect<T> operator+(axis_aligned_rect<T> const r, vec2<T> const v) noexcept {
+    return {offset_type_x<T> {r.x0 + value_cast(v.x)}
+          , offset_type_y<T> {r.y0 + value_cast(v.y)}
+          , size_type_x<T> {r.width()}
+          , size_type_y<T> {r.height()}};
+}
+
+template <typename T> inline constexpr
 axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
     return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
           , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};

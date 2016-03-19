@@ -1,6 +1,7 @@
 #pragma once
 #include "math.hpp"   // for basic_2_tuple, point2i
 #include "types.hpp"  // for tagged_integral_value
+#include "config.hpp" //string_View
 
 #include <memory>     // for unique_ptr
 #include <string>     // for string
@@ -43,7 +44,12 @@ public:
 
     text_layout() noexcept;
 
-    text_layout(text_renderer& trender, std::string text);
+    text_layout(
+        text_renderer& trender
+      , std::string    text
+      , int16_t        max_width  = std::numeric_limits<int16_t>::max()
+      , int16_t        max_height = std::numeric_limits<int16_t>::max()
+    );
 
     void layout(text_renderer& trender, std::string text);
 
@@ -56,11 +62,15 @@ public:
     bool visible(bool state) noexcept;
 
     recti extent() const noexcept;
+    sizeix max_width() const noexcept;
+    sizeiy max_height() const noexcept;
 
     // ensure all required glyphs are still cached at the same locations
     void update(text_renderer& trender) const noexcept;
 
     std::vector<data_t> const& data() const noexcept;
+
+    string_view text() const noexcept;
 private:
     // glyph texture locations can change
     std::vector<data_t> mutable data_;

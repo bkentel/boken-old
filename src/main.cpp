@@ -17,6 +17,7 @@
 #include "types.hpp"        // for value_cast, tag_size_type_x, etc
 #include "utility.hpp"      // for BK_OFFSETOF
 #include "world.hpp"        // for world, make_world
+#include "inventory.hpp"
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
@@ -105,7 +106,25 @@ struct game_state {
           , {tile_map_type::item,   database.get_tile_map(tile_map_type::item)}
         });
 
+        make_inventory();
+        renderer.set_inventory_window(&inventory);
+
         generate();
+    }
+
+    void make_inventory() {
+        inventory.add_column(0, "Name"
+          , [&](item const& itm) {
+                auto const def = database.find(itm.definition());
+                return def ? def->name : "{unknown}";
+            });
+
+        inventory.add_column(1, "Id"
+          , [&](item const& itm) {
+                auto const def = database.find(itm.definition());
+                return def ? def->id_string : "{unknown}";
+            });
+        inventory.layout();
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -489,6 +508,8 @@ struct game_state {
 
                 message_window.println(buffer.to_string());
 
+                inventory.add_row(id); // TODO temp
+
                 return item_merge_result::ok;
             });
 
@@ -498,6 +519,7 @@ struct game_state {
         case merge_item_result::ok_merged_some:
         case merge_item_result::ok_merged_all:
             item_updates_.push_back({player.second, player.second, item_id {}});
+            inventory.layout(); // TODO temp
             break;
         case merge_item_result::failed_bad_source:
             message_window.println("There is nothing here to get.");
@@ -779,6 +801,16 @@ struct game_state {
         up<text_renderer>      trender_ptr         = make_text_renderer();
         up<game_renderer>      renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
         up<command_translator> cmd_translator_ptr  = make_command_translator();
+
+        inventory_list::lookup_f inventory_lookup() const noexcept {
+            return [&](item_instance_id const id) noexcept -> item const& {
+                auto const ptr = world_ptr->find(id);
+                BK_ASSERT(!!ptr);
+                return *ptr;
+            };
+        }
+
+        up<inventory_list> inventory_ptr = make_inventory_list(*trender_ptr, inventory_lookup());
     } state {};
 
     system&             os              = *state.system_ptr;
@@ -789,6 +821,7 @@ struct game_state {
     game_renderer&      renderer        = *state.renderer_ptr;
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
+    inventory_list&     inventory       = *state.inventory_ptr;
 
     view current_view;
 

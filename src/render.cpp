@@ -6,6 +6,7 @@
 #include "text.hpp"
 #include "tile.hpp"
 #include "utility.hpp"
+#include "inventory.hpp"
 
 #include <bkassert/assert.hpp>
 
@@ -132,10 +133,15 @@ public:
         message_log_ = window;
     }
 
+    void set_inventory_window(inventory_list const* const window) noexcept final override {
+        inventory_list_ = window;
+    }
+
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
-    void render_text_(text_layout const& text) const noexcept;
+    void render_text_(text_layout const& text, vec2i off) const noexcept;
     void render_message_log_() const noexcept;
+    void render_inventory_list_() const noexcept;
 
     system&        os_;
     text_renderer& trender_;
@@ -158,6 +164,7 @@ private:
 
     text_layout tool_tip_;
     message_log const* message_log_ {};
+    inventory_list const* inventory_list_ {};
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender) {
@@ -306,17 +313,22 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     //
     // tool tip
     //
-    render_text_(tool_tip_);
+    render_text_(tool_tip_, vec2i {0, 0});
 
     //
     // message log window
     //
     render_message_log_();
 
+    //
+    // inventory window
+    //
+    render_inventory_list_();
+
     os_.render_present();
 }
 
-void game_renderer_impl::render_text_(text_layout const& text) const noexcept {
+void game_renderer_impl::render_text_(text_layout const& text, vec2i const off) const noexcept {
     if (!text.is_visible()) {
         return;
     }
@@ -325,13 +337,14 @@ void game_renderer_impl::render_text_(text_layout const& text) const noexcept {
 
     auto const& glyph_data = text.data();
 
-    auto const p  = text.position();
+    auto const r  = text.extent() + off;
+    auto const p  = r.top_left();
     auto const tx = value_cast<float>(p.x);
     auto const ty = value_cast<float>(p.y);
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 
-    os_.render_fill_rect(text.extent(), 0xDF666666u);
+    os_.render_fill_rect(r, 0xDF666666u);
 
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)});
@@ -348,9 +361,32 @@ void game_renderer_impl::render_message_log_() const noexcept {
     }
 
     auto const& log_window = *message_log_;
+    auto const v = vec2i {0, 0};
 
     std::for_each(log_window.visible_begin(), log_window.visible_end()
-      , [&](text_layout const& line) { render_text_(line); });
+      , [&](text_layout const& line) noexcept { render_text_(line, v); });
+}
+
+void game_renderer_impl::render_inventory_list_() const noexcept {
+    if (!inventory_list_) {
+        return;
+    }
+
+    auto const& inv_window = *inventory_list_;
+    auto const v = inv_window.position() - point2i {0, 0};
+
+    for (size_t i = 0; i < inv_window.cols(); ++i) {
+        auto const info = inv_window.col(static_cast<int>(i));
+        render_text_(info.text, v);
+    }
+
+    for (size_t i = 0; i < inv_window.rows(); ++i) {
+        auto const range = inv_window.row(static_cast<int>(i));
+
+        std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {
+            render_text_(txt, v);
+        });
+    }
 }
 
 } //namespace boken

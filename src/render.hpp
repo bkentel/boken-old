@@ -12,6 +12,7 @@ namespace boken { class message_log; }
 namespace boken { class system; }
 namespace boken { class text_renderer; }
 namespace boken { class tile_map; }
+namespace boken { class inventory_list; }
 namespace boken { enum class tile_id : uint32_t; }
 namespace boken { enum class tile_map_type : uint32_t; }
 
@@ -114,6 +115,8 @@ public:
     virtual void update_tool_tip_position(point2i p) noexcept = 0;
 
     virtual void set_message_window(message_log const* window) noexcept = 0;
+
+    virtual void set_inventory_window(inventory_list const* window) noexcept = 0;
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
 };

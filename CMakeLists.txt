@@ -51,6 +51,7 @@ set(SOURCES
     src/command.cpp
     src/data.cpp
     src/entity.cpp
+    src/inventory.cpp
     src/item.cpp
     src/level.cpp
     src/main.cpp
