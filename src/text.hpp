@@ -45,10 +45,10 @@ public:
     text_layout() noexcept;
 
     text_layout(
-        text_renderer& trender
-      , std::string    text
-      , int16_t        max_width  = std::numeric_limits<int16_t>::max()
-      , int16_t        max_height = std::numeric_limits<int16_t>::max()
+        text_renderer&       trender
+      , std::string          text
+      , size_type_x<int16_t> max_width  = size_type_x<int16_t> {std::numeric_limits<int16_t>::max()}
+      , size_type_x<int16_t> max_height = size_type_x<int16_t> {std::numeric_limits<int16_t>::max()}
     );
 
     void layout(text_renderer& trender, std::string text);

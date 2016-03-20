@@ -32,12 +32,6 @@ template <typename T, typename Tag>
 constexpr T value_cast_impl(tagged_integral_value<T, Tag> n) noexcept;
 } //namespace detail
 
-template <
-    typename DesiredResultType = void
-  , typename ValueType
-  , typename ResultType = choose_void_t<DesiredResultType, ValueType>>
-constexpr ResultType value_cast(ValueType n) noexcept;
-
 //===------------------------------------------------------------------------===
 //                          Definitions
 //===------------------------------------------------------------------------===
@@ -98,14 +92,6 @@ constexpr ResultType value_cast(
     tagged_integral_value<ValueType, Tag> const n
 ) noexcept {
     return static_cast<ResultType>(detail::value_cast_impl(n));
-}
-
-template <
-    typename DesiredResultType
-  , typename ValueType
-  , typename ResultType>
-constexpr ResultType value_cast(ValueType const n) noexcept {
-    return static_cast<ResultType>(n);
 }
 
 template <typename T, typename U, typename Tag>
@@ -171,41 +157,6 @@ bool operator!=(std::nullptr_t, tagged_integral_value<T, Tag> const a) noexcept 
 //===------------------------------------------------------------------------===
 //                                  Types
 //===------------------------------------------------------------------------===
-
-struct tag_size_type   {};
-struct tag_area_type   {};
-struct tag_offset_type {};
-
-struct tag_size_type_x : tag_size_type {};
-struct tag_size_type_y : tag_size_type {};
-
-struct tag_offset_type_x : tag_offset_type {};
-struct tag_offset_type_y : tag_offset_type {};
-
-template <typename T>
-using size_type = tagged_integral_value<T, tag_size_type>;
-
-template <typename T>
-using size_type_x = tagged_integral_value<T, tag_size_type_x>;
-
-template <typename T>
-using size_type_y = tagged_integral_value<T, tag_size_type_y>;
-
-template <typename T>
-using offset_type = tagged_integral_value<T, tag_offset_type>;
-
-template <typename T>
-using offset_type_x = tagged_integral_value<T, tag_offset_type_x>;
-
-template <typename T>
-using offset_type_y = tagged_integral_value<T, tag_offset_type_y>;
-
-using sizei  = size_type<int32_t>;
-using sizeix = size_type_x<int32_t>;
-using sizeiy = size_type_y<int32_t>;
-using offi   = offset_type<int32_t>;
-using offix  = offset_type_x<int32_t>;
-using offiy  = offset_type_y<int32_t>;
 
 struct tag_id_entity {};
 struct tag_id_instance_entity {};

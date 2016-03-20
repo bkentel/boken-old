@@ -63,7 +63,6 @@
       <SDLCheck>true</SDLCheck>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SmallerTypeCheck>true</SmallerTypeCheck>
-      <DisableSpecificWarnings>4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -72,7 +71,6 @@
       <SDLCheck>true</SDLCheck>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SmallerTypeCheck>true</SmallerTypeCheck>
-      <DisableSpecificWarnings>4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -81,7 +79,6 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <DisableSpecificWarnings>4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -94,7 +91,6 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <DisableSpecificWarnings>4373;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -122,6 +118,7 @@
     <ClCompile Include="src\test\entity.t.cpp" />
     <ClCompile Include="src\test\level.t.cpp" />
     <ClCompile Include="src\test\math.t.cpp" />
+    <ClCompile Include="src\test\math_types.t.cpp" />
     <ClCompile Include="src\test\spatial_map.t.cpp" />
     <ClCompile Include="src\test\unicode.t.cpp" />
     <ClCompile Include="src\test\utility.t.cpp" />
@@ -149,6 +146,7 @@
     <ClInclude Include="src\item_pile.hpp" />
     <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\math.hpp" />
+    <ClInclude Include="src\math_types.hpp" />
     <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />

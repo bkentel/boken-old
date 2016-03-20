@@ -24,10 +24,12 @@ public:
     static constexpr int adjust_to_fit = -1;
 
     struct column_info {
-        text_layout const& text;
-        int16_t            left;
-        int16_t            right;
-        uint8_t            id;
+        text_layout const&     text;
+        offset_type_x<int16_t> left;
+        offset_type_x<int16_t> right;
+        size_type_x<int16_t>   min_width;
+        size_type_x<int16_t>   max_width;
+        uint8_t                id;
     };
 
     virtual ~inventory_list();

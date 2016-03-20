@@ -7,10 +7,6 @@
 
 namespace bk = ::boken;
 
-namespace boken {
-
-}
-
 TEST_CASE("points around rect") {
     using namespace boken;
 

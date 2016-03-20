@@ -28,22 +28,25 @@ public:
 
     int16_t col_width(int const i) const noexcept final override {
         auto const info = col(i);
-        return static_cast<int16_t>(info.right - info.left);
+        return static_cast<int16_t>(value_cast(info.right) - value_cast(info.left));
     }
 
     point2i position() const noexcept final override {
-        return {100, 100};
+        return position_;
     }
 
     void move_to(point2i const p) noexcept final override {
+        position_ += (p - position_);
     }
 
     recti bounds() const noexcept final override {
         auto const p = position();
-        return {p.x, p.y, sizeix {400}, sizeiy {300}};
+        return {p.x, p.y, width_, height_};
     }
 
     void resize_to(sizeix const w, sizeiy const h) noexcept final override {
+        width_  = w;
+        height_ = h;
     }
 
     size_t size() const noexcept final override {
@@ -55,7 +58,7 @@ public:
     }
 
     size_t cols() const noexcept final override {
-        return col_ids_.size();
+        return cols_.size();
     }
 
     bool empty() const noexcept final override {
@@ -75,28 +78,46 @@ public:
         BK_ASSERT((width == adjust_to_fit)
                || (width >= 0 && width < std::numeric_limits<int16_t>::max()));
 
-        auto const offset = (insert_before == insert_at_end)
+        auto const index = (insert_before == insert_at_end)
           ? cols()
           : static_cast<size_t>(insert_before);
 
-        auto const w = (width == inventory_list::adjust_to_fit)
+        auto const max_w = (width == inventory_list::adjust_to_fit)
           ? std::numeric_limits<int16_t>::max()
-          : static_cast<int16_t>(width);
+          : width;
 
-        col_ids_.insert(begin(col_ids_) + offset, id);
-        col_get_fs_.insert(begin(col_get_fs_) + offset, std::move(get));
-        col_labels_.insert(begin(col_labels_) + offset
-          , text_layout {trender_, std::move(label), w});
+        auto       text     = text_layout {trender_, std::move(label), size_type_x<int16_t> {max_w}};
+        auto const extent_w = text.extent().width();
+
+        auto const min_w = (width == adjust_to_fit)
+          ? extent_w
+          : 0;
+
+        auto const left = (index == 0)
+          ? offset_type_x<int16_t> {0}
+          : cols_[index - 1].right;
+
+        auto const right = offset_type_x<int16_t> {value_cast(left) + extent_w};
+
+        cols_.insert(std::next(begin(cols_), index), col_data {
+            std::move(text)
+          , std::move(get)
+          , left
+          , right
+          , size_type_x<int16_t> {min_w}
+          , size_type_x<int16_t> {max_w}
+          , id
+        });
     }
 
     void add_row(item_instance_id const id) final override {
-        std::vector<text_layout> row;
+        row_data row;
         row.reserve(cols());
 
         auto const& itm = lookup_(id);
 
         for (size_t i = 0; i < cols(); ++i) {
-            row.push_back({trender_, col_get_fs_[i](itm)});
+            row.push_back({trender_, cols_[i].getter(itm), cols_[i].max_width});
         }
 
         rows_.push_back(std::move(row));
@@ -162,12 +183,16 @@ public:
     column_info col(int const index) const noexcept final override {
         BK_ASSERT(index >= 0 && static_cast<size_t>(index) < cols());
 
-        auto const& col = col_labels_[index];
+        auto const& col = cols_[index];
 
-        return {col
-              , value_cast<int16_t>(col.position().x)
-              , value_cast<int16_t>(col.max_width())
-              , col_ids_[index]};
+        auto const r     = col.text.extent();
+        auto const left  = offset_type_x<int16_t> {r.x0};
+        auto const right = offset_type_x<int16_t> {r.x1};
+
+        return {col.text
+              , left, right
+              , col.min_width, col.max_width
+              , col.id};
     }
 
     std::pair<text_layout const*, text_layout const*>
@@ -180,44 +205,49 @@ public:
     }
 
     void layout() noexcept final override {
-        // set column widths
-        int32_t x = 0;
-
-        for (size_t i = 0; i < cols(); ++i) {
-            auto&      col   = col_labels_[i];
-            auto const col_w = col.extent().width();
-
-            col.move_to(x, 0);
-            x += col_w;
-        }
-
         // layout rows
+        int32_t x = 0;
         int32_t y = 0;
 
         for (size_t yi = 0; yi < rows(); ++yi) {
             x =  0;
             y += header_height();
-            auto& row = rows_[yi];
-            for (size_t xi = 0; xi < cols(); ++xi) {
-                auto& cell = row[xi];
-                auto const cell_w = cell.extent().width();
 
-                cell.move_to(x, y);
-                x += cell_w;
+            auto& row = rows_[yi];
+
+            for (size_t xi = 0; xi < cols(); ++xi) {
+                auto& col  = cols_[xi];
+                auto& cell = row[xi];
+
+                cell.move_to(value_cast(col.left), y);
             }
         }
     }
 private:
+    struct col_data {
+        text_layout            text;
+        get_f                  getter;
+        offset_type_x<int16_t> left;
+        offset_type_x<int16_t> right;
+        size_type_x<int16_t>   min_width;
+        size_type_x<int16_t>   max_width;
+        uint8_t                id;
+    };
+
+    using row_data = std::vector<text_layout>;
+
     text_renderer& trender_;
-    lookup_f lookup_;
-    int indicated_ = 0;
+    lookup_f       lookup_;
+
+    point2i position_ {100, 100};
+    sizeix  width_    {400};
+    sizeiy  height_   {200};
+
+    int indicated_ {0};
     std::vector<int> selected_;
 
-    std::vector<uint8_t>     col_ids_;
-    std::vector<text_layout> col_labels_;
-    std::vector<get_f>       col_get_fs_;
-
-    std::vector<std::vector<text_layout>> rows_;
+    std::vector<col_data> cols_;
+    std::vector<row_data> rows_;
 };
 
 std::unique_ptr<inventory_list> make_inventory_list(

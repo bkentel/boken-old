@@ -72,14 +72,14 @@ text_layout::text_layout() noexcept
 text_layout::text_layout(
     text_renderer& trender
   , std::string text
-  , int16_t const max_width
-  , int16_t const max_height
+  , size_type_x<int16_t> const max_width
+  , size_type_x<int16_t> const max_height
 )
   : data_          {}
   , text_          {}
   , position_      {0, 0}
-  , max_width_     {max_width}
-  , max_height_    {max_height}
+  , max_width_     {value_cast(max_width)}
+  , max_height_    {value_cast(max_height)}
   , actual_width_  {0}
   , actual_height_ {0}
   , is_visible_    {true}
