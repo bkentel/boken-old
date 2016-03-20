@@ -470,10 +470,15 @@ bool intersects(point2<U> const& p, axis_aligned_rect<T> const& r) noexcept {
 
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 2>) {
-    for (auto y = r.y0; y < r.y1; ++y) {
-        bool const on_edge_y = (y == r.y0) || (y == r.y1 - 1);
-        for (auto x = r.x0; x < r.x1; ++x) {
-            bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    for (auto y = y0; y < y1; ++y) {
+        bool const on_edge_y = (y == y0) || (y == y1 - 1);
+        for (auto x = x0; x < x1; ++x) {
+            bool const on_edge = on_edge_y || (x == x0) || (x == x1 - 1);
             f(point2<T> {x, y}, on_edge);
         }
     }
@@ -481,8 +486,13 @@ void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 
 
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 1>) {
-    for (auto y = r.y0; y < r.y1; ++y) {
-        for (auto x = r.x0; x < r.x1; ++x) {
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    for (auto y = y0; y < y1; ++y) {
+        for (auto x = x0; x < x1; ++x) {
             f(point2<T> {x, y});
         }
     }
@@ -498,25 +508,30 @@ template <typename T, typename UnaryF>
 void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f)
     noexcept (noexcept(f(std::declval<point2<T>>())))
 {
-    if (r.area() == 1) {
+    if (value_cast(r.area()) == 1) {
         f(r.top_left());
         return;
     }
 
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
     //top edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        f(point2<T> {x, r.y0});
+    for (auto x = x0; x < x1; ++x) {
+        f(point2<T> {x, y0});
     }
 
     //left and right edge
-    for (auto y = r.y0 + 1; y < r.y1 - 1; ++y) {
-        f(point2<T> {r.x0,     y});
-        f(point2<T> {r.x1 - 1, y});
+    for (auto y = y0 + 1; y < y1 - 1; ++y) {
+        f(point2<T> {x0,     y});
+        f(point2<T> {x1 - 1, y});
     }
 
     // bottom edge
-    for (auto x = r.x0; x < r.x1; ++x) {
-        f(point2<T> {x, r.y1 - 1});
+    for (auto x = x0; x < x1; ++x) {
+        f(point2<T> {x, y1 - 1});
     }
 }
 
@@ -541,8 +556,11 @@ void points_around(point2<T> const p, T const distance, UnaryF f)
     auto const q = p - vec2<T> {d, d};
     auto const s = d * 2 + 1;
 
-    for_each_xy_edge(axis_aligned_rect<T> {
-        q.x, q.y, size_type_x<T> {s}, size_type_y<T> {s}}, f);
+    size_type_x<T> const w = s;
+    size_type_y<T> const h = s;
+    axis_aligned_rect<T> r (q, w, h);
+
+    for_each_xy_edge(r, f);
 }
 
 template <typename T>

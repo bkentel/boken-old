@@ -150,10 +150,30 @@ public:
       , offset_type_y<X> const bottom
     ) noexcept
       : axis_aligned_rect {
-          value_cast(left)
-        , value_cast(top)
-        , value_cast(right)
-        , value_cast(bottom)}
+          value_cast(left),  value_cast(top)
+        , value_cast(right), value_cast(bottom)}
+    {
+    }
+
+    template <typename U, typename V, typename W>
+    constexpr axis_aligned_rect(
+        point2<U>      const p
+      , size_type_x<V> const width
+      , size_type_y<W> const height
+    ) noexcept
+      : axis_aligned_rect {
+          value_cast(p.x)
+        , value_cast(p.y)
+        , value_cast(p.x) + value_cast(width)
+        , value_cast(p.y) + value_cast(height)}
+    {
+    }
+
+    template <typename U, typename V>
+    constexpr axis_aligned_rect(point2<U> const p, point2<V> const q) noexcept
+      : axis_aligned_rect {
+          value_cast(p.x), value_cast(p.y)
+        , value_cast(q.x), value_cast(q.y)}
     {
     }
 
@@ -172,14 +192,16 @@ public:
     {
     }
 
-    constexpr size_type_x<T> width()  const noexcept { return x1 - x0; }
-    constexpr size_type_y<T> height() const noexcept { return y1 - y0; }
+    constexpr size_type_x<T> width()  const noexcept { return {value_cast(x1 - x0)}; }
+    constexpr size_type_y<T> height() const noexcept { return {value_cast(y1 - y0)}; }
 
     constexpr size_type<T> area() const noexcept {
         return {value_cast(width()) * value_cast(height())};
     }
 
-    constexpr point2<T> top_left() const noexcept { return {x0, y0}; }
+    constexpr point2<T> top_left() const noexcept {
+        return {value_cast(x0), value_cast(y0)};
+    }
 
     offset_type_x<T> x0 {};
     offset_type_y<T> y0 {};
