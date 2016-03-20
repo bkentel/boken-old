@@ -1,5 +1,13 @@
 #pragma once
 
+//
+// Definitions for mathematical types. Operations on these types are defined
+// elsewhere. This header should be included where a fully specified definition
+// is required.
+//
+
+#include "math_forward.hpp"
+
 #include <type_traits>
 #include <cstdint>
 
@@ -34,15 +42,6 @@ template <> struct is_safe_integer_conversion<uint16_t, uint64_t> : std::true_ty
 template <> struct is_safe_integer_conversion<uint32_t, uint32_t> : std::true_type {};
 template <> struct is_safe_integer_conversion<uint32_t, uint64_t> : std::true_type {};
 template <> struct is_safe_integer_conversion<uint64_t, uint64_t> : std::true_type {};
-
-struct tag_axis_x    {};
-struct tag_axis_y    {};
-struct tag_axis_none {};
-struct tag_point     {};
-struct tag_vector    {};
-
-template <typename T, typename TagAxis, typename TagType>
-class basic_1_tuple;
 
 template <typename To, typename From, typename TagAxis, typename TagType, typename Result>
 constexpr Result value_cast(basic_1_tuple<From, TagAxis, TagType> n) noexcept;
@@ -133,51 +132,6 @@ public:
     basic_1_tuple<T, tag_axis_y, TagType> y;
 };
 
-//=====--------------------------------------------------------------------=====
-//                                Type Aliases
-//=====--------------------------------------------------------------------=====
-template <typename T>
-using size_type = basic_1_tuple<T, tag_axis_none, tag_point>;
-
-template <typename T>
-using size_type_x = basic_1_tuple<T, tag_axis_x, tag_point>;
-
-template <typename T>
-using size_type_y = basic_1_tuple<T, tag_axis_y, tag_point>;
-
-template <typename T>
-using offset_type = basic_1_tuple<T, tag_axis_none, tag_vector>;
-
-template <typename T>
-using offset_type_x = basic_1_tuple<T, tag_axis_x, tag_vector>;
-
-template <typename T>
-using offset_type_y = basic_1_tuple<T, tag_axis_y, tag_vector>;
-
-template <typename T>
-using point2 = basic_2_tuple<T, tag_point>;
-
-template <typename T>
-using vec2 = basic_2_tuple<T, tag_vector>;
-
-using point2i32 = point2<int32_t>;
-using vec2i32   = vec2<int32_t>;
-using sizei32   = size_type<int32_t>;
-using sizei32x  = size_type_x<int32_t>;
-using sizei32y  = size_type_y<int32_t>;
-using offi32    = offset_type<int32_t>;
-using offi32x   = offset_type_x<int32_t>;
-using offi32y   = offset_type_y<int32_t>;
-
-using point2i16 = point2<int16_t>;
-using vec2i16   = vec2<int16_t>;
-using sizei16   = size_type<int16_t>;
-using sizei16x  = size_type_x<int16_t>;
-using sizei16y  = size_type_y<int16_t>;
-using offi16    = offset_type<int16_t>;
-using offi16x   = offset_type_x<int16_t>;
-using offi16y   = offset_type_y<int16_t>;
-
 //------------------------------------------------------------------------------
 //! 2D axis-aligned rectangle
 template <typename T>
@@ -247,11 +201,5 @@ private:
                    && is_safe_integer_conversion<X, T>::value, "");
     }
 };
-
-//=====--------------------------------------------------------------------=====
-//                                Type Aliases
-//=====--------------------------------------------------------------------=====
-using recti32 = axis_aligned_rect<int32_t>;
-using recti16 = axis_aligned_rect<int16_t>;
 
 } //namespace boken

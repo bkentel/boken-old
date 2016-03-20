@@ -80,6 +80,7 @@
     <ClInclude Include="src\unicode.hpp" />
     <ClInclude Include="src\inventory.hpp" />
     <ClInclude Include="src\math_types.hpp" />
+    <ClInclude Include="src\math_forward.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

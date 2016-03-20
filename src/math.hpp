@@ -2,12 +2,13 @@
 
 #include "types.hpp"
 #include "utility.hpp"
+
+#include "math_types.hpp"
+
 #include <type_traits>
 #include <functional>
 #include <cmath>
 #include <cstdint>
-
-#include "math_types.hpp"
 
 namespace boken {
 
@@ -225,36 +226,95 @@ constexpr auto operator-(vec2<T> const u, vec2<U> const v) noexcept {
 
 template <typename T, typename U>
 constexpr auto operator+(point2<T> const p, vec2<U> const v) noexcept {
-    return vec2<common_safe_integer_t<T, U, true>> {p.x + v.x, p.y + v.y};
+    return point2<common_safe_integer_t<T, U, true>> {p.x + v.x, p.y + v.y};
 }
 
 template <typename T, typename U>
-constexpr auto operator+(point2<T> const p, point2<U> const q) noexcept {
+constexpr auto operator-(point2<T> const p, vec2<U> const v) noexcept {
+    return point2<common_safe_integer_t<T, U, true>> {p.x + v.x, p.y + v.y};
+}
+
+template <typename T, typename U>
+constexpr auto operator-(point2<T> const p, point2<U> const q) noexcept {
     return vec2<common_safe_integer_t<T, U, true>> {p.x - q.x, p.y - q.y};
+}
+
+template <typename T, typename U>
+constexpr auto operator+(axis_aligned_rect<T> const r, vec2<U> const v) noexcept {
+    return axis_aligned_rect<common_safe_integer_t<T, U, true>> {
+        r.x0 + v.x, r.y0 + v.y
+      , r.x1 + v.x, r.y1 + v.y
+    };
+}
+
+template <typename T, typename U>
+constexpr auto operator-(axis_aligned_rect<T> const r, vec2<U> const v) noexcept {
+    return axis_aligned_rect<common_safe_integer_t<T, U, true>> {
+        r.x0 - v.x, r.y0 - v.y
+      , r.x1 - v.x, r.y1 - v.y
+    };
+}
+
+template <typename T, typename U, typename TagType>
+constexpr auto operator*(
+    basic_2_tuple<T, TagType> const p, U const c
+) noexcept {
+    return basic_2_tuple<common_safe_integer_t<T, U, true>, TagType> {
+        detail::compute<tag_axis_x, TagType>(p.x, c, std::multiplies<> {})
+      , detail::compute<tag_axis_y, TagType>(p.y, c, std::multiplies<> {})};
+}
+
+template <typename T, typename U, typename TagType>
+constexpr auto operator/(
+    basic_2_tuple<T, TagType> const p, U const c
+) noexcept {
+    return basic_2_tuple<common_safe_integer_t<T, U, true>, TagType> {
+        detail::compute<tag_axis_x, TagType>(p.x, c, std::divides<> {})
+      , detail::compute<tag_axis_y, TagType>(p.y, c, std::divides<> {})};
 }
 
 template <typename T, typename U>
 constexpr vec2<T>& operator+=(vec2<T>& u, vec2<U> const v) noexcept {
     return (u = u + v);
-
 }
 
 template <typename T, typename U>
 constexpr vec2<T>& operator-=(vec2<T>& u, vec2<U> const v) noexcept {
     return (u = u - v);
-
 }
 
 template <typename T, typename U>
 constexpr point2<T>& operator+=(point2<T>& p, vec2<U> const v) noexcept {
     return (p = p + v);
-
 }
 
 template <typename T, typename U>
 constexpr point2<T>& operator-=(point2<T>& p, vec2<U> const v) noexcept {
     return (p = p - v);
+}
 
+template <typename T, typename U>
+constexpr axis_aligned_rect<T> operator+=(axis_aligned_rect<T>& r, vec2<U> const v) noexcept {
+    return (r = r + v);
+}
+
+template <typename T, typename U>
+constexpr axis_aligned_rect<T> operator-=(axis_aligned_rect<T>& r, vec2<U> const v) noexcept {
+    return (r = r +-v);
+}
+
+template <typename T, typename U, typename TagType>
+constexpr basic_2_tuple<T, TagType>& operator*=(
+    basic_2_tuple<T, TagType>& p, U const c
+) noexcept {
+    return (p = p * c);
+}
+
+template <typename T, typename U, typename TagType>
+constexpr basic_2_tuple<T, TagType>& operator/=(
+    basic_2_tuple<T, TagType>& p, U const c
+) noexcept {
+    return (p = p / c);
 }
 
 //=====--------------------------------------------------------------------=====
@@ -346,17 +406,23 @@ inline constexpr bool operator!=(vec2<T> const u, vec2<U> const v) noexcept {
     return !(u == v);
 }
 
+//------------------------------------------------------------------------------
+template <typename T, typename U> inline constexpr
+bool operator==(axis_aligned_rect<T> const lhs, axis_aligned_rect<U> const rhs) noexcept {
+    return (lhs.x0 == rhs.x0)
+        && (lhs.y0 == rhs.y0)
+        && (lhs.x1 == rhs.x1)
+        && (lhs.y1 == rhs.y1);
+}
+
+template <typename T, typename U> inline constexpr
+bool operator!=(axis_aligned_rect<T> const lhs, axis_aligned_rect<U> const rhs) noexcept {
+    return !(lhs == rhs);
+}
+
 } // namespace boken
 
 namespace boken {
-
-template <size_t N>
-using sized_signed_t =
-    std::conditional_t<N < 1, void,
-    std::conditional_t<N < 2, int8_t,
-    std::conditional_t<N < 3, int16_t,
-    std::conditional_t<N < 5, int32_t,
-    std::conditional_t<N < 9, int64_t, void>>>>>;
 
 template <typename T> inline constexpr
 auto square_of(T const n) noexcept {
@@ -373,14 +439,6 @@ size_type<T> distance2(point2<T> const p, point2<T> const q) noexcept {
 }
 
 template <typename T> inline constexpr
-axis_aligned_rect<T> operator+(axis_aligned_rect<T> const r, vec2<T> const v) noexcept {
-    return {offset_type_x<T> {r.x0 + value_cast(v.x)}
-          , offset_type_y<T> {r.y0 + value_cast(v.y)}
-          , size_type_x<T> {r.width()}
-          , size_type_y<T> {r.height()}};
-}
-
-template <typename T> inline constexpr
 axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
     return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
           , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
@@ -394,37 +452,20 @@ axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
 
 template <typename T> inline constexpr
 axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
-    return axis_aligned_rect<T> {
-        offset_type_x<T> {0}
-      , offset_type_y<T> {0}
-      , size_type_x<T>   {r.width()}
-      , size_type_y<T>   {r.height()}
-    };
+    return r + (point2<T> {0, 0} - r.top_left());
 }
 
 template <typename T, typename U> inline constexpr
 bool intersects(axis_aligned_rect<T> const& r, point2<U> const& p) noexcept {
-    using lt = std::less<>;
-
-    return !compare_integral(value_cast(p.x), r.x0, lt {})
-        &&  compare_integral(value_cast(p.x), r.x1, lt {})
-        && !compare_integral(value_cast(p.y), r.y0, lt {})
-        &&  compare_integral(value_cast(p.y), r.y1, lt {});
+    return (p.x >= r.x0)
+        && (p.x <  r.x1)
+        && (p.y >= r.y0)
+        && (p.y <  r.y1);
 }
 
 template <typename T, typename U> inline constexpr
 bool intersects(point2<U> const& p, axis_aligned_rect<T> const& r) noexcept {
     return intersects(r, p);
-}
-
-template <typename T, typename U> inline constexpr
-bool operator==(axis_aligned_rect<T> const& lhs, axis_aligned_rect<U> const& rhs) noexcept {
-    using eq = std::equal_to<>;
-
-    return compare_integral(lhs.x0, rhs.x0, eq {})
-        && compare_integral(lhs.y0, rhs.y0, eq {})
-        && compare_integral(lhs.x1, rhs.x1, eq {})
-        && compare_integral(lhs.y1, rhs.y1, eq {});
 }
 
 template <typename T, typename F>
