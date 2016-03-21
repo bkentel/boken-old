@@ -1,6 +1,7 @@
 #include "text.hpp"
 #include "system.hpp"   // for system
 #include "utility.hpp"  // for BK_OFFSETOF
+#include "math.hpp"
 #include <algorithm>    // for move, max, swap
 
 namespace {
@@ -33,20 +34,22 @@ public:
 
 text_renderer::glyph_data_t
 text_renderer_impl::load_metrics(uint32_t const cp) noexcept {
-    constexpr int16_t tiles_x = 16;
+    constexpr uint32_t tiles_x = 16u;
     //constexpr int16_t tiles_y = 16;
-    constexpr int16_t tile_w  = 18;
-    constexpr int16_t tile_h  = 18;
+    constexpr sizei16x tile_w  = int16_t {18};
+    constexpr sizei16y tile_h  = int16_t {18};
 
-    auto const tx = static_cast<int16_t>((cp % tiles_x) * tile_w);
-    auto const ty = static_cast<int16_t>((cp / tiles_x) * tile_h);
+    auto const tex_offset = point2i16 {
+        value_cast(tile_w * static_cast<int16_t>(cp % tiles_x))
+      , value_cast(tile_h * static_cast<int16_t>(cp / tiles_x))};
 
-    return {
-        {    tx,     ty}
-      , {tile_w, tile_h}
-      , {     0,      0}
-      , {tile_w,      0}
-    };
+    auto const tex_size = point2i16 {
+        value_cast(tile_w), value_cast(tile_h)};
+
+    auto const offset  = vec2i16 {};
+    auto const advance = vec2i16 {tile_w, int16_t {0}};
+
+    return {tex_offset, tex_size, offset, advance};
 }
 
 std::unique_ptr<text_renderer> make_text_renderer() {
@@ -60,11 +63,11 @@ std::unique_ptr<text_renderer> make_text_renderer() {
 text_layout::text_layout() noexcept
   : data_          {}
   , text_          {}
-  , position_      {0, 0}
+  , position_      {}
   , max_width_     {std::numeric_limits<int16_t>::max()}
   , max_height_    {std::numeric_limits<int16_t>::max()}
-  , actual_width_  {0}
-  , actual_height_ {0}
+  , actual_width_  {}
+  , actual_height_ {}
   , is_visible_    {false}
 {
 }
@@ -72,16 +75,16 @@ text_layout::text_layout() noexcept
 text_layout::text_layout(
     text_renderer& trender
   , std::string text
-  , size_type_x<int16_t> const max_width
-  , size_type_x<int16_t> const max_height
+  , sizei16x const max_width
+  , sizei16x const max_height
 )
   : data_          {}
   , text_          {}
-  , position_      {0, 0}
+  , position_      {}
   , max_width_     {value_cast(max_width)}
   , max_height_    {value_cast(max_height)}
-  , actual_width_  {0}
-  , actual_height_ {0}
+  , actual_width_  {}
+  , actual_height_ {}
   , is_visible_    {true}
 {
     layout(trender, std::move(text));
@@ -130,7 +133,7 @@ void text_layout::layout(text_renderer& trender) {
         }
 
         data_.push_back(data_t {
-            point2i {x, y}.cast_to<int16_t>()
+            underlying_cast_unsafe<int16_t>(point2i32 {x, y})
           , metrics.texture
           , metrics.size
           , 0xFFFFFFFFu
@@ -176,8 +179,8 @@ void text_layout::move_to(int const x, int const y) noexcept {
       , clamp_as<int16_t>(y)};
 }
 
-point2i text_layout::position() const noexcept {
-    return position_.cast_to<int32_t>();
+point2i32 text_layout::position() const noexcept {
+    return position_;
 }
 
 bool text_layout::is_visible() const noexcept {
@@ -188,16 +191,15 @@ bool text_layout::visible(bool state) noexcept {
     return std::swap(is_visible_, state), state;
 }
 
-recti text_layout::extent() const noexcept {
-    return {position_.x, position_.y
-          , actual_width_, actual_height_};
+recti32 text_layout::extent() const noexcept {
+    return {position_, actual_width_, actual_height_};
 }
 
-sizeix text_layout::max_width() const noexcept {
+sizei32x text_layout::max_width() const noexcept {
     return max_width_;
 }
 
-sizeiy text_layout::max_height() const noexcept {
+sizei32y text_layout::max_height() const noexcept {
     return max_height_;
 }
 

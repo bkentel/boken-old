@@ -365,10 +365,10 @@ public:
 
     int do_events() final override;
 
-    recti render_get_client_rect() const final override {
+    recti32 render_get_client_rect() const final override {
         SDL_Rect r {};
         SDL_RenderGetViewport(renderer_, &r);
-        return {offix {0}, offiy {0}, sizeix {r.w}, sizeiy {r.h}};
+        return {point2i32 {}, sizei32x {r.w}, sizei32y {r.h}};
     }
 
     void render_clear() final override {
@@ -380,10 +380,15 @@ public:
         SDL_RenderPresent(renderer_);
     }
 
-    void render_fill_rect(recti const r, uint32_t const color) final override {
+    void render_fill_rect(recti32 const r, uint32_t const color) final override {
         set_draw_color(color);
 
-        SDL_Rect const r0 {r.x0, r.y0, r.width(), r.height()};
+        SDL_Rect const r0 {
+            value_cast(r.x0)
+          , value_cast(r.y0)
+          , value_cast(r.width())
+          , value_cast(r.height())};
+
         SDL_RenderFillRect(renderer_, &r0);
     }
 
@@ -430,7 +435,7 @@ public:
         }
     }
 
-    void render_set_tile_size(sizeix const w, sizeiy const h) noexcept final override {
+    void render_set_tile_size(sizei32x const w, sizei32y const h) noexcept final override {
         tile_w_ = value_cast(w);
         tile_h_ = value_cast(h);
     }

@@ -1,23 +1,22 @@
 #pragma once
-#include "math.hpp"   // for basic_2_tuple, point2i
-#include "types.hpp"  // for tagged_integral_value
-#include "config.hpp" //string_View
 
-#include <memory>     // for unique_ptr
-#include <string>     // for string
-#include <vector>     // for vector
+#include "math_types.hpp" // for basic_2_tuple, point2i
+#include "config.hpp"     // for string_View
 
-#include <cstdint>    // for int16_t, uint32_t
+#include <memory>  // for unique_ptr
+#include <string>  // for string
+#include <vector>  // for vector
+#include <cstdint> // for int16_t, uint32_t
 
 namespace boken {
 
 class text_renderer {
 public:
     struct glyph_data_t {
-        point2<int16_t> texture;
-        point2<int16_t> size;
-        point2<int16_t> offset;
-        point2<int16_t> advance;
+        point2i16 texture;
+        point2i16 size;
+        vec2i16   offset;
+        vec2i16   advance;
     };
 
     virtual ~text_renderer();
@@ -36,19 +35,19 @@ std::unique_ptr<text_renderer> make_text_renderer();
 class text_layout {
 public:
     struct data_t {
-        point2<int16_t> position;
-        point2<int16_t> texture;
-        point2<int16_t> size;
-        uint32_t        color;
+        point2i16 position;
+        point2i16 texture;
+        point2i16 size;
+        uint32_t  color;
     };
 
     text_layout() noexcept;
 
     text_layout(
-        text_renderer&       trender
-      , std::string          text
-      , size_type_x<int16_t> max_width  = size_type_x<int16_t> {std::numeric_limits<int16_t>::max()}
-      , size_type_x<int16_t> max_height = size_type_x<int16_t> {std::numeric_limits<int16_t>::max()}
+        text_renderer& trender
+      , std::string    text
+      , sizei16x       max_width  = std::numeric_limits<int16_t>::max()
+      , sizei16x       max_height = std::numeric_limits<int16_t>::max()
     );
 
     void layout(text_renderer& trender, std::string text);
@@ -56,14 +55,14 @@ public:
     void layout(text_renderer& trender);
 
     void move_to(int x, int y) noexcept;
-    point2i position() const noexcept;
+    point2i32 position() const noexcept;
 
     bool is_visible() const noexcept;
     bool visible(bool state) noexcept;
 
-    recti extent() const noexcept;
-    sizeix max_width() const noexcept;
-    sizeiy max_height() const noexcept;
+    recti32 extent() const noexcept;
+    sizei32x max_width() const noexcept;
+    sizei32y max_height() const noexcept;
 
     // ensure all required glyphs are still cached at the same locations
     void update(text_renderer& trender) const noexcept;
@@ -75,13 +74,13 @@ private:
     // glyph texture locations can change
     std::vector<data_t> mutable data_;
 
-    std::string          text_;
-    point2<int16_t>      position_;
-    size_type_x<int16_t> max_width_;
-    size_type_y<int16_t> max_height_;
-    size_type_x<int16_t> actual_width_;
-    size_type_y<int16_t> actual_height_;
-    bool                 is_visible_;
+    std::string text_;
+    point2i16   position_;
+    sizei16x    max_width_;
+    sizei16y    max_height_;
+    sizei16x    actual_width_;
+    sizei16y    actual_height_;
+    bool        is_visible_;
 };
 
 } // namespace boken

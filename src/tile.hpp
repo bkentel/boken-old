@@ -2,10 +2,8 @@
 
 #include "config.hpp"
 #include "hash.hpp"
-#include "math.hpp"
+#include "math_types.hpp"
 #include "types.hpp"
-
-#include <bkassert/assert.hpp>
 
 #include <bitset>
 #include <type_traits>
@@ -112,41 +110,28 @@ enum class tile_map_type : uint32_t {
 class tile_map {
 public:
     tile_map(
-        tile_map_type const type
-      , uint32_t      const texture_id
-      , sizeix        const tile_w
-      , sizeiy        const tile_h
-      , sizeix        const tiles_x
-      , sizeiy        const tiles_y
-    ) noexcept
-      : type_       {type}
-      , texture_id_ {texture_id}
-      , tile_w_     {tile_w}
-      , tile_h_     {tile_h}
-      , tiles_x_    {tiles_x}
-      , tiles_y_    {tiles_y}
-    {
-        BK_ASSERT_SAFE(tile_w  > sizeix {0});
-        BK_ASSERT_SAFE(tile_h  > sizeiy {0});
-        BK_ASSERT_SAFE(tiles_x > sizeix {0});
-        BK_ASSERT_SAFE(tiles_y > sizeiy {0});
+        tile_map_type type
+      , uint32_t      texture_id
+      , sizei32x      tile_w
+      , sizei32y      tile_h
+      , sizei32x      tiles_x
+      , sizei32y      tiles_y
+    ) noexcept;
+
+    recti32 index_to_rect(uint32_t const i) const noexcept {
+        auto const tx = value_cast_unsafe<uint32_t>(tiles_x_);
+        auto const p  = point2i32 {
+            value_cast(tile_w_) * static_cast<int32_t>(i % tx)
+          , value_cast(tile_h_) * static_cast<int32_t>(i / tx)};
+
+        return {p, tile_w_, tile_h_};
     }
 
-    recti index_to_rect(uint32_t const i) const noexcept {
-        auto const tx = value_cast<uint32_t>(tiles_x_);
-        auto const tw = value_cast(tile_w_);
-        auto const th = value_cast(tile_h_);
-        auto const x  = static_cast<int32_t>(i % tx);
-        auto const y  = static_cast<int32_t>(i / tx);
+    sizei32x tile_width()  const noexcept { return tile_w_; }
+    sizei32y tile_height() const noexcept { return tile_h_; }
 
-        return {offix {x * tw}, offiy {y * th}, tile_w_, tile_h_};
-    }
-
-    sizeix tile_width()  const noexcept { return tile_w_; }
-    sizeiy tile_height() const noexcept { return tile_h_; }
-
-    sizeix width()  const noexcept { return tiles_x_; }
-    sizeiy height() const noexcept { return tiles_y_; }
+    sizei32x width()  const noexcept { return tiles_x_; }
+    sizei32y height() const noexcept { return tiles_y_; }
 
     uint32_t texture_id() const noexcept { return texture_id_; }
 
@@ -165,10 +150,10 @@ private:
     tile_map_type type_;
     uint32_t      texture_id_ {0};
 
-    sizeix tile_w_;
-    sizeiy tile_h_;
-    sizeix tiles_x_;
-    sizeiy tiles_y_;
+    sizei32x tile_w_;
+    sizei32y tile_h_;
+    sizei32x tiles_x_;
+    sizei32y tiles_y_;
 
     std::unordered_map<uint32_t, uint32_t> mappings_;
 };

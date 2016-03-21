@@ -22,8 +22,8 @@ std::pair<R, R> slice_rect(
   , size_type<Int> const min_size
   , double         const variance = 4.0 // higher implies less variance
 ) noexcept {
-    Int const  w = rect.width();
-    Int const  h = rect.height();
+    Int const  w = value_cast(rect.width());
+    Int const  h = value_cast(rect.height());
     Int const& x = choose_largest(rng, w, h);
     Int const  p = round_as<Int>(random_normal(rng, x / 2.0, x / variance));
     Int const  n = clamp(p, value_cast(min_size), x - value_cast(min_size));
@@ -31,8 +31,11 @@ std::pair<R, R> slice_rect(
     R r0 = rect;
     R r1 = rect;
 
-    (&x == &w) ? (r1.x0 = (r0.x1 = r0.x0 + n))
-               : (r1.y0 = (r0.y1 = r0.y0 + n));
+    if (&x == &w) {
+        r1.x0 = (r0.x1 = r0.x0 + size_type_x<Int> {n});
+    } else {
+        r1.y0 = (r0.y1 = r0.y0 + size_type_y<Int> {n});
+    }
 
     return {r0, r1};
 }
@@ -42,8 +45,8 @@ constexpr bool can_slice_rect(
     axis_aligned_rect<Int> const r
   , size_type<Int>         const min_size
 ) noexcept {
-    return r.width()  < value_cast(min_size) * 2
-        && r.height() < value_cast(min_size) * 2;
+    return value_cast(r.width())  < value_cast(min_size) * 2
+        && value_cast(r.height()) < value_cast(min_size) * 2;
 }
 
 template <typename Int>
@@ -51,8 +54,8 @@ constexpr bool must_slice_rect(
     axis_aligned_rect<Int> const r
   , size_type<Int>         const max_size
 ) noexcept {
-    return r.width()  > value_cast(max_size)
-        || r.height() > value_cast(max_size);
+    return value_cast(r.width())  > value_cast(max_size)
+        || value_cast(r.height()) > value_cast(max_size);
 }
 
 class bsp_generator_impl : public bsp_generator {
@@ -113,12 +116,13 @@ void bsp_generator_impl::generate(random_state& rnd) {
     leaf_nodes_.clear();
 
     nodes_.push_back(node_t {
-        rect_t {offix {0}, offiy {0}, p.width, p.height}
+        recti32 {offi32x {0}, offi32y {0}, p.width, p.height}
       , 0, 0, 0
     });
 
-    auto const pass_split_chance = [&](rect_t const& r) {
-        return p.weights[r.area()] >= random_uniform_int(rnd, 0, p.max_weight);
+    auto const pass_split_chance = [&](recti32 const& r) {
+        auto const area = value_cast(r.area());
+        return p.weights[area] >= random_uniform_int(rnd, 0, p.max_weight);
     };
 
     auto const add_children = [&](auto const& pair, uint16_t const i) {

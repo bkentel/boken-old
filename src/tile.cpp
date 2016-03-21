@@ -1,6 +1,29 @@
 #include "tile.hpp"
 
+#include <bkassert/assert.hpp>
+
 namespace boken {
+
+tile_map::tile_map(
+    tile_map_type const type
+  , uint32_t      const texture_id
+  , sizei32x      const tile_w
+  , sizei32y      const tile_h
+  , sizei32x      const tiles_x
+  , sizei32y      const tiles_y
+) noexcept
+  : type_       {type}
+  , texture_id_ {texture_id}
+  , tile_w_     {tile_w}
+  , tile_h_     {tile_h}
+  , tiles_x_    {tiles_x}
+  , tiles_y_    {tiles_y}
+{
+    BK_ASSERT_SAFE(value_cast(tile_w)  > 0);
+    BK_ASSERT_SAFE(value_cast(tile_h)  > 0);
+    BK_ASSERT_SAFE(value_cast(tiles_x) > 0);
+    BK_ASSERT_SAFE(value_cast(tiles_y) > 0);
+}
 
 template <>
 tile_id string_to_enum<tile_id>(string_view const str) noexcept {

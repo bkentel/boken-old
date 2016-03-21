@@ -33,22 +33,22 @@ class axis_aligned_rect;
 //                                Type Aliases
 //=====--------------------------------------------------------------------=====
 template <typename T>
-using size_type = basic_1_tuple<T, tag_axis_none, tag_point>;
+using size_type = basic_1_tuple<T, tag_axis_none, tag_vector>;
 
 template <typename T>
-using size_type_x = basic_1_tuple<T, tag_axis_x, tag_point>;
+using size_type_x = basic_1_tuple<T, tag_axis_x, tag_vector>;
 
 template <typename T>
-using size_type_y = basic_1_tuple<T, tag_axis_y, tag_point>;
+using size_type_y = basic_1_tuple<T, tag_axis_y, tag_vector>;
 
 template <typename T>
-using offset_type = basic_1_tuple<T, tag_axis_none, tag_vector>;
+using offset_type = basic_1_tuple<T, tag_axis_none, tag_point>;
 
 template <typename T>
-using offset_type_x = basic_1_tuple<T, tag_axis_x, tag_vector>;
+using offset_type_x = basic_1_tuple<T, tag_axis_x, tag_point>;
 
 template <typename T>
-using offset_type_y = basic_1_tuple<T, tag_axis_y, tag_vector>;
+using offset_type_y = basic_1_tuple<T, tag_axis_y, tag_point>;
 
 template <typename T>
 using point2 = basic_2_tuple<T, tag_point>;

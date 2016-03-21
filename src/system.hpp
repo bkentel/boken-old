@@ -1,7 +1,6 @@
 #pragma once
 
-#include "types.hpp"
-#include "math.hpp"
+#include "math_forward.hpp"
 #include "config.hpp"
 
 #include <memory>
@@ -682,16 +681,16 @@ public:
     virtual bool is_running() = 0;
     virtual int do_events() = 0;
 
-    virtual recti render_get_client_rect() const = 0;
+    virtual recti32 render_get_client_rect() const = 0;
 
     virtual void render_clear()   = 0;
     virtual void render_present() = 0;
 
-    virtual void render_fill_rect(recti r, uint32_t color) = 0;
+    virtual void render_fill_rect(recti32 r, uint32_t color) = 0;
 
     virtual void render_background() = 0;
 
-    virtual void render_set_tile_size(sizeix w, sizeiy h) = 0;
+    virtual void render_set_tile_size(sizei32x w, sizei32y h) = 0;
     virtual void render_set_transform(float sx, float sy, float tx, float ty) = 0;
 
     virtual void render_set_texture(uint32_t id) = 0;

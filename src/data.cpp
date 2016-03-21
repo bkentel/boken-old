@@ -48,9 +48,9 @@ private:
     std::unordered_map<entity_id, entity_definition, identity_hash> entity_defs_;
     std::unordered_map<item_id,   item_definition,   identity_hash> item_defs_;
 
-    tile_map tile_map_base_     {tile_map_type::base,   0, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
-    tile_map tile_map_entities_ {tile_map_type::entity, 1, sizeix {18}, sizeiy {18}, sizeix {26}, sizeiy {17}};
-    tile_map tile_map_items_    {tile_map_type::item,   2, sizeix {18}, sizeiy {18}, sizeix {16}, sizeiy {16}};
+    tile_map tile_map_base_     {tile_map_type::base,   0, sizei32x {18}, sizei32y {18}, sizei32x {16}, sizei32y {16}};
+    tile_map tile_map_entities_ {tile_map_type::entity, 1, sizei32x {18}, sizei32y {18}, sizei32x {26}, sizei32y {17}};
+    tile_map tile_map_items_    {tile_map_type::item,   2, sizei32x {18}, sizei32y {18}, sizei32x {16}, sizei32y {16}};
 };
 
 tile_map const&

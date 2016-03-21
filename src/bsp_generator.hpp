@@ -56,8 +56,6 @@ struct weight_list {
 //! min(width, height) and then by area.
 class bsp_generator {
 public:
-    using rect_t  = axis_aligned_rect<int>;
-
     struct param_t {
         static constexpr int default_width           {100};
         static constexpr int default_height          {100};
@@ -70,14 +68,14 @@ public:
 
         static constexpr int default_max_weight {1000};
 
-        sizeix width           {default_width};
-        sizeiy height          {default_height};
-        sizei  min_region_size {default_min_region_size};
-        sizei  max_region_size {default_max_region_size};
-        sizei  min_room_size   {default_min_room_size};
-        sizei  max_room_size   {default_max_room_size};
-        sizei  room_chance_num {default_room_chance_num};
-        sizei  room_chance_den {default_room_chance_den};
+        sizei32x width           {default_width};
+        sizei32y height          {default_height};
+        sizei32  min_region_size {default_min_region_size};
+        sizei32  max_region_size {default_max_region_size};
+        sizei32  min_room_size   {default_min_room_size};
+        sizei32  max_room_size   {default_max_room_size};
+        sizei32  room_chance_num {default_room_chance_num};
+        sizei32  room_chance_den {default_room_chance_den};
 
         int              max_weight {default_max_weight};
         weight_list<int> weights    {{0, default_max_weight}};
@@ -87,7 +85,7 @@ public:
     };
 
     struct node_t {
-        rect_t   rect;
+        recti32  rect;
         uint16_t parent;
         uint16_t child;
         uint16_t level;

@@ -2,7 +2,7 @@
 
 #include "types.hpp"
 #include "config.hpp"
-#include "math.hpp"
+#include "math_types.hpp"
 
 #include <string>
 #include <functional>
@@ -21,28 +21,28 @@ public:
     using get_f    = std::function<std::string (item const& itm)>;
 
     static constexpr int insert_at_end = -1;
-    static constexpr int adjust_to_fit = -1;
+    static constexpr sizei16x adjust_to_fit = int16_t {-1};
 
     struct column_info {
-        text_layout const&     text;
-        offset_type_x<int16_t> left;
-        offset_type_x<int16_t> right;
-        size_type_x<int16_t>   min_width;
-        size_type_x<int16_t>   max_width;
-        uint8_t                id;
+        text_layout const& text;
+        offi16x  left;
+        offi16x  right;
+        sizei16x min_width;
+        sizei16x max_width;
+        uint8_t  id;
     };
 
     virtual ~inventory_list();
 
-    virtual int16_t header_height() const noexcept = 0;
-    virtual int16_t row_height(int i) const noexcept = 0;
-    virtual int16_t col_width(int i) const noexcept = 0;
+    virtual sizei32y header_height() const noexcept = 0;
+    virtual sizei32y row_height(int i) const noexcept = 0;
+    virtual sizei32x col_width(int i) const noexcept = 0;
 
-    virtual point2i position() const noexcept = 0;
-    virtual void move_to(point2i p) noexcept = 0;
+    virtual point2i32 position() const noexcept = 0;
+    virtual void move_to(point2i32 p) noexcept = 0;
 
-    virtual recti bounds() const noexcept = 0;
-    virtual void resize_to(sizeix w, sizeiy h) noexcept = 0;
+    virtual recti32 bounds() const noexcept = 0;
+    virtual void resize_to(sizei32x w, sizei32y h) noexcept = 0;
 
     virtual size_t size() const noexcept = 0;
     virtual size_t rows() const noexcept = 0;
@@ -54,7 +54,7 @@ public:
       , std::string label
       , get_f       get
       , int         insert_before = insert_at_end
-      , int         width         = adjust_to_fit) = 0;
+      , sizei16x    width         = adjust_to_fit) = 0;
 
     virtual void add_row(item_instance_id id) = 0;
 
