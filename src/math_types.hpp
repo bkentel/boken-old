@@ -570,7 +570,7 @@ constexpr point2<T>& operator+=(point2<T>& p, vec2<U> const v) noexcept {
 //------------------------------------------------------------------------------
 template <typename T, typename U>
 constexpr auto operator-(point2<T> const p, vec2<U> const v) noexcept {
-    return point2<safe_common_type_t<T, U, true>> {p.x + v.x, p.y + v.y};
+    return point2<safe_common_type_t<T, U, true>> {p.x - v.x, p.y - v.y};
 }
 
 template <typename T, typename U>

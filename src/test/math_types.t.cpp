@@ -137,138 +137,117 @@ TEST_CASE("basic_1_tuple", "[math]") {
     }
 }
 
-//TEST_CASE("basic_2_tuple", "[math]") {
-//    using namespace boken;
-//
-//    SECTION("construction") {
-//        point2i16 const p0 {int16_t {1}, int16_t {1}}; // from constant
-//        point2i32 const q0 {int16_t {2}, int16_t {2}}; // from smaller constant type
-//        point2i32 const p1 = p0;                       // from smaller type
-//        point2i16 const q1 = p0;                       // from same size type
-//
-//        REQUIRE(check_value_type_xy<int16_t>(p0)
-//             == std::make_pair(int16_t {1}, int16_t {1}));
-//        REQUIRE(check_value_type_xy<int32_t>(q0) == std::make_pair(2, 2));
-//        REQUIRE(check_value_type_xy<int32_t>(p1) == std::make_pair(1, 1));
-//        REQUIRE(check_value_type_xy<int16_t>(q1)
-//             == std::make_pair(int16_t {1}, int16_t {1}));
-//    }
-//
-//    SECTION("comparison") {
-//        point2i16 const p = {int16_t {1}, int16_t {1}};
-//        point2i32 const q = {int32_t {2}, int16_t {1}};
-//        point2i32 const r = {int32_t {1}, int16_t {1}};
-//        vec2i16   const u = {int16_t {1}, int16_t {1}};
-//        vec2i32   const v = {int32_t {2}, int16_t {1}};
-//        vec2i32   const w = {int32_t {1}, int16_t {1}};
-//
-//        // self equality
-//        REQUIRE(p == p);
-//        REQUIRE(q == q);
-//        REQUIRE(r == r);
-//
-//        REQUIRE(u == u);
-//        REQUIRE(v == v);
-//        REQUIRE(w == w);
-//
-//        // self unequality
-//        REQUIRE_FALSE(p != p);
-//        REQUIRE_FALSE(q != q);
-//        REQUIRE_FALSE(r != r);
-//
-//        REQUIRE_FALSE(u != u);
-//        REQUIRE_FALSE(v != v);
-//        REQUIRE_FALSE(w != w);
-//
-//        // equality with diff. underlying types
-//        REQUIRE(p == r);
-//        REQUIRE(r == p);
-//
-//        REQUIRE(u == w);
-//        REQUIRE(w == u);
-//
-//        // unequality with diff. underlying types
-//        REQUIRE(p != r);
-//        REQUIRE(r != p);
-//
-//        REQUIRE(u != w);
-//        REQUIRE(w != u);
-//    }
-//
-//    SECTION("arithmetic") {
-//        point2i16 const p = {int16_t {1}, int16_t {1}};
-//        point2i32 const q = {int32_t {2}, int16_t {1}};
-//        vec2i16   const u = {int16_t {1}, int16_t {1}};
-//        vec2i32   const v = {int32_t {2}, int16_t {1}};
-//
-//        // vector + vector
-//        REQUIRE(check_value_type_xy<int32_t>(u + v)
-//             == std::make_pair<int32_t>(3, 1));
-//
-//        // vector - vector
-//        REQUIRE(check_value_type_xy<int32_t>(u - v)
-//             == std::make_pair<int32_t>(-1, 0));
-//
-//        // point + vector
-//        REQUIRE(check_value_type_xy<int32_t>(p + v)
-//             == std::make_pair<int32_t>(3, 2));
-//
-//        // point - vector
-//        REQUIRE(check_value_type_xy<int32_t>(q - u)
-//             == std::make_pair<int32_t>(1, 0));
-//
-//        // point - point
-//        REQUIRE(check_value_type_xy<int32_t>(p - q)
-//             == std::make_pair<int32_t>(-1, 0));
-//
-//        // vector * constant
-//        REQUIRE(check_value_type_xy<int32_t>(u * 1)
-//             == std::make_pair<int32_t>(1, 1));
-//
-//        // point * constant
-//        REQUIRE(check_value_type_xy<int32_t>(p * 1)
-//             == std::make_pair<int32_t>(1, 1));
-//
-//        // vector / constant
-//        REQUIRE(check_value_type_xy<int32_t>(u / 1)
-//             == std::make_pair<int32_t>(1, 1));
-//
-//        // point / constant
-//        REQUIRE(check_value_type_xy<int32_t>(p / 1)
-//             == std::make_pair<int32_t>(1, 1));
-//
-//        // mutating assignment vector & vector
-//        vec2i32 w = {1, 1};
-//
-//        w += v;
-//        REQUIRE((w == vec2i32 {3, 2}));
-//
-//        w -= v;
-//        REQUIRE((w == vec2i32 {1, 1}));
-//
-//        w *= 10;
-//        REQUIRE((w == vec2i32 {10, 10}));
-//
-//        w /= 10;
-//        REQUIRE((w == vec2i32 {1, 1}));
-//
-//        // mutating assignment point & vector
-//        point2i32 r = {1, 1};
-//
-//        r += u;
-//        REQUIRE((r == point2i32 {2, 2}));
-//
-//        r -= u;
-//        REQUIRE((r == point2i32 {1, 1}));
-//
-//        r *= 10;
-//        REQUIRE((r == point2i32 {10, 10}));
-//
-//        r /= 10;
-//        REQUIRE((r == point2i32 {11, 11}));
-//    }
-//
-//}
+TEST_CASE("basic_2_tuple", "[math]") {
+    using namespace boken;
+
+    constexpr auto PX = int16_t {1};
+    constexpr auto PY = int16_t {2};
+    constexpr auto QX = int32_t {0};
+    constexpr auto QY = int32_t {1};
+
+    constexpr auto p = point2i16 {PX, PY};
+    constexpr auto q = point2i32 {QX, QY};
+    constexpr auto u = vec2i16   {PX, PY};
+    constexpr auto v = vec2i32   {QX, QY};
+
+    // initial value
+    {
+        REQUIRE(check_result_type<int16_t>(value_cast(p.x)) == PX);
+        REQUIRE(check_result_type<int16_t>(value_cast(p.y)) == PY);
+
+        REQUIRE(check_result_type<int32_t>(value_cast(q.x)) == QX);
+        REQUIRE(check_result_type<int32_t>(value_cast(q.y)) == QY);
+
+        REQUIRE(check_result_type<int16_t>(value_cast(u.x)) == PX);
+        REQUIRE(check_result_type<int16_t>(value_cast(u.y)) == PY);
+
+        REQUIRE(check_result_type<int32_t>(value_cast(v.x)) == QX);
+        REQUIRE(check_result_type<int32_t>(value_cast(v.y)) == QY);
+    }
+
+    auto const check = [](auto const a, auto const op, auto const b, auto const x, auto const y) noexcept {
+        auto const c = op(a, b);
+
+        REQUIRE(c.x == op(a.x, b.x));
+        REQUIRE(c.y == op(a.y, b.y));
+
+        REQUIRE(value_cast(c.x) == x);
+        REQUIRE(value_cast(c.y) == y);
+
+        static_assert(std::is_same<typename decltype(c)::type
+                                 , std::decay_t<decltype(x)>> {}, "");
+        static_assert(std::is_same<typename decltype(c)::type
+                                 , std::decay_t<decltype(y)>> {}, "");
+
+        return c;
+    };
+
+    // arithmetic +
+    {
+        auto const op = std::plus<> {};
+
+        check(u, op, u, static_cast<int16_t>(PX + PX), static_cast<int16_t>(PY + PY));
+        check(u, op, v, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
+        check(v, op, u, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
+        check(v, op, v, static_cast<int32_t>(QX + QX), static_cast<int32_t>(QY + QY));
+
+        check(p, op, u, static_cast<int16_t>(PX + PX), static_cast<int16_t>(PY + PY));
+        check(p, op, v, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
+        check(q, op, u, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
+        check(q, op, v, static_cast<int32_t>(QX + QX), static_cast<int32_t>(QY + QY));
+    }
+
+    // arithmetic -
+    {
+        auto const op = std::minus<> {};
+
+        check(u, op, u, int16_t {0}, int16_t {0});
+        check(u, op, v, static_cast<int32_t>(PX - QX), static_cast<int32_t>(PY - QY));
+        check(v, op, u, static_cast<int32_t>(QX - PX), static_cast<int32_t>(QY - PY));
+        check(v, op, v, int32_t {0}, int32_t {0});
+
+        check(p, op, u, int16_t {0}, int16_t {0});
+        check(p, op, v, static_cast<int32_t>(PX - QX), static_cast<int32_t>(PY - QY));
+        check(q, op, u, static_cast<int32_t>(QX - PX), static_cast<int32_t>(QY - PY));
+        check(q, op, v, int32_t {0}, int32_t {0});
+    }
+
+    // arithmetic *
+    {
+        REQUIRE((u * 2) == (2 * u));
+        REQUIRE((v * 2) == (2 * v));
+        REQUIRE((p * 2) == (2 * p));
+        REQUIRE((q * 2) == (2 * q));
+
+        REQUIRE((u * 2).x == (u.x * 2));
+        REQUIRE((u * 2).y == (u.y * 2));
+        REQUIRE((p * 2).x == (p.x * 2));
+        REQUIRE((p * 2).y == (p.y * 2));
+
+        REQUIRE(value_cast((u * 2).x) == (PX * 2));
+        REQUIRE(value_cast((u * 2).y) == (PY * 2));
+        REQUIRE(value_cast((p * 2).x) == (PX * 2));
+        REQUIRE(value_cast((p * 2).y) == (PY * 2));
+    }
+
+    // arithmetic /
+    {
+        REQUIRE((u / 2) == (2 / u));
+        REQUIRE((v / 2) == (2 / v));
+        REQUIRE((p / 2) == (2 / p));
+        REQUIRE((q / 2) == (2 / q));
+
+        REQUIRE((u / 2).x == (u.x / 2));
+        REQUIRE((u / 2).y == (u.y / 2));
+        REQUIRE((p / 2).x == (p.x / 2));
+        REQUIRE((p / 2).y == (p.y / 2));
+
+        REQUIRE(value_cast((u / 2).x) == (PX / 2));
+        REQUIRE(value_cast((u / 2).y) == (PY / 2));
+        REQUIRE(value_cast((p / 2).x) == (PX / 2));
+        REQUIRE(value_cast((p / 2).y) == (PY / 2));
+    }
+}
 
 TEST_CASE("axis_aligned_rect", "[math]") {
     using namespace boken;
