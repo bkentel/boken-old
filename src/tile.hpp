@@ -13,11 +13,6 @@
 
 namespace boken {
 
-#if defined(_MSC_VER)
-#   pragma warning(push)
-#   pragma warning(disable : 4307) // integral constant overflow
-#endif
-
 enum class tile_id : uint32_t {
     invalid = 0
   , empty  = djb2_hash_32c("empty")
@@ -46,10 +41,6 @@ enum class tile_id : uint32_t {
   , stair_down = djb2_hash_32c("stair_down")
   , stair_up   = djb2_hash_32c("stair_up")
 };
-
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#endif
 
 template <typename Enum>
 Enum string_to_enum(string_view str) noexcept;

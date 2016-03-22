@@ -8,18 +8,9 @@ namespace boken { class game_database; }
 
 namespace boken {
 
-#if defined(_MSC_VER)
-#   pragma warning(push)
-#   pragma warning(disable : 4307) // integral constant overflow
-#endif
-
 enum class item_property : uint32_t {
-    invalid    = 0
+    invalid = 0
 };
-
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#endif
 
 using item_property_value = int32_t;
 using item_properties = property_set<item_property, item_property_value>;

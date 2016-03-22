@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include <memory>
+#include <cstdint>
 
 namespace boken { struct item_definition; }
 namespace boken { struct entity_definition; }
@@ -10,9 +11,7 @@ namespace boken { enum class tile_map_type : uint32_t; }
 
 namespace boken {
 
-//=====--------------------------------------------------------------------=====
-// The database of all current game data.
-//=====--------------------------------------------------------------------=====
+//! The database of all current game data.
 class game_database {
 public:
     virtual ~game_database();

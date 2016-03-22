@@ -17,7 +17,6 @@
     <ClCompile Include="src\pch.cpp" />
     <ClCompile Include="src\system_sdl.cpp" />
     <ClCompile Include="src\random.cpp" />
-    <ClCompile Include="src\catch.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\text.cpp" />
     <ClCompile Include="src\data.cpp" />
@@ -46,10 +45,12 @@
     <ClCompile Include="src\test\math_types.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="src\catch.cpp">
+      <Filter>external</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
-    <ClInclude Include="src\catch.hpp" />
     <ClInclude Include="src\system.hpp" />
     <ClInclude Include="src\types.hpp" />
     <ClInclude Include="src\hash.hpp" />
@@ -80,6 +81,9 @@
     <ClInclude Include="src\unicode.hpp" />
     <ClInclude Include="src\inventory.hpp" />
     <ClInclude Include="src\math_types.hpp" />
+    <ClInclude Include="src\catch.hpp">
+      <Filter>external</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

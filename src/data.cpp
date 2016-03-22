@@ -15,7 +15,9 @@ auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
     using std::end;
 
     auto const it = c.find(key);
-    return it == end(c) ? nullptr : std::addressof(it->second);
+    return it == end(c)
+      ? nullptr
+      : std::addressof(it->second);
 }
 
 struct identity_hash {
@@ -45,6 +47,9 @@ public:
 
     tile_map const& get_tile_map(tile_map_type const type) const noexcept final override;
 private:
+    void load_entity_defs_();
+    void load_item_defs_();
+
     std::unordered_map<entity_id, entity_definition, identity_hash> entity_defs_;
     std::unordered_map<item_id,   item_definition,   identity_hash> item_defs_;
 
@@ -52,6 +57,10 @@ private:
     tile_map tile_map_entities_ {tile_map_type::entity, 1, sizei32x {18}, sizei32y {18}, sizei32x {26}, sizei32y {17}};
     tile_map tile_map_items_    {tile_map_type::item,   2, sizei32x {18}, sizei32y {18}, sizei32x {16}, sizei32y {16}};
 };
+
+std::unique_ptr<game_database> make_game_database() {
+    return std::make_unique<game_database_impl>();
+}
 
 tile_map const&
 game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
@@ -65,11 +74,7 @@ game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
     return tile_map_base_;
 }
 
-std::unique_ptr<game_database> make_game_database() {
-    return std::make_unique<game_database_impl>();
-}
-
-game_database_impl::game_database_impl() {
+void game_database_impl::load_entity_defs_() {
     {
         auto       id      = std::string {"rat_small"};
         auto const id_hash = djb2_hash_32(id.data());
@@ -98,7 +103,9 @@ game_database_impl::game_database_impl() {
 
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("rat_small")}, 21 + 6 * 26);
     tile_map_entities_.add_mapping(entity_id {djb2_hash_32("player")}, 13 + 13 * 26);
+}
 
+void game_database_impl::load_item_defs_() {
     {
         auto       id      = std::string {"dagger"};
         auto const id_hash = djb2_hash_32(id.data());
@@ -111,6 +118,11 @@ game_database_impl::game_database_impl() {
     }
 
     tile_map_items_.add_mapping(entity_id {djb2_hash_32("dagger")}, 3);
+}
+
+game_database_impl::game_database_impl() {
+    load_entity_defs_();
+    load_item_defs_();
 }
 
 bool has_property(game_database const& data, entity_id const& def, entity_property const property) noexcept {

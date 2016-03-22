@@ -3,18 +3,24 @@
 #include "config.hpp"
 
 #include <algorithm>
-#include <memory>
-#include <stdexcept>
-#include <type_traits>
-#include <vector>
-#include <utility>
-#include <chrono>
-#include <string>
 #include <array>
-#include <numeric>
+#include <bitset>
+#include <chrono>
+#include <functional>
 #include <initializer_list>
-#include <tuple>
+#include <iterator>
 #include <limits>
+#include <memory>
+#include <numeric>
+#include <random>
+#include <ratio>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <cstddef>
 #include <cstdint>

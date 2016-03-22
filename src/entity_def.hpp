@@ -8,19 +8,10 @@ namespace boken { class game_database; }
 
 namespace boken {
 
-#if defined(_MSC_VER)
-#   pragma warning(push)
-#   pragma warning(disable : 4307) // integral constant overflow
-#endif
-
 enum class entity_property : uint32_t {
     invalid    = 0
   , temperment = djb2_hash_32c("temperment")
 };
-
-#if defined(_MSC_VER)
-#   pragma warning(pop)
-#endif
 
 using entity_property_value = int32_t;
 using entity_properties = property_set<entity_property, entity_property_value>;
