@@ -56,6 +56,15 @@ using point2 = basic_2_tuple<T, tag_point>;
 template <typename T>
 using vec2 = basic_2_tuple<T, tag_vector>;
 
+using point2f = point2<float>;
+using vec2f   = vec2<float>;
+using sizef   = size_type<float>;
+using sizefx  = size_type_x<float>;
+using sizefy  = size_type_y<float>;
+using offf    = offset_type<float>;
+using offfx   = offset_type_x<float>;
+using offfy   = offset_type_y<float>;
+
 using point2i32 = point2<int32_t>;
 using vec2i32   = vec2<int32_t>;
 using sizei32   = size_type<int32_t>;

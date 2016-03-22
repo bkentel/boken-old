@@ -127,7 +127,7 @@ public:
         using pair_t = std::pair<value_type*, point_type>;
         auto const offset = find_offset_to_(k);
         return offset < 0
-          ? pair_t {nullptr, {0, 0}}
+          ? pair_t {nullptr, {}}
           : pair_t {values_.data() + offset, *(positions_.data() + offset)};
     }
 

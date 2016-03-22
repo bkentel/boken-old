@@ -22,10 +22,9 @@ class game_renderer_impl final : public game_renderer {
         auto const tw = value_cast(tmap.tile_width());
         auto const th = value_cast(tmap.tile_height());
 
-        return [tw, th](auto const p) noexcept {
-            return point2<uint16_t> {
-                static_cast<uint16_t>(value_cast(p.x) * tw)
-              , static_cast<uint16_t>(value_cast(p.y) * th)};
+        return [tw, th](auto const p) noexcept -> point2i16 {
+            return {underlying_cast_unsafe<int16_t>(p.x * tw)
+                  , underlying_cast_unsafe<int16_t>(p.y * th)};
         };
     }
 
@@ -41,9 +40,10 @@ class game_renderer_impl final : public game_renderer {
         std::transform(ps.first, ps.second, back_inserter(data)
           , [&](auto const p) noexcept {
                 auto const index = id_to_index(tmap, *(ids.first + i++));
+                auto const tex_p = tmap.index_to_rect(index).top_left();
                 return data_t {
                     tranform_point(p)
-                  , tmap.index_to_rect(index).top_left().template cast_to<uint16_t>()
+                  , underlying_cast_unsafe<int16_t>(tex_p)
                   , 0xFFu};
             });
     }
@@ -52,8 +52,8 @@ class game_renderer_impl final : public game_renderer {
     void update_data_(Data& data, Updates const& updates, tile_map const& tmap) {
         auto const tranform_point = position_to_pixel_(tmap);
         auto const get_texture_coord = [&](auto const& id) noexcept {
-            return tmap.index_to_rect(id_to_index(tmap, id))
-              .top_left().template cast_to<uint16_t>();
+            return underlying_cast_unsafe<int16_t>(
+                tmap.index_to_rect(id_to_index(tmap, id)).top_left());
         };
 
         auto first = begin(data);
@@ -80,7 +80,7 @@ class game_renderer_impl final : public game_renderer {
             }
 
             // data to update
-            it->position = tranform_point(update.next_pos);
+            it->position  = tranform_point(update.next_pos);
             it->tex_coord = get_texture_coord(update.id);
         }
     }
@@ -127,7 +127,7 @@ public:
 
     void update_tool_tip_text(std::string text) final override;
     bool update_tool_tip_visible(bool show) noexcept final override;
-    void update_tool_tip_position(point2i p) noexcept final override;
+    void update_tool_tip_position(point2i32 p) noexcept final override;
 
     void set_message_window(message_log const* const window) noexcept final override {
         message_log_ = window;
@@ -139,7 +139,7 @@ public:
 
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
-    void render_text_(text_layout const& text, vec2i off) const noexcept;
+    void render_text_(text_layout const& text, vec2i32 off) const noexcept;
     void render_message_log_() const noexcept;
     void render_inventory_list_() const noexcept;
 
@@ -149,9 +149,9 @@ private:
     level const* level_ {};
 
     struct data_t {
-        point2<uint16_t> position;
-        point2<uint16_t> tex_coord;
-        uint32_t         color;
+        point2i16 position;
+        point2i16 tex_coord;
+        uint32_t  color;
     };
 
     tile_map const* tile_map_base_ {};
@@ -194,9 +194,7 @@ void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const s
         auto& dst = *dst_it;
 
         auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, *it));
-
-        dst.tex_coord.x = offset_type_x<uint16_t> {tex_rect.x0};
-        dst.tex_coord.y = offset_type_y<uint16_t> {tex_rect.y0};
+        dst.tex_coord = underlying_cast_unsafe<int16_t>(tex_rect.top_left());
     }
 }
 
@@ -205,7 +203,8 @@ void game_renderer_impl::update_map_data() {
     auto const& lvl  = *level_;
 
     auto const bounds = lvl.bounds();
-    auto const bounds_size = static_cast<size_t>(std::max(0, bounds.area()));
+    auto const bounds_size = static_cast<size_t>(
+        std::max(0, value_cast(bounds.area())));
 
     if (tile_data.size() < bounds_size) {
         tile_data.resize(bounds_size);
@@ -230,8 +229,10 @@ void game_renderer_impl::update_map_data() {
         auto const rid = *it1;
         auto const index = id_to_index(tmap, tid);
 
-        dst->position = transform_point(point2<ptrdiff_t> {dst.x(), dst.y()});
-        dst->tex_coord = tmap.index_to_rect(index).top_left().cast_to<uint16_t>();
+        auto const p = transform_point(point2<ptrdiff_t> {dst.x(), dst.y()});
+
+        dst->position  = underlying_cast_unsafe<int16_t>(p);
+        dst->tex_coord = underlying_cast_unsafe<int16_t>(tmap.index_to_rect(index).top_left());
         dst->color = (tid == tile_id::empty)
           ? region_color(rid)
           : 0xFF0000FFu;
@@ -246,7 +247,7 @@ bool game_renderer_impl::update_tool_tip_visible(bool const show) noexcept {
     return tool_tip_.visible(show);
 }
 
-void game_renderer_impl::update_tool_tip_position(point2i const p) noexcept {
+void game_renderer_impl::update_tool_tip_position(point2i32 const p) noexcept {
     tool_tip_.move_to(value_cast(p.x), value_cast(p.y));
 }
 
@@ -313,7 +314,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     //
     // tool tip
     //
-    render_text_(tool_tip_, vec2i {0, 0});
+    render_text_(tool_tip_, vec2i32 {});
 
     //
     // message log window
@@ -328,7 +329,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     os_.render_present();
 }
 
-void game_renderer_impl::render_text_(text_layout const& text, vec2i const off) const noexcept {
+void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off) const noexcept {
     if (!text.is_visible()) {
         return;
     }
@@ -339,8 +340,8 @@ void game_renderer_impl::render_text_(text_layout const& text, vec2i const off) 
 
     auto const r  = text.extent() + off;
     auto const p  = r.top_left();
-    auto const tx = value_cast<float>(p.x);
-    auto const ty = value_cast<float>(p.y);
+    auto const tx = value_cast_unsafe<float>(p.x);
+    auto const ty = value_cast_unsafe<float>(p.y);
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 
@@ -361,7 +362,7 @@ void game_renderer_impl::render_message_log_() const noexcept {
     }
 
     auto const& log_window = *message_log_;
-    auto const v = vec2i {0, 0};
+    auto const v = vec2i32 {};
 
     std::for_each(log_window.visible_begin(), log_window.visible_end()
       , [&](text_layout const& line) noexcept { render_text_(line, v); });
@@ -373,7 +374,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     }
 
     auto const& inv_window = *inventory_list_;
-    auto const v = inv_window.position() - point2i {0, 0};
+    auto const v = inv_window.position() - point2i32 {};
 
     for (size_t i = 0; i < inv_window.cols(); ++i) {
         auto const info = inv_window.col(static_cast<int>(i));

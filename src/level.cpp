@@ -32,7 +32,7 @@ template <size_t N, typename Check, typename Predicate>
 unsigned fold_neighbors_impl(
     std::array<int, N> const& xi
   , std::array<int, N> const& yi
-  , boken::point2i const p
+  , boken::point2i32 const p
   , Check check
   , Predicate pred
 ) {
@@ -44,7 +44,7 @@ unsigned fold_neighbors_impl(
     auto const y = value_cast(p.y);
 
     for (size_t i = 0; i < N; ++i) {
-        auto const q = point2i {x + xi[i], y + yi[i]};
+        auto const q = point2i32 {x + xi[i], y + yi[i]};
         auto const bit = check(q) && pred(q) ? 1u : 0u;
         result |= bit << (N - 1 - i);
     }
@@ -56,7 +56,7 @@ unsigned fold_neighbors_impl(
 // W[2]    E[1]
 //     S[0]
 template <typename Check, typename Predicate>
-unsigned fold_neighbors4(boken::point2i const p, Check check, Predicate pred) {
+unsigned fold_neighbors4(boken::point2i32 const p, Check check, Predicate pred) {
     constexpr std::array<int, 4> yi {-1,  0, 0, 1};
     constexpr std::array<int, 4> xi { 0, -1, 1, 0};
     return fold_neighbors_impl(xi, yi, p, check, pred);
@@ -66,23 +66,23 @@ unsigned fold_neighbors4(boken::point2i const p, Check check, Predicate pred) {
 //  W[4]       E[3]
 // SW[2] S[1] SE[0]
 template <typename Check, typename Predicate>
-unsigned fold_neighbors9(boken::point2i const p, Check check, Predicate pred) {
+unsigned fold_neighbors9(boken::point2i32 const p, Check check, Predicate pred) {
     constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
     constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
     return fold_neighbors_impl(xi, yi, p, check, pred);
 }
 
 template <typename Vector>
-auto& data_at(Vector&& v, int const x, int const y, boken::sizeix const w) noexcept {
+auto& data_at(Vector&& v, int const x, int const y, boken::sizei32x const w) noexcept {
     using namespace boken;
     auto const i = static_cast<size_t>(x)
-                 + static_cast<size_t>(y) * value_cast<size_t>(w);
+                 + static_cast<size_t>(y) * value_cast_unsafe<size_t>(w);
 
     return v[i];
 }
 
 template <typename Vector>
-auto& data_at(Vector&& v, boken::point2i const p, boken::sizeix const w) noexcept {
+auto& data_at(Vector&& v, boken::point2i32 const p, boken::sizei32x const w) noexcept {
     using namespace boken;
     return data_at(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
 }
@@ -92,7 +92,7 @@ std::pair<boken::point2<T>, bool> find_random_nearest(
     boken::random_state&         rng
   , boken::point2<T> const       origin
   , T const                      max_distance
-  , std::vector<boken::point2i>& points
+  , std::vector<boken::point2i32>& points
   , Predicate                    pred
 ) {
     using namespace boken;
@@ -104,7 +104,7 @@ std::pair<boken::point2<T>, bool> find_random_nearest(
 
     for (T d = 0; d <= max_distance; ++d) {
         boken::points_around(origin, d
-          , [&](point2i const p) noexcept { points.push_back(p); });
+          , [&](point2i32 const p) noexcept { points.push_back(p); });
 
         std::shuffle(begin(points), end(points), rng);
 
@@ -124,7 +124,7 @@ auto find_random_nearest(
   , T const                max_distance
   , Predicate              pred
 ) {
-    std::vector<boken::point2i> points;
+    std::vector<boken::point2i32> points;
     return find_random_nearest(rng, origin, max_distance, points, pred);
 }
 
@@ -150,19 +150,19 @@ bool can_remove_wall_code(
 }
 
 template <typename Read, typename Check>
-bool can_remove_wall_at(boken::point2i const p, Read read, Check check) noexcept {
+bool can_remove_wall_at(boken::point2i32 const p, Read read, Check check) noexcept {
     using namespace boken;
 
     static_assert(noexcept(read(p)), "");
     static_assert(noexcept(check(p)), "");
 
     auto const wall_type =
-        fold_neighbors9(p, check, [&](point2i const q) noexcept {
+        fold_neighbors9(p, check, [&](point2i32 const q) noexcept {
             return read(q) == tile_type::wall;
         });
 
     auto const other_type =
-        fold_neighbors9(p, check, [&](point2i const q) noexcept {
+        fold_neighbors9(p, check, [&](point2i32 const q) noexcept {
             return read(q) == tile_type::floor;
         });
 
@@ -195,7 +195,7 @@ boken::tile_id wall_code_to_id(unsigned const code) noexcept {
 }
 
 template <typename Read, typename Check>
-boken::tile_id tile_type_to_id_at(boken::point2i const p, Read read, Check check) noexcept {
+boken::tile_id tile_type_to_id_at(boken::point2i32 const p, Read read, Check check) noexcept {
     using namespace boken;
 
     static_assert(noexcept(read(p)), "");
@@ -212,7 +212,7 @@ boken::tile_id tile_type_to_id_at(boken::point2i const p, Read read, Check check
     case tt::door   : break;
     case tt::stair  : break;
     case tt::wall   : return wall_code_to_id(
-        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
             auto const type = read(q);
             return type == tt::wall || type == tt::door;
         }));
@@ -222,19 +222,19 @@ boken::tile_id tile_type_to_id_at(boken::point2i const p, Read read, Check check
 }
 
 template <typename Read, typename Check>
-boken::tile_id can_place_door_at(boken::point2i const p, Read read, Check check) noexcept {
+boken::tile_id can_place_door_at(boken::point2i32 const p, Read read, Check check) noexcept {
     using namespace boken;
 
     static_assert(noexcept(read(p)), "");
     static_assert(noexcept(check(p)), "");
 
     auto const wall_type =
-        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
             return read(q) == tile_type::wall;
         });
 
     auto const other_type =
-        fold_neighbors4(p, check, [&](point2i const q) noexcept {
+        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
             auto const type = read(q);
             return type == tile_type::floor || type == tile_type::tunnel;
         });
@@ -246,30 +246,53 @@ boken::tile_id can_place_door_at(boken::point2i const p, Read read, Check check)
 
 template <typename Check, typename Transform>
 void transform_area(
-    boken::recti const area
-  , boken::recti const bounds
+    boken::recti32 const area
+  , boken::recti32 const bounds
   , Check              check
   , Transform          transform
 ) {
     using namespace boken;
 
-    auto const transform_checked = [&](point2i const p) noexcept {
+    auto const transform_checked = [&](point2i32 const p) noexcept {
         transform(p, check);
     };
 
-    auto const transform_unchecked = [&](point2i const p) noexcept {
+    auto const transform_unchecked = [&](point2i32 const p) noexcept {
         transform(p, always_true {});
     };
 
     bool const must_check = area.x0 == bounds.x0
                          || area.y0 == bounds.y0
-                         || area.x1 == bounds.x1 - 1
-                         || area.y1 == bounds.y1 - 1;
+                         || value_cast(area.x1) == value_cast(bounds.x1) - 1
+                         || value_cast(area.y1) == value_cast(bounds.y1) - 1;
 
     if (must_check) {
         for_each_xy_center_first(area, transform_unchecked, transform_checked);
     } else {
         for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
+    }
+}
+
+template <typename T>
+void fill_rect(
+    std::vector<T>& v
+  , boken::sizei32x const width
+  , boken::recti32  const r
+  , T const value
+) noexcept {
+    using namespace boken;
+
+    auto const x0   = value_cast(r.x0);
+    auto const y0   = value_cast(r.y0);
+    auto const y1   = value_cast(r.y1);
+    auto const w    = value_cast(width);
+    auto const rw   = value_cast(r.width());
+    auto const step = w - rw;
+
+    auto p = v.data() + x0 + (y0 * w);
+
+    for (auto y = y0; y < y1; ++y) {
+        p = std::fill_n(p, rw, value) + step;
     }
 }
 
@@ -291,61 +314,66 @@ struct generate_rect_room {
         BK_ASSERT(min_size <= max_size);
         BK_ASSERT(inverse_variance > 0);
 
-        auto const w = r.width();
-        auto const h = r.height();
+        T const w = value_cast(r.width());
+        T const h = value_cast(r.height());
 
-        auto const new_size = [&](T const size) noexcept {
-            auto const min_s = value_cast(min_size);
+        auto const new_size = [&](T const size) noexcept -> T {
+            T const min_s = value_cast(min_size);
             if (min_s > size) {
                 return size;
             }
 
-            auto const max_s = std::min(size, value_cast(max_size));
+            T const max_s = std::min(size, value_cast(max_size));
             if (max_s - min_s <= 0) {
                 return size;
             }
 
-            auto const range    = max_s - min_s;
-            auto const median   = min_s + range / 2.0;
-            auto const variance = range / inverse_variance;
-            auto const roll     = random_normal(rng, median, variance);
+            T      const range    = max_s - min_s;
+            double const median   = min_s + range / 2.0;
+            double const variance = range / inverse_variance;
+            double const roll     = random_normal(rng, median, variance);
 
             return clamp(round_as<T>(roll), min_s, max_s);
         };
 
-        auto const new_w = new_size(w);
-        auto const new_h = new_size(h);
+        T const new_w = new_size(w);
+        T const new_h = new_size(h);
 
         auto const new_offset = [&](T const size) noexcept {
             return static_cast<T>((size <= 0)
               ? 0 : random_uniform_int(rng, 0, size));
         };
 
-        return {offset_type_x<T> {r.x0 + new_offset(w - new_w)}
-              , offset_type_y<T> {r.y0 + new_offset(h - new_h)}
-              , size_type_x<T>   {new_w}
-              , size_type_y<T>   {new_h}};
+        auto const p = r.top_left() +
+            vec2<T> {new_offset(w - new_w), new_offset(h - new_h)};
+
+        return {p, size_type_x<T> {new_w}, size_type_y<T> {new_h}};
     }
 
-    generate_rect_room(sizei const room_min_size, sizei const room_max_size) noexcept
+    generate_rect_room(sizei32 const room_min_size, sizei32 const room_max_size) noexcept
       : room_min_size_ {room_min_size}
       , room_max_size_ {room_max_size}
     {
     }
 
-    int32_t operator()(random_state& rng, recti const area, std::vector<tile_data_set>& out) {
+    int32_t operator()(random_state& rng, recti32 const area, std::vector<tile_data_set>& out) {
         int32_t count = 0;
 
         auto const r = random_sub_rect(rng, move_to_origin(area), room_min_size_, room_max_size_);
-        auto const area_w = area.width();
-        auto const room_w = r.width();
+        auto const area_w = value_cast(area.width());
+        auto const room_w = value_cast(r.width());
         auto const step   = area_w - room_w;
 
-        auto it = begin(out) + (r.x0) + (r.y0 * area_w);
-        for (auto y = r.y0; y < r.y1; ++y) {
-            bool const on_edge_y = (y == r.y0) || (it += step, false) || (y == r.y1 - 1);
-            for (auto x = r.x0; x < r.x1; ++x, ++it) {
-                bool const on_edge = on_edge_y || (x == r.x0) || (x == r.x1 - 1);
+        auto const x0 = value_cast(r.x0);
+        auto const x1 = value_cast(r.x1);
+        auto const y0 = value_cast(r.y0);
+        auto const y1 = value_cast(r.y1);
+
+        auto it = begin(out) + x0 + (y0 * area_w);
+        for (auto y = y0; y < y1; ++y) {
+            bool const on_edge_y = (y == y0) || (it += step, false) || (y == y1 - 1);
+            for (auto x = x0; x < x1; ++x, ++it) {
+                bool const on_edge = on_edge_y || (x == x0) || (x == x1 - 1);
                 if (on_edge) {
                     it->type  = tile_type::wall;
                     it->flags = tile_flags {tile_flags::f_solid};
@@ -360,25 +388,25 @@ struct generate_rect_room {
         return count;
     }
 
-    sizei room_min_size_;
-    sizei room_max_size_;
+    sizei32 room_min_size_;
+    sizei32 room_max_size_;
 };
 
 class level_impl : public level {
 public:
-    level_impl(random_state& rng, world& w, sizeix const width, sizeiy const height, size_t const id)
-      : bounds_   {offix {0}, offiy {0}, width, height}
-      , entities_ {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
-      , items_    {value_cast<uint16_t>(width), value_cast<uint16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
+    level_impl(random_state& rng, world& w, sizei32x const width, sizei32y const height, size_t const id)
+      : bounds_   {point2i32 {}, width, height}
+      , entities_ {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
+      , items_    {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
       , data_     {width, height}
       , world_    {w}
       , id_       {id}
     {
         bsp_generator::param_t p;
-        p.width  = sizeix {width};
-        p.height = sizeiy {height};
-        p.min_room_size = sizei {3};
-        p.room_chance_num = sizei {80};
+        p.width  = sizei32x {width};
+        p.height = sizei32y {height};
+        p.min_room_size = sizei32 {3};
+        p.room_chance_num = sizei32 {80};
 
         bsp_gen_ = make_bsp_generator(p);
         generate(rng);
@@ -387,15 +415,15 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // level interface
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    sizeix width() const noexcept final override {
-        return sizeix {bounds_.width()};
+    sizei32x width() const noexcept final override {
+        return sizei32x {bounds_.width()};
     }
 
-    sizeiy height() const noexcept final override {
-        return sizeiy {bounds_.height()};
+    sizei32y height() const noexcept final override {
+        return sizei32y {bounds_.height()};
     }
 
-    recti bounds() const noexcept final override {
+    recti32 bounds() const noexcept final override {
         return bounds_;
     }
 
@@ -403,35 +431,35 @@ public:
         return id_;
     }
 
-    std::pair<entity*, point2i>
+    std::pair<entity*, point2i32>
     find(entity_instance_id const id) noexcept final override {
         auto const result = entities_.find(id);
         if (!result.first) {
-            return {nullptr, point2i {}};
+            return {nullptr, point2i32 {}};
         }
 
-        return {boken::find(world_, *result.first), result.second.cast_to<int32_t>()};
+        return {boken::find(world_, *result.first), result.second};
     }
 
-    std::pair<entity const*, point2i>
+    std::pair<entity const*, point2i32>
     find(entity_instance_id const id) const noexcept final override {
         return const_cast<level_impl*>(this)->find(id);
     }
 
-    entity* entity_at(point2i const p) noexcept final override {
-        auto const id = entities_.find(p.cast_to<uint16_t>());
+    entity* entity_at(point2i32 const p) noexcept final override {
+        auto const id = entities_.find(underlying_cast_unsafe<int16_t>(p));
         return id ? boken::find(world_, *id) : nullptr;
     }
 
-    entity const* entity_at(point2i const p) const noexcept final override {
+    entity const* entity_at(point2i32 const p) const noexcept final override {
         return const_cast<level_impl*>(this)->entity_at(p);
     }
 
-    item_pile const* item_at(point2i const p) const noexcept final override {
-        return items_.find(p.cast_to<uint16_t>());
+    item_pile const* item_at(point2i32 const p) const noexcept final override {
+        return items_.find(underlying_cast_unsafe<int16_t>(p));
     }
 
-    placement_result can_place_entity_at(point2i const p) const noexcept final override {
+    placement_result can_place_entity_at(point2i32 const p) const noexcept final override {
         return !check_bounds_(p)
                  ? placement_result::failed_bounds
              : data_at_(data_.flags, p).test(tile_flags::f_solid)
@@ -441,7 +469,7 @@ public:
                  : placement_result::ok;
     }
 
-    placement_result can_place_item_at(point2i const p) const noexcept final override {
+    placement_result can_place_item_at(point2i32 const p) const noexcept final override {
         return !check_bounds_(p)
                  ? placement_result::failed_bounds
              : data_at_(data_.flags, p).test(tile_flags::f_solid)
@@ -449,24 +477,23 @@ public:
                  : placement_result::ok;
     }
 
-    placement_result move_by(item_instance_id const id, vec2i const v) noexcept final override {
+    placement_result move_by(item_instance_id const id, vec2i32 const v) noexcept final override {
         return placement_result::ok;
     }
 
-    placement_result move_by(entity_instance_id const id, vec2i const v) noexcept final override {
+    placement_result move_by(entity_instance_id const id, vec2i32 const v) noexcept final override {
         auto result = placement_result::failed_bad_id;
-        entities_.move_to_if(id, [&](entity_instance_id, point2<uint16_t> const p) noexcept {
-            auto const p0 = p.cast_to<int32_t>() + v;
-            result = can_place_entity_at(p0);
-            return std::make_pair(p0.cast_to<uint16_t>(), result == placement_result::ok);
+        entities_.move_to_if(id, [&](entity_instance_id, point2i16 const p) noexcept {
+            result = can_place_entity_at(p);
+            return std::make_pair(p, result == placement_result::ok);
         });
 
         return result;
     }
 
     void transform_entities(
-        std::function<point2i (entity&, point2i)>&& transform
-      , std::function<void (entity&, point2i, point2i)>&& on_success
+        std::function<point2i32 (entity&, point2i32)>&& transform
+      , std::function<void (entity&, point2i32, point2i32)>&& on_success
     ) final override {
         auto const values    = entities_.values_range();
         auto const positions = entities_.positions_range();
@@ -475,7 +502,7 @@ public:
         auto p_it = positions.first;
 
         for (size_t i = 0; i < entities_.size(); ++i, ++v_it, ++p_it) {
-            auto const p = p_it->cast_to<int32_t>();
+            auto const p = *p_it;
             auto&      e = *boken::find(world_, *v_it);
 
             auto const q = transform(e, p);
@@ -489,7 +516,7 @@ public:
         }
     }
 
-    placement_result add_item_at(unique_item&& i, point2i const p) final override {
+    placement_result add_item_at(unique_item&& i, point2i32 const p) final override {
         if (!item_deleter_) {
             item_deleter_ = &i.get_deleter();
         }
@@ -508,11 +535,13 @@ public:
 
         BK_ASSERT(get_instance(*itm) == i.get());
 
-        auto* pile = items_.find(p.cast_to<uint16_t>());
+        auto const q = underlying_cast_unsafe<int16_t>(p);
+
+        auto* pile = items_.find(q);
         if (!pile) {
             item_pile new_pile;
             new_pile.add_item(std::move(i));
-            auto const result = items_.insert(p.cast_to<uint16_t>(), std::move(new_pile));
+            auto const result = items_.insert(q, std::move(new_pile));
             BK_ASSERT(result.second);
         } else {
             pile->add_item(std::move(i));
@@ -521,7 +550,7 @@ public:
         return placement_result::ok;
     }
 
-    placement_result add_entity_at(unique_entity&& e, point2i const p) final override {
+    placement_result add_entity_at(unique_entity&& e, point2i32 const p) final override {
         if (!entity_deleter_) {
             entity_deleter_ = &e.get_deleter();
         }
@@ -532,15 +561,16 @@ public:
         }
 
         //TODO these entities will never be deleted
-        auto const insert_result = entities_.insert(p.cast_to<uint16_t>(), e.release());
+        auto const insert_result
+            = entities_.insert(underlying_cast_unsafe<int16_t>(p), e.release());
         BK_ASSERT(insert_result.second);
 
         return placement_result::ok;
     }
 
-    unique_entity remove_entity_at(point2i const p) noexcept final override {
+    unique_entity remove_entity_at(point2i32 const p) noexcept final override {
         BK_ASSERT(!!entity_deleter_);
-        auto const result = entities_.erase(p.cast_to<uint16_t>());
+        auto const result = entities_.erase(underlying_cast_unsafe<int16_t>(p));
         return result.second
           ? unique_entity {result.first, *entity_deleter_}
           : unique_entity {entity_instance_id {}, *entity_deleter_};
@@ -552,10 +582,10 @@ public:
           : unique_entity {entity_instance_id {}, *entity_deleter_};
     }
 
-    std::pair<point2i, placement_result>
-    add_item_nearest_random(random_state& rng, unique_item&& i, point2i p, int max_distance) final override {
+    std::pair<point2i32, placement_result>
+    add_item_nearest_random(random_state& rng, unique_item&& i, point2i32 p, int max_distance) final override {
         auto const where = find_random_nearest(rng, p, max_distance
-          , [&](point2i const q) {
+          , [&](point2i32 const q) {
                 return add_item_at(std::move(i), q) == placement_result::ok;
             });
 
@@ -566,10 +596,10 @@ public:
         return {where.first, placement_result::ok};
     }
 
-    std::pair<point2i, placement_result>
-    add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i const p, int const max_distance) final override {
+    std::pair<point2i32, placement_result>
+    add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i32 const p, int const max_distance) final override {
         auto const where = find_random_nearest(rng, p, max_distance
-          , [&](point2i const q) {
+          , [&](point2i32 const q) {
                 return add_entity_at(std::move(e), q) == placement_result::ok;
             });
 
@@ -589,9 +619,9 @@ public:
         return regions_[i];
     }
 
-    tile_view at(point2i const p) const noexcept final override;
+    tile_view at(point2i32 const p) const noexcept final override;
 
-    std::pair<point2<uint16_t> const*, point2<uint16_t> const*>
+    std::pair<point2i16 const*, point2i16 const*>
     entity_positions() const noexcept final override {
         return entities_.positions_range();
     }
@@ -601,7 +631,7 @@ public:
         return entities_.properties_range();
     }
 
-    std::pair<point2<uint16_t> const*, point2<uint16_t> const*>
+    std::pair<point2i16 const*, point2i16 const*>
     item_positions() const noexcept final override {
         return items_.positions_range();
     }
@@ -611,31 +641,32 @@ public:
         return items_.properties_range();
     }
 
-    const_sub_region_range<tile_id>
-    tile_ids(recti const area) const noexcept final override {
+    template <typename Container>
+    auto make_range_(recti32 const area, Container const& c) const noexcept {
         auto const b = bounds();
         auto const r = clamp(area, b);
 
-        return make_sub_region_range(as_const(data_.ids.data())
-          , r.x0,      r.y0
-          , b.width(), b.height()
-          , r.width(), r.height());
+        return make_sub_region_range(as_const(c.data())
+          , value_cast(r.x0),      value_cast(r.y0)
+          , value_cast(b.width()), value_cast(b.height())
+          , value_cast(r.width()), value_cast(r.height()));
     }
 
-    const_sub_region_range<uint16_t>
-    region_ids(recti const area) const noexcept final override {
-        auto const b = bounds();
-        auto const r = clamp(area, b);
+    const_sub_region_range<tile_id>
+    tile_ids(recti32 const area) const noexcept final override {
+        return make_range_(area, data_.ids);
+    }
 
-        return make_sub_region_range(as_const(data_.region_ids.data())
-          , r.x0,      r.y0
-          , b.width(), b.height()
-          , r.width(), r.height());
+    const_sub_region_range<int16_t>
+    region_ids(recti32 const area) const noexcept final override {
+        return make_range_(area, data_.region_ids);
     }
 
     template <typename To>
-    merge_item_result move_items_(point2i const from, To& to, item_merge_f const& f) {
-        auto* const from_pile = items_.find(from.cast_to<uint16_t>());
+    merge_item_result move_items_(point2i32 const from_, To& to, item_merge_f const& f) {
+        auto const from = underlying_cast_unsafe<int16_t>(from_);
+
+        auto* const from_pile = items_.find(underlying_cast_unsafe<int16_t>(from));
         if (!from_pile) {
             return merge_item_result::failed_bad_source;
         }
@@ -643,29 +674,29 @@ public:
         auto const result = merge_item_piles(*from_pile, to, f);
 
         if (from_pile->empty()) {
-            items_.erase(from.cast_to<uint16_t>());
+            items_.erase(from);
         }
 
         return result;
     }
 
-    merge_item_result move_items(point2i const from, entity& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i32 const from, entity& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
-    merge_item_result move_items(point2i const from, item& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i32 const from, item& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
-    merge_item_result move_items(point2i const from, item_pile& to, item_merge_f const& f) final override {
+    merge_item_result move_items(point2i32 const from, item_pile& to, item_merge_f const& f) final override {
         return move_items_(from, to, f);
     }
 
-    point2i stair_up(int const i) const noexcept final override {
+    point2i32 stair_up(int const i) const noexcept final override {
         return stair_up_;
     }
 
-    point2i stair_down(int const i) const noexcept final override {
+    point2i32 stair_down(int const i) const noexcept final override {
         return stair_down_;
     }
 
@@ -673,50 +704,46 @@ public:
     // implementation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    template <typename T, typename U>
-    void fill_rect(
-        std::vector<T>& v
-      , sizeix const width
-      , axis_aligned_rect<U> const r
-      , T const value
-    ) noexcept {
-        auto p = v.data() + r.x0 + r.y0 * value_cast(width);
-        auto const step = value_cast(width) - r.width();
-        for (auto y = r.y0; y < r.y1; ++y) {
-            p = std::fill_n(p, r.width(), value) + step;
-        }
-    }
+
 
     template <typename T>
     void copy_region(
         tile_data_set const*     const src
       , T const tile_data_set::* const src_field
-      , recti const                    src_rect
+      , recti32 const                  src_rect
       , std::vector<T>&                dst
     ) noexcept {
-        auto const src_w = src_rect.width();
-        auto const dst_w = value_cast(width());
-        auto const step = static_cast<size_t>(dst_w - src_w);
+        auto const src_w = value_cast_unsafe<size_t>(src_rect.width());
+        auto const dst_w = value_cast_unsafe<size_t>(width());
 
         BK_ASSERT(src_w <= dst_w);
 
-        auto src_off = size_t {0};
-        auto dst_off = static_cast<size_t>(src_rect.x0 + src_rect.y0 * dst_w);
+        auto const step = dst_w - src_w;
 
-        for (auto y = src_rect.y0; y < src_rect.y1; ++y, dst_off += step) {
-            for (auto x = src_rect.x0; x < src_rect.x1; ++x, ++src_off, ++dst_off) {
+        auto const x0 = value_cast(src_rect.x0);
+        auto const x1 = value_cast(src_rect.x1);
+        auto const y0 = value_cast(src_rect.y0);
+        auto const y1 = value_cast(src_rect.y1);
+
+        BK_ASSERT(x0 >= 0 && x1 >= 0 && y0 >= 0 && y1 >= 0);
+
+        auto src_off = size_t {};
+        auto dst_off = static_cast<size_t>(x0 + (y0 * dst_w));
+
+        for (auto y = y0; y < y1; ++y, dst_off += step) {
+            for (auto x = x0; x < x1; ++x, ++src_off, ++dst_off) {
                 dst[dst_off] = src[src_off].*src_field;
             }
         }
     }
 
-    void place_doors(random_state& rng, recti area);
+    void place_doors(random_state& rng, recti32 area);
 
-    void place_stairs(random_state& rng, recti area);
+    void place_stairs(random_state& rng, recti32 area);
 
-    void merge_walls_at(random_state& rng, recti area);
+    void merge_walls_at(random_state& rng, recti32 area);
 
-    void update_tile_ids(random_state& rng, recti area);
+    void update_tile_ids(random_state& rng, recti32 area);
 
     void generate_make_connections(random_state& rng) {
         constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
@@ -728,13 +755,13 @@ public:
             }
 
             auto const& bounds = region.bounds;
-            auto p = point2i {bounds.x0 + bounds.width()  / 2
+            auto p = point2i32 {bounds.x0 + bounds.width()  / 2
                             , bounds.y0 + bounds.height() / 2};
 
             auto const segments = random_uniform_int(rng, 0, 10);
             for (int i = 0; i < segments; ++i) {
                 auto const dir = static_cast<size_t>(random_uniform_int(rng, 0, 3));
-                auto const d   = vec2i {dir_x[dir], dir_y[dir]};
+                auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
 
                 for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
                     auto const p0 = p + d;
@@ -767,26 +794,26 @@ public:
 
     void generate(random_state& rng);
 
-    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti const area, tile_data_set const* const data);
+    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti32 const area, tile_data_set const* const data);
 
-    const_sub_region_range<tile_id> update_tile_at(random_state& rng, point2i const p, tile_data_set const& data) noexcept final override {
-        auto const r = recti {p.x, p.y, sizeix {1}, sizeiy{1}};
+    const_sub_region_range<tile_id> update_tile_at(random_state& rng, point2i32 const p, tile_data_set const& data) noexcept final override {
+        auto const r = recti32 {p, sizei32x {1}, sizei32y {1}};
         return update_tile_rect(rng, r, &data);
     }
 
-    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti const area, std::vector<tile_data_set> const& data) {
+    const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti32 const area, std::vector<tile_data_set> const& data) {
         return update_tile_rect(rng, area, data.data());
     }
 private:
     template <typename Vector>
     auto make_data_reader_(Vector&& v) const noexcept {
-        return [&](point2i const p) noexcept {
+        return [&](point2i32 const p) noexcept {
             return data_at_(std::forward<Vector>(v), p);
         };
     }
 
     auto make_bounds_checker_() const noexcept {
-        return [&](point2i const p) noexcept {
+        return [&](point2i32 const p) noexcept {
             return check_bounds_(p);
         };
     }
@@ -797,7 +824,7 @@ private:
     }
 
     template <typename Vector>
-    auto data_at_(Vector&& v, point2i const p) const noexcept -> decltype(v[0]) {
+    auto data_at_(Vector&& v, point2i32 const p) const noexcept -> decltype(v[0]) {
         return data_at(std::forward<Vector>(v), p, width());
     }
 
@@ -807,7 +834,7 @@ private:
     }
 
     template <typename Vector>
-    auto data_at_(Vector&& v, point2i const p) noexcept -> decltype(v[0]) {
+    auto data_at_(Vector&& v, point2i32 const p) noexcept -> decltype(v[0]) {
         return data_at(std::forward<Vector>(v), p, width());
     }
 
@@ -817,7 +844,7 @@ private:
            && (x <  value_cast(width())) && (y <  value_cast(height()));
     }
 
-    bool check_bounds_(point2i const p) const noexcept {
+    bool check_bounds_(point2i32 const p) const noexcept {
         return check_bounds_(value_cast(p.x), value_cast(p.y));
     }
 
@@ -855,19 +882,19 @@ private:
         world const& world_;
     };
 
-    spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, uint16_t> entities_;
-    spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, uint16_t> items_;
+    spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, int16_t> entities_;
+    spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, int16_t> items_;
 
     item_deleter   const* item_deleter_   {};
     entity_deleter const* entity_deleter_ {};
 
-    recti bounds_;
+    recti32 bounds_;
 
     std::unique_ptr<bsp_generator> bsp_gen_;
     std::vector<region_info> regions_;
 
-    point2i stair_up_   {0, 0};
-    point2i stair_down_ {0, 0};
+    point2i32 stair_up_   {0, 0};
+    point2i32 stair_down_ {0, 0};
 
     struct data_t {
         explicit data_t(size_t const size)
@@ -878,30 +905,27 @@ private:
         {
         }
 
-        data_t(sizeix const width, sizeiy const height)
-          : data_t {value_cast<size_t>(width) * value_cast<size_t>(height)}
+        data_t(sizei32x const width, sizei32y const height)
+          : data_t {value_cast_unsafe<size_t>(width) * value_cast_unsafe<size_t>(height)}
         {
         }
 
         std::vector<tile_id>    ids;
         std::vector<tile_type>  types;
         std::vector<tile_flags> flags;
-        std::vector<uint16_t>   region_ids;
+        std::vector<int16_t>    region_ids;
     } data_;
 
     world& world_;
     size_t id_;
 };
 
-tile_view level_impl::at(point2i const p) const noexcept {
-    auto const x = value_cast(p.x);
-    auto const y = value_cast(p.y);
-
-    if (!check_bounds_(x, y)) {
+tile_view level_impl::at(point2i32 const p) const noexcept {
+    if (!check_bounds_(p)) {
         static tile_id    const dummy_id        {};
         static tile_type  const dummy_type      {tile_type::empty};
         static tile_flags const dummy_flags     {};
-        static uint16_t   const dummy_region_id {};
+        static int16_t    const dummy_region_id {};
         static tile_data* const dummy_data      {};
 
         return {
@@ -914,10 +938,10 @@ tile_view level_impl::at(point2i const p) const noexcept {
     }
 
     return {
-        data_at_(data_.ids,        x, y)
-      , data_at_(data_.types,      x, y)
-      , data_at_(data_.flags,      x, y)
-      , data_at_(data_.region_ids, x, y)
+        data_at_(data_.ids,        p)
+      , data_at_(data_.types,      p)
+      , data_at_(data_.flags,      p)
+      , data_at_(data_.region_ids, p)
       , nullptr
     };
 }
@@ -925,17 +949,17 @@ tile_view level_impl::at(point2i const p) const noexcept {
 std::unique_ptr<level> make_level(
     random_state& rng
   , world& w
-  , sizeix const width
-  , sizeiy const height
+  , sizei32x const width
+  , sizei32y const height
   , size_t const id
 ) {
     return std::make_unique<level_impl>(rng, w, width, height, id);
 }
 
-void level_impl::merge_walls_at(random_state& rng, recti const area) {
+void level_impl::merge_walls_at(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](point2i const p, auto check) noexcept {
+      , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             auto& type = this->data_at_(data_.types, p);
             if (type != tile_type::wall || !can_remove_wall_at(p, read, check)) {
@@ -948,10 +972,10 @@ void level_impl::merge_walls_at(random_state& rng, recti const area) {
     );
 }
 
-void level_impl::update_tile_ids(random_state& rng, recti const area) {
+void level_impl::update_tile_ids(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](point2i const p, auto check) noexcept {
+      , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             auto const id = tile_type_to_id_at(p, read, check);
             if (id != tile_id::invalid) {
@@ -961,10 +985,10 @@ void level_impl::update_tile_ids(random_state& rng, recti const area) {
     );
 }
 
-void level_impl::place_doors(random_state& rng, recti const area) {
+void level_impl::place_doors(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
     transform_area(area, bounds_, make_bounds_checker_()
-      , [&](point2i const p, auto check) noexcept {
+      , [&](point2i32 const p, auto check) noexcept {
             auto const id = can_place_door_at(p, read, check);
             if (id == tile_id::invalid || random_coin_flip(rng)) {
                 return;
@@ -978,7 +1002,7 @@ void level_impl::place_doors(random_state& rng, recti const area) {
     );
 }
 
-void level_impl::place_stairs(random_state& rng, recti const area) {
+void level_impl::place_stairs(random_state& rng, recti32 const area) {
     // the number of candidate regions where a stair might be placed.
     auto const candidates = static_cast<int32_t>(std::count_if(begin(regions_), end(regions_)
       , [](region_info const& info) noexcept {
@@ -996,26 +1020,30 @@ void level_impl::place_stairs(random_state& rng, recti const area) {
     };
 
     // choose a random location within a rect
-    auto const random_point_in_rect = [&](recti const r) noexcept {
-        return point2i {
-            random_uniform_int(rng, r.x0, r.x1 - 1)
-          , random_uniform_int(rng, r.y0, r.y1 - 1)
+    auto const random_point_in_rect = [&](recti32 const r) noexcept {
+        return point2i32 {
+            random_uniform_int(rng, value_cast(r.x0), value_cast(r.x1) - 1)
+          , random_uniform_int(rng, value_cast(r.y0), value_cast(r.y1) - 1)
         };
     };
 
     // find a random valid position within the chosen candidate
-    auto const find_stair_pos = [&](recti const r) noexcept {
-        for (;;) {
-            auto p = random_point_in_rect(r);
-            if (data_at_(data_.types, p) == tile_type::floor) {
+    auto const find_stair_pos = [&](recti32 const r) noexcept {
+        auto const is_ok = [&](point2i32 const p) noexcept {
+            return data_at_(data_.types, p) == tile_type::floor;
+        };
+
+        for (int i = 0; i < 1000; ++i) {
+            auto const p = random_point_in_rect(r);
+            if (is_ok(p)) {
                 return p;
             }
         }
 
-        return point2i {r.x0, r.y0};
+        return r.top_left();
     };
 
-    auto const make_stair_at = [&](point2i const p, tile_id const id) noexcept {
+    auto const make_stair_at = [&](point2i32 const p, tile_id const id) noexcept {
         data_at_(data_.types, p) = tile_type::stair;
         data_at_(data_.ids, p)   = id;
         data_at_(data_.flags, p) = tile_flags {};
@@ -1055,7 +1083,7 @@ void level_impl::generate(random_state& rng) {
               return node_a.rect.area() < node_b.rect.area();
           })->rect.area();
 
-        buffer.reserve(static_cast<size_t>(std::max(0, size)));
+        buffer.reserve(static_cast<size_t>(std::max(0, value_cast(size))));
     }
 
     tile_data_set default_tile {
@@ -1063,7 +1091,7 @@ void level_impl::generate(random_state& rng) {
       , tile_flags {tile_flags::f_solid}
       , tile_id    {}
       , tile_type  {tile_type::empty}
-      , uint16_t   {}
+      , int16_t    {}
     };
 
     auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
@@ -1081,7 +1109,7 @@ void level_impl::generate(random_state& rng) {
             continue;
         }
 
-        buffer.resize(static_cast<size_t>(std::max(0, rect.area())), default_tile);
+        buffer.resize(static_cast<size_t>(std::max(0, value_cast(rect.area()))), default_tile);
         region.tile_count = gen_rect(rng, rect, buffer);
 
         copy_region(buffer.data(), &tile_data_set::id,    rect, data_.ids);
@@ -1101,7 +1129,7 @@ void level_impl::generate(random_state& rng) {
 const_sub_region_range<tile_id>
 level_impl::update_tile_rect(
     random_state&              rng
-  , recti                const area
+  , recti32              const area
   , tile_data_set const* const data
 ) {
     copy_region(data, &tile_data_set::id,    area, data_.ids);
@@ -1117,10 +1145,9 @@ level_impl::update_tile_rect(
     update_tile_ids(rng, update_area);
 
     return make_sub_region_range(as_const(data_.ids.data())
-      , update_area.x0,      update_area.y0
-      , bounds_.width(),     bounds_.height()
-      , update_area.width(), update_area.height()
-    );
+      , value_cast(update_area.x0),      value_cast(update_area.y0)
+      , value_cast(bounds_.width()),     value_cast(bounds_.height())
+      , value_cast(update_area.width()), value_cast(update_area.height()));
 }
 
 } //namespace boken

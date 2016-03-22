@@ -22,9 +22,9 @@ TEST_CASE("spatial map") {
         }
     };
 
-    constexpr int16_t width  = 20;
-    constexpr int16_t height = 10;
-    spatial_map<value_t, key_t, property_t, int16_t> map {width, height};
+    constexpr int32_t width  = 20;
+    constexpr int32_t height = 10;
+    spatial_map<value_t, key_t, property_t, int32_t> map {width, height};
 
     REQUIRE(map.size() == 0);
 

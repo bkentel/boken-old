@@ -7,7 +7,7 @@
 #include "item.hpp"
 #include "item_def.hpp"     // for item_definition
 #include "level.hpp"        // for level, placement_result, make_level, etc
-#include "math.hpp"         // for vec2i, floor_as, point2f, basic_2_tuple, etc
+#include "math.hpp"         // for vec2i32, floor_as, point2f, basic_2_tuple, etc
 #include "message_log.hpp"  // for message_log
 #include "random.hpp"       // for random_state, make_random_state
 #include "render.hpp"       // for game_renderer
@@ -130,10 +130,10 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Utility / Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    point2i window_to_world(point2i const p) const noexcept {
+    point2i32 window_to_world(point2i32 const p) const noexcept {
         auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast<float>(tile_map.tile_width());
-        auto const th = value_cast<float>(tile_map.tile_height());
+        auto const tw = value_cast(tile_map.tile_width());
+        auto const th = value_cast(tile_map.tile_height());
 
         auto const q  = current_view.window_to_world(p);
         auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
@@ -143,7 +143,7 @@ struct game_state {
     }
 
     // @param p Position in world coordinates
-    void update_tile_at(point2i const p) {
+    void update_tile_at(point2i32 const p) {
         auto& lvl = the_world.current_level();
 
         if (!intersects(lvl.bounds(), p)) {
@@ -166,7 +166,7 @@ struct game_state {
     }
 
     //! @param p Position in window coordinates
-    void show_tool_tip(point2i const p) {
+    void show_tool_tip(point2i32 const p) {
         auto const p0 = window_to_world(p);
         auto const q  = window_to_world({last_mouse_x, last_mouse_y});
 
@@ -272,7 +272,7 @@ struct game_state {
                 continue;
             }
 
-            point2i const p {region.bounds.x0 + region.bounds.width()  / 2
+            point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
                            , region.bounds.y0 + region.bounds.height() / 2};
 
             auto const result = add_entity_near(std::move(ent), p, 3, rng_substantive);
@@ -296,7 +296,7 @@ struct game_state {
                 continue;
             }
 
-            point2i const p {region.bounds.x0 + region.bounds.width()  / 2
+            point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
                            , region.bounds.y0 + region.bounds.height() / 2};
 
             auto const result = add_item_near(std::move(itm), p, 3, rng_substantive);
@@ -311,7 +311,7 @@ struct game_state {
         auto const level_h = 80;
 
         the_world.add_new_level(parent
-          , make_level(rng_substantive, the_world, sizeix {level_w}, sizeiy {level_h}, id));
+          , make_level(rng_substantive, the_world, sizei32x {level_w}, sizei32y {level_h}, id));
 
         the_world.change_level(id);
     }
@@ -344,21 +344,21 @@ struct game_state {
 
     void reset_view_to_player() {
         auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast<float>(tile_map.tile_width());
-        auto const th = value_cast<float>(tile_map.tile_height());
+        auto const tw = value_cast(tile_map.tile_width());
+        auto const th = value_cast(tile_map.tile_height());
 
+        auto const win_r = os.render_get_client_rect();
+        auto const win_w = value_cast(win_r.width());
+        auto const win_h = value_cast(win_r.height());
+
+        auto const p  = get_player().second;
+        auto const px = value_cast(p.x);
+        auto const py = value_cast(p.y);
+
+        current_view.x_off = static_cast<float>((win_w * 0.5) - tw * (px + 0.5));
+        current_view.y_off = static_cast<float>((win_h * 0.5) - th * (py + 0.5));
         current_view.scale_x = 1.0f;
         current_view.scale_y = 1.0f;
-
-        auto const p = get_player().second;
-
-        auto const px = value_cast(p.x) * tw + tw / 2;
-        auto const py = value_cast(p.y) * th + th / 2;
-
-        auto const r = os.render_get_client_rect();
-
-        current_view.x_off = -px + (r.width()  / 2.0f);
-        current_view.y_off = -py + (r.height() / 2.0f);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -436,17 +436,16 @@ struct game_state {
     }
 
     void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
-        auto const mouse_p = point2f {static_cast<float>(last_mouse_x)
-                                    , static_cast<float>(last_mouse_y)};
-
-        auto const world_mouse_p = current_view.window_to_world(mouse_p);
+        auto const p_window = point2i32 {last_mouse_x, last_mouse_y};
+        auto const p_world  = current_view.window_to_world(p_window);
 
         current_view.scale_x *= (wy > 0 ? 1.1f : 0.9f);
-        current_view.scale_y = current_view.scale_x;
+        current_view.scale_y  = current_view.scale_x;
 
-        auto const v = mouse_p - current_view.world_to_window(world_mouse_p);
-        current_view.x_off += value_cast(v.x);
-        current_view.y_off += value_cast(v.y);
+        auto const p_window_new = current_view.world_to_window(p_world);
+
+        current_view.x_off += value_cast(p_window.x) - value_cast(p_window_new.x);
+        current_view.y_off += value_cast(p_window.y) - value_cast(p_window_new.y);
     }
 
     void on_command(command_type const type, uintptr_t const data) {
@@ -456,14 +455,14 @@ struct game_state {
             break;
         case ct::move_here:
             break;
-        case ct::move_n  : player_move(vec2i { 0, -1}); break;
-        case ct::move_ne : player_move(vec2i { 1, -1}); break;
-        case ct::move_e  : player_move(vec2i { 1,  0}); break;
-        case ct::move_se : player_move(vec2i { 1,  1}); break;
-        case ct::move_s  : player_move(vec2i { 0,  1}); break;
-        case ct::move_sw : player_move(vec2i {-1,  1}); break;
-        case ct::move_w  : player_move(vec2i {-1,  0}); break;
-        case ct::move_nw : player_move(vec2i {-1, -1}); break;
+        case ct::move_n  : player_move(vec2i32 { 0, -1}); break;
+        case ct::move_ne : player_move(vec2i32 { 1, -1}); break;
+        case ct::move_e  : player_move(vec2i32 { 1,  0}); break;
+        case ct::move_se : player_move(vec2i32 { 1,  1}); break;
+        case ct::move_s  : player_move(vec2i32 { 0,  1}); break;
+        case ct::move_sw : player_move(vec2i32 {-1,  1}); break;
+        case ct::move_w  : player_move(vec2i32 {-1,  0}); break;
+        case ct::move_nw : player_move(vec2i32 {-1, -1}); break;
         case ct::get_all_items : get_all_items(); break;
         case ct::move_down : do_change_level(ct::move_down); break;
         case ct::move_up   : do_change_level(ct::move_up); break;
@@ -480,11 +479,11 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    std::pair<entity const&, point2i> get_player() const {
+    std::pair<entity const&, point2i32> get_player() const {
         return const_cast<game_state*>(this)->get_player();
     }
 
-    std::pair<entity&, point2i> get_player() {
+    std::pair<entity&, point2i32> get_player() {
         auto const result = the_world.current_level().find(entity_instance_id {1});
         BK_ASSERT(result.first);
         return {*result.first, result.second};
@@ -543,9 +542,9 @@ struct game_state {
         });
     }
 
-    using placement_pair = std::pair<point2i, placement_result>;
+    using placement_pair = std::pair<point2i32, placement_result>;
 
-    placement_pair add_item_near(unique_item&& i, point2i const p, int32_t const distance, random_state& rng) {
+    placement_pair add_item_near(unique_item&& i, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const itm = the_world.find(i.get());
         BK_ASSERT(!!itm);
 
@@ -561,7 +560,7 @@ struct game_state {
         return result;
     }
 
-    placement_pair add_entity_near(unique_entity&& e, point2i const p, int32_t const distance, random_state& rng) {
+    placement_pair add_entity_near(unique_entity&& e, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const ent = the_world.find(e.get());
         BK_ASSERT(!!ent);
 
@@ -577,15 +576,15 @@ struct game_state {
         return result;
     }
 
-    placement_pair add_item_at(unique_item&& i, point2i const p) {
+    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
         return add_item_near(std::move(i), p, 0, rng_superficial);
     }
 
-    placement_pair add_entity_at(unique_entity&& e, point2i const p) {
+    placement_pair add_entity_at(unique_entity&& e, point2i32 const p) {
         return {p, the_world.current_level().add_entity_at(std::move(e), p)};
     }
 
-    void do_combat(point2i const att_pos, point2i const def_pos) {
+    void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
         auto& lvl = the_world.current_level();
 
         auto* const att = lvl.entity_at(att_pos);
@@ -675,7 +674,7 @@ struct game_state {
         add_entity_near(std::move(player_ent), p, 5, rng_substantive);
     }
 
-    void interact_obstacle(entity& e, point2i const cur_pos, point2i const obstacle_pos) {
+    void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
         auto& lvl = the_world.current_level();
 
         auto const tile = lvl.at(obstacle_pos);
@@ -696,7 +695,7 @@ struct game_state {
         }
     }
 
-    void player_move(vec2i const v) {
+    void player_move(vec2i32 const v) {
         auto& lvl = the_world.current_level();
 
         auto const player = get_player();
@@ -725,7 +724,7 @@ struct game_state {
         auto& lvl = the_world.current_level();
 
         lvl.transform_entities(
-            [&](entity& e, point2i const p) noexcept {
+            [&](entity& e, point2i32 const p) noexcept {
                 // the player
                 if (e.instance() == entity_instance_id {1}) {
                     return p;
@@ -742,11 +741,11 @@ struct game_state {
                 constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
 
                 auto const dir = static_cast<size_t>(random_uniform_int(rng_superficial, 0, 3));
-                auto const d   = vec2i {dir_x[dir], dir_y[dir]};
+                auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
 
                 return p + d;
             }
-          , [&](entity& e, point2i const p, point2i const q) noexcept {
+          , [&](entity& e, point2i32 const p, point2i32 const q) noexcept {
                 entity_updates_.push_back({p, q, e.definition()});
             }
         );

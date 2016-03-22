@@ -36,14 +36,14 @@ size_type<T> distance2(point2<T> const p, point2<T> const q) noexcept {
 
 template <typename T> inline constexpr
 axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
-    return {offset_type_x<T> {r.x0 + 1}, offset_type_y<T> {r.y0 + 1}
-          , offset_type_x<T> {r.x1 - 1}, offset_type_y<T> {r.y1 - 1}};
+    return {r.top_left()     + vec2<T> {T {1}, T {1}}
+          , r.bottom_right() - vec2<T> {T {1}, T {1}}};
 }
 
 template <typename T> inline constexpr
 axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
-    return {offset_type_x<T> {r.x0 - 1}, offset_type_y<T> {r.y0 - 1}
-          , offset_type_x<T> {r.x1 + 1}, offset_type_y<T> {r.y1 + 1}};
+    return {r.top_left()     - vec2<T> {T {1}, T {1}}
+          , r.bottom_right() + vec2<T> {T {1}, T {1}}};
 }
 
 template <typename T> inline constexpr

@@ -100,7 +100,7 @@ struct tile_data_set {
     tile_flags flags;
     tile_id    id;
     tile_type  type;
-    uint16_t   region_id;
+    int16_t    region_id;
 };
 
 enum class tile_map_type : uint32_t {
