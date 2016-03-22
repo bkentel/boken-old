@@ -108,7 +108,7 @@ public:
     }
 
     unique_item create_item(std::function<item (item_instance_id)> const& f) final override {
-        auto const id = item_instance_id {static_cast<int32_t>(items_.next_block_id())};
+        auto const id = item_instance_id {static_cast<uint32_t>(items_.next_block_id())};
         auto const result = items_.allocate(f(id));
 
         BK_ASSERT(value_cast<size_t>(id) == result.second);
@@ -116,7 +116,7 @@ public:
         return unique_item {id, item_deleter_};
     }
     unique_entity create_entity(std::function<entity (entity_instance_id)> const& f) final override {
-        auto const id = entity_instance_id {static_cast<int32_t>(entities_.next_block_id())};
+        auto const id = entity_instance_id {static_cast<uint32_t>(entities_.next_block_id())};
         auto const result = entities_.allocate(f(id));
 
         BK_ASSERT(value_cast<size_t>(id) == result.second);

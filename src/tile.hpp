@@ -137,12 +137,12 @@ public:
 
     //TODO remove these
     template <typename T, typename Tag>
-    void add_mapping(tagged_integral_value<T, Tag> const id, uint32_t const index) {
+    void add_mapping(tagged_value<T, Tag> const id, uint32_t const index) {
         mappings_.insert(std::make_pair(value_cast(id), index));
     }
 
     template <typename T, typename Tag>
-    uint32_t find(tagged_integral_value<T, Tag> const id) const noexcept {
+    uint32_t find(tagged_value<T, Tag> const id) const noexcept {
         auto const it = mappings_.find(value_cast(id));
         return it == std::end(mappings_) ? 0 : it->second;
     }

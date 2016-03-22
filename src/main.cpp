@@ -484,7 +484,7 @@ struct game_state {
     }
 
     std::pair<entity&, point2i32> get_player() {
-        auto const result = the_world.current_level().find(entity_instance_id {1});
+        auto const result = the_world.current_level().find(entity_instance_id {1u});
         BK_ASSERT(result.first);
         return {*result.first, result.second};
     }
@@ -726,7 +726,7 @@ struct game_state {
         lvl.transform_entities(
             [&](entity& e, point2i32 const p) noexcept {
                 // the player
-                if (e.instance() == entity_instance_id {1}) {
+                if (e.instance() == entity_instance_id {1u}) {
                     return p;
                 }
 

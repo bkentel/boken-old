@@ -81,7 +81,7 @@ unique_item item_pile::remove_item(item_instance_id const id) {
 
     auto const it = std::find(std::begin(items_), std::end(items_), id);
     if (it == std::end(items_)) {
-        return unique_item {item_instance_id {0} , *deleter_};
+        return unique_item {item_instance_id {} , *deleter_};
     }
 
     items_.erase(it);

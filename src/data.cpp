@@ -20,7 +20,7 @@ auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
 
 struct identity_hash {
     template <typename T, typename Tag>
-    size_t operator()(boken::tagged_integral_value<T, Tag> const id) const noexcept {
+    size_t operator()(boken::tagged_value<T, Tag> const id) const noexcept {
         return boken::value_cast(id);
     }
 };

@@ -201,7 +201,7 @@ class tagged_value {
     static_assert(std::is_fundamental<T>::value, "");
 
     template <typename T0, typename From, typename Tag0, typename Result>
-    friend constexpr Result value_cast(tagged_value<T0, Tag0>) noexcept;
+    friend constexpr Result value_cast(tagged_value<From, Tag0>) noexcept;
 public:
     using type = T;
     using tag  = Tag;

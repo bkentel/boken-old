@@ -867,7 +867,7 @@ private:
 
     struct get_item_instance_id_t {
         item_instance_id operator()(item_pile const& p) const noexcept {
-            return p.empty() ? item_instance_id {0} : *p.begin();
+            return p.empty() ? item_instance_id {} : *p.begin();
         }
     };
 
@@ -876,7 +876,7 @@ private:
 
         item_id operator()(item_pile const& p) const noexcept {
             return p.empty()
-              ? item_id {0}
+              ? item_id {}
               : get_id(*boken::find(world_, *p.begin()));
         }
 
