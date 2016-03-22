@@ -1,7 +1,6 @@
 #if !defined(BK_NO_TESTS)
 #include "catch.hpp"
 #include "math_types.hpp"
-#include "math.hpp"
 
 namespace {
 
