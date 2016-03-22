@@ -146,7 +146,6 @@
     <ClInclude Include="src\item_pile.hpp" />
     <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\math.hpp" />
-    <ClInclude Include="src\math_forward.hpp" />
     <ClInclude Include="src\math_types.hpp" />
     <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\object.hpp" />

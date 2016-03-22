@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math_forward.hpp"
+#include "math_types.hpp"
 #include "config.hpp"
 
 #include <memory>

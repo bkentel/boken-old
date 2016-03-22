@@ -1,9 +1,7 @@
 #pragma once
 
 //
-// Definitions for mathematical types. Operations on these types are defined
-// elsewhere. This header should be included where a fully specified definition
-// is required.
+// Definitions and fundamental operations for mathematical types.
 //
 
 #include <type_traits>
@@ -282,6 +280,22 @@ public:
     {
         static_assert(is_safe_aithmetic_conversion<U, T>::value, "");
         static_assert(is_safe_aithmetic_conversion<V, T>::value, "");
+    }
+
+    template <typename U, typename V>
+    constexpr basic_2_tuple(
+        basic_1_tuple<U, tag_axis_x, TagType> const xx, V const yy
+    ) noexcept
+      : basic_2_tuple {value_cast(xx), value_cast(yy)}
+    {
+    }
+
+    template <typename U, typename V>
+    constexpr basic_2_tuple(
+        U const xx, basic_1_tuple<V, tag_axis_y, TagType> const yy
+    ) noexcept
+      : basic_2_tuple {value_cast(xx), value_cast(yy)}
+    {
     }
 
     template <typename U, typename V>
