@@ -484,8 +484,9 @@ public:
     placement_result move_by(entity_instance_id const id, vec2i32 const v) noexcept final override {
         auto result = placement_result::failed_bad_id;
         entities_.move_to_if(id, [&](entity_instance_id, point2i16 const p) noexcept {
-            result = can_place_entity_at(p);
-            return std::make_pair(p, result == placement_result::ok);
+            auto const q = underlying_cast_unsafe<int16_t>(p + v);
+            result = can_place_entity_at(q);
+            return std::make_pair(q, result == placement_result::ok);
         });
 
         return result;
