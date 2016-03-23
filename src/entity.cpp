@@ -1,4 +1,5 @@
 #include "entity.hpp"
+#include "forward_declarations.hpp"
 #include "math.hpp"
 
 namespace boken {

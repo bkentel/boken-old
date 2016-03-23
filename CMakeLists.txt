@@ -96,6 +96,8 @@ include_directories(SYSTEM external/pcg/include)
 #
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set_source_files_properties(${SOURCES_TEST} PROPERTIES COMPILE_FLAGS "-Wno-exit-time-destructors")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    set_source_files_properties(${SOURCES_TEST} PROPERTIES COMPILE_FLAGS "-Wno-parentheses")
 endif()
 
 add_executable(boken ${SOURCES} ${SOURCES_EXTERNAL} ${SOURCES_TEST})

@@ -1,6 +1,8 @@
 #include "system.hpp"           // for read_only_pointer_t, etc
 #include "math.hpp"             // for ceil_as
 
+#include <bkassert/assert.hpp>
+
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 

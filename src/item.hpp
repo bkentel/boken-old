@@ -1,10 +1,9 @@
 #pragma once
 
 #include "types.hpp"
+#include "forward_declarations.hpp"
 #include "item_def.hpp"
 #include "object.hpp"
-
-namespace boken { class world; }
 
 namespace boken {
 
@@ -13,8 +12,5 @@ class item
 public:
     using object::object;
 };
-
-item const* find(world const& w, item_instance_id id) noexcept;
-item* find(world& w, item_instance_id id) noexcept;
 
 } //namespace boken

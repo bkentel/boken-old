@@ -875,17 +875,17 @@ bool operator==(tagged_value<T, Tag> const a, std::nullptr_t) noexcept {
 
 template <typename T, typename Tag> inline constexpr
 bool operator==(std::nullptr_t, tagged_value<T, Tag> const a) noexcept {
-    return a == std::nullptr_t {};
+    return a == nullptr;
 }
 
 template <typename T, typename Tag> inline constexpr
 bool operator!=(tagged_value<T, Tag> const a, std::nullptr_t) noexcept {
-    return !(a == std::nullptr_t {});
+    return !(a == nullptr);
 }
 
 template <typename T, typename Tag> inline constexpr
 bool operator!=(std::nullptr_t, tagged_value<T, Tag> const a) noexcept {
-    return !(a == std::nullptr_t {});
+    return !(a == nullptr);
 }
 
 //------------------------------------------------------------------------------

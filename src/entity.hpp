@@ -4,9 +4,9 @@
 #include "entity_def.hpp"
 #include "object.hpp"
 #include "item_pile.hpp"
+#include "forward_declarations.hpp"
 
 namespace boken { class item; }
-namespace boken { class world; }
 
 namespace boken {
 
@@ -34,8 +34,5 @@ private:
     int16_t   cur_health_;
     item_pile items_;
 };
-
-entity const* find(world const& w, entity_instance_id id) noexcept;
-entity* find(world& w, entity_instance_id id) noexcept;
 
 } //namespace boken

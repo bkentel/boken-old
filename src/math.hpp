@@ -1,16 +1,80 @@
 #pragma once
 
-#include "types.hpp"
-#include "utility.hpp"
-
 #include "math_types.hpp"
 
 #include <type_traits>
 #include <functional>
+#include <limits>
 #include <cmath>
 #include <cstdint>
 
 namespace boken {
+
+//! Type trait for the number of parameters a function (object) takes.
+template <typename F>
+struct arity_of;
+
+template <typename R, typename... Args>
+struct arity_of<R (*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...) const> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename R, typename... Args>
+struct arity_of<R (Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename F>
+struct arity_of {
+    static_assert(std::is_class<std::decay_t<F>>::value, "");
+    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
+};
+
+// unsigned -> unsigned
+template <typename To, typename From>
+constexpr bool is_in_range(From const n, std::integral_constant<int, 0>) noexcept {
+    return n >= std::numeric_limits<To>::min()
+        && n <= std::numeric_limits<To>::max();
+}
+
+// signed -> unsigned
+template <typename To, typename From>
+constexpr bool is_in_range(From const n, std::integral_constant<int, 1>) noexcept {
+    return n >= From {0} && n <= std::numeric_limits<To>::max();
+}
+
+// unsigned -> signed
+template <typename To, typename From>
+constexpr bool is_in_range(From const n, std::integral_constant<int, 2>) noexcept {
+    return n <= std::numeric_limits<To>::max();
+}
+
+// signed -> signed
+template <typename To, typename From>
+constexpr bool is_in_range(From const n, std::integral_constant<int, 3>) noexcept {
+    return n >= std::numeric_limits<To>::min()
+        && n <= std::numeric_limits<To>::max();
+}
+
+template <typename To, typename From>
+constexpr bool is_in_range(From const n) noexcept {
+    static_assert(std::is_arithmetic<From>::value, "");
+    static_assert(std::is_arithmetic<To>::value, "");
+    return is_safe_aithmetic_conversion<From, To>::value
+        || is_in_range<To>(n,std::integral_constant<int,
+            std::is_signed<From> {} ? 0b01 : 0
+          | std::is_signed<To>   {} ? 0b10 : 0> {});
+}
 
 template <typename T, typename U, typename TagAxis, typename TagType> inline constexpr
 auto min(

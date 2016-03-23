@@ -186,14 +186,14 @@ TEST_CASE("basic_2_tuple", "[math]") {
         auto const op = std::plus<> {};
 
         check(u, op, u, static_cast<int16_t>(PX + PX), static_cast<int16_t>(PY + PY));
-        check(u, op, v, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
-        check(v, op, u, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
-        check(v, op, v, static_cast<int32_t>(QX + QX), static_cast<int32_t>(QY + QY));
+        check(u, op, v, int32_t {PX + QX}, int32_t {PY + QY});
+        check(v, op, u, int32_t {PX + QX}, int32_t {PY + QY});
+        check(v, op, v, int32_t {QX + QX}, int32_t {QY + QY});
 
         check(p, op, u, static_cast<int16_t>(PX + PX), static_cast<int16_t>(PY + PY));
-        check(p, op, v, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
-        check(q, op, u, static_cast<int32_t>(PX + QX), static_cast<int32_t>(PY + QY));
-        check(q, op, v, static_cast<int32_t>(QX + QX), static_cast<int32_t>(QY + QY));
+        check(p, op, v, int32_t {PX + QX}, int32_t {PY + QY});
+        check(q, op, u, int32_t {PX + QX}, int32_t {PY + QY});
+        check(q, op, v, int32_t {QX + QX}, int32_t {QY + QY});
     }
 
     // arithmetic -
@@ -201,13 +201,13 @@ TEST_CASE("basic_2_tuple", "[math]") {
         auto const op = std::minus<> {};
 
         check(u, op, u, int16_t {0}, int16_t {0});
-        check(u, op, v, static_cast<int32_t>(PX - QX), static_cast<int32_t>(PY - QY));
-        check(v, op, u, static_cast<int32_t>(QX - PX), static_cast<int32_t>(QY - PY));
+        check(u, op, v, int32_t {PX - QX}, int32_t {PY - QY});
+        check(v, op, u, int32_t {QX - PX}, int32_t {QY - PY});
         check(v, op, v, int32_t {0}, int32_t {0});
 
         check(p, op, u, int16_t {0}, int16_t {0});
-        check(p, op, v, static_cast<int32_t>(PX - QX), static_cast<int32_t>(PY - QY));
-        check(q, op, u, static_cast<int32_t>(QX - PX), static_cast<int32_t>(QY - PY));
+        check(p, op, v, int32_t {PX - QX}, int32_t {PY - QY});
+        check(q, op, u, int32_t {QX - PX}, int32_t {QY - PY});
         check(q, op, v, int32_t {0}, int32_t {0});
     }
 

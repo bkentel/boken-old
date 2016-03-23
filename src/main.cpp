@@ -132,8 +132,8 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     point2i32 window_to_world(point2i32 const p) const noexcept {
         auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast(tile_map.tile_width());
-        auto const th = value_cast(tile_map.tile_height());
+        auto const tw = value_cast_unsafe<float>(tile_map.tile_width());
+        auto const th = value_cast_unsafe<float>(tile_map.tile_height());
 
         auto const q  = current_view.window_to_world(p);
         auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
@@ -444,8 +444,8 @@ struct game_state {
 
         auto const p_window_new = current_view.world_to_window(p_world);
 
-        current_view.x_off += value_cast(p_window.x) - value_cast(p_window_new.x);
-        current_view.y_off += value_cast(p_window.y) - value_cast(p_window_new.y);
+        current_view.x_off += value_cast_unsafe<float>(p_window.x) - value_cast(p_window_new.x);
+        current_view.y_off += value_cast_unsafe<float>(p_window.y) - value_cast(p_window_new.y);
     }
 
     void on_command(command_type const type, uintptr_t const data) {

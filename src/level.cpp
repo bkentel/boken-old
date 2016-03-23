@@ -395,9 +395,9 @@ struct generate_rect_room {
 class level_impl : public level {
 public:
     level_impl(random_state& rng, world& w, sizei32x const width, sizei32y const height, size_t const id)
-      : bounds_   {point2i32 {}, width, height}
-      , entities_ {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
+      : entities_ {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
       , items_    {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
+      , bounds_   {point2i32 {}, width, height}
       , data_     {width, height}
       , world_    {w}
       , id_       {id}

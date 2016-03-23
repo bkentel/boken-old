@@ -1,5 +1,6 @@
 #include "inventory.hpp"
 #include "text.hpp"
+#include "math.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -66,52 +67,12 @@ public:
     }
 
     void add_column(
-        uint8_t const  id
-      , std::string    label
-      , get_f          get
-      , int const      insert_before
-      , sizei16x const width
-    ) final override {
-        BK_ASSERT((insert_before == insert_at_end)
-               || (insert_before >= 0 && insert_before <= cols()));
-
-        auto const index = (insert_before == insert_at_end)
-          ? cols()
-          : static_cast<size_t>(insert_before);
-
-        bool const adjust_col_to_fit =
-            (value_cast(width) == adjust_to_fit);
-
-        BK_ASSERT(adjust_col_to_fit
-               || (value_cast(width) >= 0 && value_cast(width) < std::numeric_limits<int16_t>::max()));
-
-        auto const max_w = adjust_col_to_fit
-          ? sizei16x {std::numeric_limits<int16_t>::max()}
-          : width;
-
-        auto text = text_layout {trender_, std::move(label), max_w};
-
-        auto const extent_w =
-            underlying_cast_unsafe<int16_t>(text.extent().width());
-
-        auto const min_w = (value_cast(width) == adjust_to_fit)
-          ? extent_w
-          : sizei16x {};
-
-        auto const left = (index == 0)
-          ? offi16x {}
-          : cols_[index - 1].right;
-
-        cols_.insert(std::next(begin(cols_), index), col_data {
-            std::move(text)
-          , std::move(get)
-          , left
-          , left + extent_w
-          , min_w
-          , max_w
-          , id
-        });
-    }
+        uint8_t     id
+      , std::string label
+      , get_f       get
+      , int         insert_before
+      , sizei16x    width
+    ) final override;
 
     void add_row(item_instance_id const id) final override {
         row_data row;
@@ -184,9 +145,11 @@ public:
     }
 
     column_info col(int const index) const noexcept final override {
-        BK_ASSERT(index >= 0 && static_cast<size_t>(index) < cols());
+        BK_ASSERT(index >= 0);
+        auto const i = static_cast<size_t>(index);
+        BK_ASSERT(i < cols());
 
-        auto const& col = cols_[index];
+        auto const& col = cols_[i];
         auto const r = col.text.extent();
 
         return {col.text
@@ -199,34 +162,16 @@ public:
 
     std::pair<text_layout const*, text_layout const*>
     row(int const index) const noexcept final override {
-        BK_ASSERT(index >= 0 && static_cast<size_t>(index) < rows());
+        BK_ASSERT(index >= 0);
+        auto const i = static_cast<size_t>(index);
+        BK_ASSERT(i < rows());
 
-        auto const& row = rows_[index];
+        auto const& row = rows_[i];
         return {row.data()
               , row.data() + row.size()};
     }
 
-    void layout() noexcept final override {
-        auto const header_h = value_cast(header_height());
-
-        // layout rows
-        int32_t x = 0;
-        int32_t y = 0;
-
-        for (size_t yi = 0; yi < rows(); ++yi) {
-            x =  0;
-            y += header_h;
-
-            auto& row = rows_[yi];
-
-            for (size_t xi = 0; xi < cols(); ++xi) {
-                auto& col  = cols_[xi];
-                auto& cell = row[xi];
-
-                cell.move_to(value_cast(col.left), y);
-            }
-        }
-    }
+    void layout() noexcept final override;
 private:
     struct col_data {
         text_layout text;
@@ -259,6 +204,82 @@ std::unique_ptr<inventory_list> make_inventory_list(
   , inventory_list::lookup_f lookup
 ) {
     return std::make_unique<inventory_list_impl>(trender, std::move(lookup));
+}
+
+void inventory_list_impl::add_column(
+    uint8_t const  id
+  , std::string    label
+  , get_f          get
+  , int const      insert_before
+  , sizei16x const width
+) {
+    auto const index = [&]() noexcept -> size_t {
+        if (insert_before == insert_at_end) {
+            return cols();
+        }
+
+        BK_ASSERT(insert_before > 0);
+        auto const result = static_cast<size_t>(insert_before);
+        BK_ASSERT(result <= cols());
+
+        return result;
+    }();
+
+    auto const max_w = [&]() noexcept -> sizei16x {
+        if (value_cast(width) == adjust_to_fit) {
+            return {std::numeric_limits<int16_t>::max()};
+        }
+
+        BK_ASSERT(value_cast(width) >= 0);
+        return width;
+    }();
+
+    auto text = text_layout {trender_, std::move(label), max_w};
+
+    auto const min_w =
+        underlying_cast_unsafe<int16_t>(text.extent().width());
+
+    auto const left = (index == 0u)
+        ? offi16x {}
+        : cols_[index - 1u].right;
+
+    cols_.insert(
+        begin(cols_) + static_cast<ptrdiff_t>(index)
+      , col_data {
+            std::move(text)
+          , std::move(get)
+          , left
+          , left + min_w
+          , min_w
+          , max_w
+          , id});
+}
+
+void inventory_list_impl::layout() noexcept {
+    auto const header_h = value_cast(header_height());
+
+    // layout rows
+    int32_t x = 0;
+    int32_t y = 0;
+
+    for (size_t i = 0; i < cols(); ++i) {
+        auto& col = cols_[i];
+        col.text.move_to(value_cast(col.left), 0);
+    }
+
+    for (size_t yi = 0; yi < rows(); ++yi) {
+        x =  0;
+        y += header_h;
+
+        auto& row = rows_[yi];
+
+        for (size_t xi = 0; xi < cols(); ++xi) {
+            auto& col  = cols_[xi];
+            auto& cell = row[xi];
+
+            cell.move_to(value_cast(col.left), y);
+        }
+    }
 }
 
 } //namespace boken

@@ -53,58 +53,6 @@ TEST_CASE("static_string_buffer") {
     REQUIRE(buffer.to_string_view() == "123");
 }
 
-namespace {
-
-void arity_0();
-void arity_1(int);
-void arity_2(int, int);
-
-} //namespace
-
-TEST_CASE("arity_of") {
-    using namespace boken;
-
-    // free functions
-    static_assert(arity_of<decltype(arity_0)>::value == 0, "");
-    static_assert(arity_of<decltype(arity_1)>::value == 1, "");
-    static_assert(arity_of<decltype(arity_2)>::value == 2, "");
-
-    // free function pointers
-    static_assert(arity_of<decltype(&arity_0)>::value == 0, "");
-    static_assert(arity_of<decltype(&arity_1)>::value == 1, "");
-    static_assert(arity_of<decltype(&arity_2)>::value == 2, "");
-
-    // lambdas convertible to free functions
-    auto const lambda_0 = []() {};
-    auto const lambda_1 = [](int) {};
-    auto const lambda_2 = [](int, int) {};
-
-    static_assert(arity_of<decltype(lambda_0)>::value == 0, "");
-    static_assert(arity_of<decltype(lambda_1)>::value == 1, "");
-    static_assert(arity_of<decltype(lambda_2)>::value == 2, "");
-
-    // capturing lambdas
-    int i {};
-    auto const cap_lambda_0 = [&]() { ++i; };
-    auto const cap_lambda_1 = [&](int) { ++i; };
-    auto const cap_lambda_2 = [&](int, int) { ++i; };
-
-    static_assert(arity_of<decltype(cap_lambda_0)>::value == 0, "");
-    static_assert(arity_of<decltype(cap_lambda_1)>::value == 1, "");
-    static_assert(arity_of<decltype(cap_lambda_2)>::value == 2, "");
-
-    // member functions
-    struct foo {
-        void member_0() {}
-        void member_1(int) {}
-        void member_2(int, int) {}
-    };
-
-    static_assert(arity_of<decltype(&foo::member_0)>::value == 0, "");
-    static_assert(arity_of<decltype(&foo::member_1)>::value == 1, "");
-    static_assert(arity_of<decltype(&foo::member_2)>::value == 2, "");
-}
-
 TEST_CASE("as_unsigned") {
     using namespace boken;
 
