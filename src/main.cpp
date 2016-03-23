@@ -383,12 +383,25 @@ struct game_state {
         case 0b0000 :
             // no buttons down
             break;
-        case 0b0001 :
+        case 0b0001 : {
             // left mouse button only
             if (event.button_change[0] == mouse_event::button_change_t::went_down) {
                 update_tile_at(window_to_world({event.x, event.y}));
             }
+
+            auto const hit_test = inventory.cell_at({event.x, event.y});
+            if (hit_test.what == inventory_list::hit_test_result::type::cell) {
+                static_string_buffer<128> buffer;
+                buffer.append("Cell (%d, %d)", hit_test.x, hit_test.y);
+                message_window.println(buffer.to_string());
+            } else if (hit_test.what == inventory_list::hit_test_result::type::header) {
+                static_string_buffer<128> buffer;
+                buffer.append("Header (%d, %d)", hit_test.x, hit_test.y);
+                message_window.println(buffer.to_string());
+            }
+
             break;
+        }
         case 0b0010 :
             // middle mouse button only
             break;
@@ -411,9 +424,16 @@ struct game_state {
                 show_tool_tip({event.x, event.y});
             }
             break;
-        case 0b0001 :
+        case 0b0001 : {
             // left mouse button only
+
+            if (inventory.cell_at({last_mouse_x, last_mouse_y})) {
+                inventory.move_by(point2i32 {event.x, event.y}
+                                - point2i32 {last_mouse_x, last_mouse_y});
+            }
+
             break;
+        }
         case 0b0010 :
             // middle mouse button only
             break;

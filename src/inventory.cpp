@@ -13,6 +13,12 @@ inventory_list::~inventory_list() = default;
 
 class inventory_list_impl final : public inventory_list {
 public:
+    static constexpr sizei16x col_padding_ = int16_t {2};
+    static constexpr sizei16y row_padding_ = int16_t {2};
+
+    static constexpr sizei16x frame_w_ = int16_t {2};
+    static constexpr sizei16y frame_h_ = int16_t {2};
+
     explicit inventory_list_impl(text_renderer& trender, lookup_f lookup)
       : trender_ {trender}
       , lookup_ {std::move(lookup)}
@@ -38,7 +44,11 @@ public:
     }
 
     void move_to(point2i32 const p) noexcept final override {
-        position_ += (p - position_);
+        move_by(p - position_);
+    }
+
+    void move_by(vec2i32 const v) noexcept final override {
+        position_ += v;
     }
 
     recti32 bounds() const noexcept final override {
@@ -66,6 +76,11 @@ public:
         return rows_.empty();
     }
 
+    void reserve(size_t const cols, size_t const rows) final override {
+        cols_.reserve(cols);
+        rows_.reserve(rows);
+    }
+
     void add_column(
         uint8_t     id
       , std::string label
@@ -85,6 +100,68 @@ public:
         }
 
         rows_.push_back(std::move(row));
+    }
+
+    template <typename It, typename Predicate>
+    static ptrdiff_t distance_to_matching_or(
+        It const first, It const last, ptrdiff_t const fallback, Predicate pred
+    ) noexcept {
+        auto const it = std::find_if(first, last, pred);
+        return (it == last) ? fallback : std::distance(first, it);
+    }
+
+    template <typename Container, typename Predicate>
+    static ptrdiff_t distance_to_matching_or(
+        Container&& c, ptrdiff_t const fallback, Predicate pred
+    ) noexcept {
+        using std::begin;
+        using std::end;
+        return distance_to_matching_or(begin(c), end(c), fallback, pred);
+    }
+
+    int32_t col_at_(point2i32 const p) const noexcept {
+        return static_cast<int32_t>(distance_to_matching_or(cols_, -1
+          , [p](col_data const& col) noexcept {
+                return p.x >= col.left && p.x < col.right;
+            }));
+    }
+
+    int32_t row_at_(point2i32 const p) const noexcept {
+        return static_cast<int32_t>(distance_to_matching_or(rows_, -1
+          , [p](row_data const& row) noexcept {
+                if (row.empty()) {
+                    return false;
+                }
+
+                auto const extent = row[0].extent();
+                return p.y >= extent.y0 && p.y < extent.y1;
+            }));
+    }
+
+    hit_test_result cell_at(point2i32 const p0) const noexcept final override {
+        if (!intersects(bounds(), p0)) {
+            return {hit_test_result::type::none, -1, -1};
+        }
+
+        auto const p = p0 - (position() - point2i32 {});
+
+        auto const x = col_at_(p);
+        {
+            auto const top    = offi32y {};
+            auto const bottom = top + header_height();
+
+            if (p.y >= top && p.y < bottom) {
+                return {hit_test_result::type::header, x, 0};
+            }
+        }
+
+        auto const y = row_at_(p);
+
+        if (x < 0 || y < 0) {
+            return {hit_test_result::type::frame, x, y};
+        }
+
+        return {hit_test_result::type::cell, x, y};
     }
 
     int indicated() const noexcept final override {
@@ -256,6 +333,8 @@ void inventory_list_impl::add_column(
 }
 
 void inventory_list_impl::layout() noexcept {
+    constexpr sizei16x col_padding = int16_t {4};
+
     auto const header_h = value_cast_unsafe<int16_t>(header_height());
 
     int16_t x = 0;
@@ -286,11 +365,11 @@ void inventory_list_impl::layout() noexcept {
         auto const w = clamp(get_max_col_w(i), col.min_width, col.max_width);
 
         col.left  = x;
-        col.right = col.left + underlying_cast_unsafe<int16_t>(w);
+        col.right = col.left + underlying_cast_unsafe<int16_t>(w) + col_padding;
 
         col.text.move_to(value_cast(col.left), y);
 
-        x += value_cast_unsafe<int16_t>(w);
+        x = value_cast(col.right);
     }
 
     x = 0;

@@ -140,6 +140,7 @@ public:
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
     void render_text_(text_layout const& text, vec2i32 off) const noexcept;
+    void render_tool_tip_() const noexcept;
     void render_message_log_() const noexcept;
     void render_inventory_list_() const noexcept;
 
@@ -314,7 +315,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     //
     // tool tip
     //
-    render_text_(tool_tip_, vec2i32 {});
+    render_tool_tip_();
 
     //
     // message log window
@@ -345,8 +346,6 @@ void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off
 
     os_.render_set_transform(1.0f, 1.0f, tx, ty);
 
-    os_.render_fill_rect(r, 0xDF666666u);
-
     os_.render_set_data(render_data_type::position
       , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)});
     os_.render_set_data(render_data_type::texture
@@ -356,14 +355,36 @@ void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off
     os_.render_data_n(glyph_data.size());
 }
 
+void game_renderer_impl::render_tool_tip_() const noexcept {
+    if (!tool_tip_.is_visible()) {
+        return;
+    }
+
+    auto const r = tool_tip_.extent();
+
+    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+    os_.render_fill_rect(r, 0xDF666666u);
+
+    render_text_(tool_tip_, vec2i32 {});
+}
+
 void game_renderer_impl::render_message_log_() const noexcept {
     if (!message_log_) {
         return;
     }
 
     auto const& log_window = *message_log_;
-    auto const v = vec2i32 {};
 
+    recti32 const r {
+        point2i32 {}
+      , sizei32x {500}
+      , sizei32y {static_cast<int32_t>(log_window.max_visible()) * trender_.line_gap()}
+    };
+
+    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+    os_.render_fill_rect(r, 0xDF666666u);
+
+    auto const v = vec2i32 {};
     std::for_each(log_window.visible_begin(), log_window.visible_end()
       , [&](text_layout const& line) noexcept { render_text_(line, v); });
 }
@@ -374,6 +395,11 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     }
 
     auto const& inv_window = *inventory_list_;
+
+    auto const r = inv_window.bounds();
+    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+    os_.render_fill_rect(r, 0xDF666666u);
+
     auto const v = inv_window.position() - point2i32 {};
 
     for (size_t i = 0; i < inv_window.cols(); ++i) {
