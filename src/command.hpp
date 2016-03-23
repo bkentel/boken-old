@@ -12,9 +12,7 @@ namespace boken { struct text_input_event; }
 
 namespace boken {
 
-//=====--------------------------------------------------------------------=====
-//                            Command enums
-//=====--------------------------------------------------------------------=====
+//! commands
 enum class command_type : uint32_t {
     none          = djb2_hash_32c("none")
   , move_here     = djb2_hash_32c("move_here")
@@ -40,7 +38,7 @@ Enum string_to_enum(string_view str) noexcept;
 
 string_view enum_to_string(command_type id) noexcept;
 
-//!
+//! mapping between user input and game commands
 class command_translator {
 public:
     using command_handler_t = std::function<void (command_type, uint64_t)>;
