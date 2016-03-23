@@ -71,6 +71,8 @@ public:
 
     virtual ~game_renderer();
 
+    virtual bool debug_toggle_show_regions() noexcept = 0;
+
     virtual void set_level(level const& lvl) noexcept = 0;
     virtual void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept = 0;
 

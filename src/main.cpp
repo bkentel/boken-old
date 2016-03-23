@@ -491,6 +491,10 @@ struct game_state {
             current_view.scale_x = 1.0f;
             current_view.scale_y = 1.0f;
             break;
+        case ct::debug_toggle_regions :
+            renderer.debug_toggle_show_regions();
+            renderer.update_map_data();
+            break;
         default:
             break;
         }

@@ -88,6 +88,9 @@ void command_translator_impl::translate(kb_event const& event) const {
     case kb_scancode::k_home :
         handler_(command_type::reset_view, 0);
         break;
+    case kb_scancode::k_f1:
+        handler_(command_type::debug_toggle_regions, 0);
+        break;
     default:
         break;
     }
@@ -118,6 +121,7 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(get_all_items);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        BK_ENUM_MAPPING(debug_toggle_regions);
         default:
             break;
     }
@@ -144,6 +148,7 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(get_all_items);
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
+        BK_ENUM_MAPPING(debug_toggle_regions);
         default:
             break;
     }

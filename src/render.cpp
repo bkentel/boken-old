@@ -91,6 +91,12 @@ public:
     {
     }
 
+    bool debug_toggle_show_regions() noexcept final override {
+        bool const result = debug_show_regions_;
+        debug_show_regions_ = !debug_show_regions_;
+        return result;
+    }
+
     void set_level(level const& lvl) noexcept final override {
         entity_data.clear();
         item_data.clear();
@@ -166,6 +172,8 @@ private:
     text_layout tool_tip_;
     message_log const* message_log_ {};
     inventory_list const* inventory_list_ {};
+
+    bool debug_show_regions_ = false;
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender) {
@@ -226,15 +234,15 @@ void game_renderer_impl::update_map_data() {
     auto it1 = region_ids_range.first;
 
     for ( ; it0 != ids_range.second; ++it0, ++it1, ++dst) {
-        auto const tid = *it0;
-        auto const rid = *it1;
+        auto const tid   = *it0;
+        auto const rid   = *it1;
         auto const index = id_to_index(tmap, tid);
 
         auto const p = transform_point(point2<ptrdiff_t> {dst.x(), dst.y()});
 
         dst->position  = underlying_cast_unsafe<int16_t>(p);
         dst->tex_coord = underlying_cast_unsafe<int16_t>(tmap.index_to_rect(index).top_left());
-        dst->color = (tid == tile_id::empty)
+        dst->color = debug_show_regions_
           ? region_color(rid)
           : 0xFF0000FFu;
     }
