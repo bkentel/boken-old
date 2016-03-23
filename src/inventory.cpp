@@ -256,17 +256,47 @@ void inventory_list_impl::add_column(
 }
 
 void inventory_list_impl::layout() noexcept {
-    auto const header_h = value_cast(header_height());
+    auto const header_h = value_cast_unsafe<int16_t>(header_height());
 
-    // layout rows
-    int32_t x = 0;
-    int32_t y = 0;
+    int16_t x = 0;
+    int16_t y = 0;
 
+    auto const get_max_col_w = [&](size_t const i) noexcept {
+        auto const header_w = cols_[i].text.extent().width();
+
+        auto const first = begin(rows_);
+        auto const last  = end(rows_);
+
+        if (first == last) {
+            return header_w;
+        }
+
+        auto const& row = *std::max_element(first, last
+            , [i](row_data const& lhs, row_data const& rhs) noexcept {
+                return lhs[i].extent().width() < rhs[i].extent().width();
+            });
+
+        return std::max(header_w, row[i].extent().width());
+    };
+
+    // layout column headers
     for (size_t i = 0; i < cols(); ++i) {
         auto& col = cols_[i];
-        col.text.move_to(value_cast(col.left), 0);
+
+        auto const w = clamp(get_max_col_w(i), col.min_width, col.max_width);
+
+        col.left  = x;
+        col.right = col.left + underlying_cast_unsafe<int16_t>(w);
+
+        col.text.move_to(value_cast(col.left), y);
+
+        x += value_cast_unsafe<int16_t>(w);
     }
 
+    x = 0;
+    y = 0;
+
+    // resize cells
     for (size_t yi = 0; yi < rows(); ++yi) {
         x =  0;
         y += header_h;
@@ -274,8 +304,8 @@ void inventory_list_impl::layout() noexcept {
         auto& row = rows_[yi];
 
         for (size_t xi = 0; xi < cols(); ++xi) {
-            auto& col  = cols_[xi];
-            auto& cell = row[xi];
+            auto const& col  = cols_[xi];
+            auto&       cell = row[xi];
 
             cell.move_to(value_cast(col.left), y);
         }

@@ -239,11 +239,27 @@ inline constexpr bool rect_by_min_dimension(
 }
 
 //
-template <typename T>
-inline constexpr T clamp(T const n, T const lo, T const hi) noexcept {
+template <typename T, typename U, typename V, typename = std::enable_if_t<
+    std::is_arithmetic<T>::value
+ && std::is_arithmetic<U>::value
+ && std::is_arithmetic<V>::value>>
+inline constexpr T clamp(T const n, U const lo, V const hi) noexcept {
+    static_assert(is_safe_aithmetic_conversion<U, T> {}, "");
+    static_assert(is_safe_aithmetic_conversion<V, T> {}, "");
+
     return (n < lo)
       ? lo
       : (hi < n ? hi : n);
+}
+
+//
+template <typename T, typename U, typename V, typename TagAxis, typename TagType>
+inline constexpr basic_1_tuple<T, TagAxis, TagType> clamp(
+    basic_1_tuple<T, TagAxis, TagType> const n
+  , basic_1_tuple<U, TagAxis, TagType> const lo
+  , basic_1_tuple<V, TagAxis, TagType> const hi
+) noexcept {
+    return clamp(value_cast(n), value_cast(lo), value_cast(hi));
 }
 
 template <typename R, typename T>
