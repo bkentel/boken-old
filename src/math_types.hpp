@@ -125,14 +125,47 @@ class basic_2_tuple;
 template <typename T>
 class axis_aligned_rect;
 
-template <typename To, typename From, typename Tag, typename Result>
-constexpr Result value_cast(tagged_value<From, Tag> n) noexcept;
+//------------------------------------------------------------------------------
+// value_cast
+//------------------------------------------------------------------------------
+//! Return the parameter safely widened to the @p To type if @p To is not void.
+//! Otherwise return the underlying value of the parameter unchanged.
 
-template <typename To, typename From, typename TagAxis, typename TagType, typename Result>
-constexpr Result value_cast(basic_1_tuple<From, TagAxis, TagType> n) noexcept;
+namespace detail {
 
-template <typename To, typename From, typename Result, typename>
-constexpr Result value_cast(From n) noexcept;
+template <typename T, typename Tag>
+constexpr T get_value(tagged_value<T, Tag> const n) noexcept;
+
+template <typename T, typename TagAxis, typename TagType>
+constexpr T get_value(basic_1_tuple<T, TagAxis, TagType> const n) noexcept;
+
+} //namespace detail
+
+template <typename To = void
+        , typename From
+        , typename Result = choose_result_t<From, To>
+        , typename = std::enable_if_t<std::is_arithmetic<From>::value>>
+constexpr Result value_cast(From const n) noexcept {
+    static_assert(is_safe_aithmetic_conversion<From, Result> {}, "");
+    return static_cast<Result>(n);
+}
+
+template <typename To = void
+        , typename From
+        , typename Tag
+        , typename Result = choose_result_t<From, To>>
+constexpr Result value_cast(tagged_value<From, Tag> n) noexcept {
+    return value_cast<Result>(detail::get_value(n));
+}
+
+template <typename To = void
+        , typename From
+        , typename TagAxis
+        , typename TagType
+        , typename Result = choose_result_t<From, To>>
+constexpr Result value_cast(basic_1_tuple<From, TagAxis, TagType> n) noexcept {
+    return value_cast<Result>(detail::get_value(n));
+}
 
 //=====--------------------------------------------------------------------=====
 //                              Type aliases
@@ -200,8 +233,8 @@ template <typename T, typename Tag>
 class tagged_value {
     static_assert(std::is_fundamental<T>::value, "");
 
-    template <typename T0, typename From, typename Tag0, typename Result>
-    friend constexpr Result value_cast(tagged_value<From, Tag0>) noexcept;
+    template <typename T0, typename Tag0>
+    friend constexpr T0 detail::get_value(tagged_value<T0, Tag0>) noexcept;
 public:
     using type = T;
     using tag  = Tag;
@@ -233,8 +266,8 @@ template <typename T, typename TagAxis, typename TagType>
 class basic_1_tuple {
     static_assert(std::is_arithmetic<T>::value, "");
 
-    template <typename To, typename From, typename TagAxis0, typename TagType0, typename Result>
-    friend constexpr Result value_cast(basic_1_tuple<From, TagAxis0, TagType0>) noexcept;
+    template <typename T0, typename TagAxis0, typename TagType0>
+    friend constexpr T0 detail::get_value(basic_1_tuple<T0, TagAxis0, TagType0>) noexcept;
 public:
     using type     = T;
     using tag_axis = TagAxis;
@@ -399,40 +432,19 @@ public:
 //                                Functions
 //=====--------------------------------------------------------------------=====
 
-//------------------------------------------------------------------------------
-// value_cast
-//------------------------------------------------------------------------------
-//! Return the parameter safely widened to the @p To type if @p To is not void.
-//! Otherwise return the underlying value of the parameter unchanged.
+namespace detail {
 
-template <
-    typename To = void
-  , typename From
-  , typename Result = choose_result_t<From, To>
-  , typename = std::enable_if_t<std::is_arithmetic<From>::value>>
-constexpr Result value_cast(From const n) noexcept {
-    static_assert(is_safe_aithmetic_conversion<From, Result> {}, "");
-    return static_cast<Result>(n);
+template <typename T, typename Tag>
+constexpr T get_value(tagged_value<T, Tag> const n) noexcept {
+    return n.value_;
 }
 
-template <
-    typename To = void
-  , typename From
-  , typename Tag
-  , typename Result = choose_result_t<From, To>>
-constexpr Result value_cast(tagged_value<From, Tag> const n) noexcept {
-    return value_cast<Result>(n.value_);
+template <typename T, typename TagAxis, typename TagType>
+constexpr T get_value(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {
+    return n.value_;
 }
 
-template <
-    typename To = void
-  , typename From
-  , typename TagAxis
-  , typename TagType
-  , typename Result = choose_result_t<From, To>>
-constexpr Result value_cast(basic_1_tuple<From, TagAxis, TagType> const n) noexcept {
-    return value_cast<Result>(n.value_);
-}
+} //namespace detail
 
 //------------------------------------------------------------------------------
 // value_cast_unsafe
@@ -563,7 +575,7 @@ constexpr auto operator*(
     basic_1_tuple<T, TagAxis, tag_vector> const x
   , basic_1_tuple<U, TagAxis, tag_vector> const y
 ) noexcept {
-    return detail::compute<TagAxis, TagType>(x, y, std::multiplies<> {});
+    return detail::compute<TagAxis, tag_vector>(x, y, std::multiplies<> {});
 }
 
 //------------------------------------------------------------------------------
@@ -574,7 +586,7 @@ constexpr auto operator/(
     basic_1_tuple<T, TagAxis, tag_vector> const x
   , basic_1_tuple<U, TagAxis, tag_vector> const y
 ) noexcept {
-    return detail::compute<TagAxis, TagType>(x, y, std::divides<> {});
+    return detail::compute<TagAxis, tag_vector>(x, y, std::divides<> {});
 }
 
 //------------------------------------------------------------------------------

@@ -20,8 +20,8 @@ public:
     using lookup_f = std::function<item const& (item_instance_id id)>;
     using get_f    = std::function<std::string (item const& itm)>;
 
-    static constexpr int insert_at_end = -1;
-    static constexpr sizei16x adjust_to_fit = int16_t {-1};
+    static int     const insert_at_end = -1;
+    static int16_t const adjust_to_fit = -1;
 
     struct column_info {
         text_layout const& text;

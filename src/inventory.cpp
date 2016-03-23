@@ -3,6 +3,7 @@
 
 #include "bkassert/assert.hpp"
 
+#include <algorithm>
 #include <vector>
 
 namespace boken {
@@ -78,10 +79,13 @@ public:
           ? cols()
           : static_cast<size_t>(insert_before);
 
-        BK_ASSERT((width == adjust_to_fit)
+        bool const adjust_col_to_fit =
+            (value_cast(width) == adjust_to_fit);
+
+        BK_ASSERT(adjust_col_to_fit
                || (value_cast(width) >= 0 && value_cast(width) < std::numeric_limits<int16_t>::max()));
 
-        auto const max_w = (width == inventory_list::adjust_to_fit)
+        auto const max_w = adjust_col_to_fit
           ? sizei16x {std::numeric_limits<int16_t>::max()}
           : width;
 
@@ -90,7 +94,7 @@ public:
         auto const extent_w =
             underlying_cast_unsafe<int16_t>(text.extent().width());
 
-        auto const min_w = (width == adjust_to_fit)
+        auto const min_w = (value_cast(width) == adjust_to_fit)
           ? extent_w
           : sizei16x {};
 

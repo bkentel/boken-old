@@ -28,7 +28,7 @@ struct entity_definition : basic_definition {
     {
     }
 
-    entity_definition(entity_id const id_ = entity_id {0})
+    entity_definition(entity_id const id_ = entity_id {})
       : basic_definition {"{null}", "{null}", "{null}", 0}
       , id {id_}
     {

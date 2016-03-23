@@ -27,7 +27,7 @@ struct item_definition : basic_definition {
     {
     }
 
-    item_definition(item_id const id_ = item_id {0})
+    item_definition(item_id const id_ = item_id {})
       : basic_definition {"{null}", "{null}", "{null}", 0}
       , id {id_}
     {
