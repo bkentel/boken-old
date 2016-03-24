@@ -57,6 +57,7 @@ set(SOURCES
     src/main.cpp
     src/random.cpp
     src/render.cpp
+    src/serialize.cpp
     src/system_sdl.cpp
     src/text.cpp
     src/tile.cpp
@@ -73,6 +74,7 @@ set(SOURCES_TEST
     src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/math_types.t.cpp
+    src/test/serialize.t.cpp
     src/test/spatial_map.t.cpp
     src/test/unicode.t.cpp
     src/test/utility.t.cpp)

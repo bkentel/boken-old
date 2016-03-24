@@ -1,0 +1,25 @@
+{
+  "type": "items",
+  "data": {
+    "weapon_dagger": {
+      "name": "dagger",
+      "properties": {
+        "type": "weapon",
+        "sub_type": "dagger",
+        "damage_max": 3,
+        "damage_var": 0.1,
+        "damage_type": "pierce"
+      }
+    },
+    "potion_health_small": {
+      "name": "small potion of health",
+      "properties": {
+        "type": "consumable",
+        "sub_type": "potion",
+        "effect": "heal_hp",
+        "effect_max": 10,
+        "effect_var": 0.0
+      }
+    }
+  }
+}

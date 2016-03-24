@@ -3,6 +3,8 @@
 #include "item_def.hpp"    // for item_definition
 #include "tile.hpp"
 #include "utility.hpp"     // for find_ptr_if
+#include "serialize.hpp"
+
 #include <vector>          // for vector
 #include <unordered_map>
 
@@ -75,6 +77,10 @@ game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
 }
 
 void game_database_impl::load_entity_defs_() {
+    load_item_definitions([&](item_definition const& def) {
+
+    });
+
     {
         auto       id      = std::string {"rat_small"};
         auto const id_hash = djb2_hash_32(id.data());

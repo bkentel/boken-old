@@ -113,12 +113,14 @@
     </ClCompile>
     <ClCompile Include="src\random.cpp" />
     <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\serialize.cpp" />
     <ClCompile Include="src\system_sdl.cpp" />
     <ClCompile Include="src\test\bsp_generator.t.cpp" />
     <ClCompile Include="src\test\entity.t.cpp" />
     <ClCompile Include="src\test\level.t.cpp" />
     <ClCompile Include="src\test\math.t.cpp" />
     <ClCompile Include="src\test\math_types.t.cpp" />
+    <ClCompile Include="src\test\serialize.t.cpp" />
     <ClCompile Include="src\test\spatial_map.t.cpp" />
     <ClCompile Include="src\test\unicode.t.cpp" />
     <ClCompile Include="src\test\utility.t.cpp" />
@@ -153,6 +155,7 @@
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\render.hpp" />
     <ClInclude Include="src\scope_guard.hpp" />
+    <ClInclude Include="src\serialize.hpp" />
     <ClInclude Include="src\spatial_map.hpp" />
     <ClInclude Include="src\system.hpp" />
     <ClInclude Include="src\text.hpp" />

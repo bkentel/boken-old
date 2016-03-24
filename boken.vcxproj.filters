@@ -48,6 +48,10 @@
     <ClCompile Include="src\catch.cpp">
       <Filter>external</Filter>
     </ClCompile>
+    <ClCompile Include="src\serialize.cpp" />
+    <ClCompile Include="src\test\serialize.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -84,6 +88,7 @@
     <ClInclude Include="src\catch.hpp">
       <Filter>external</Filter>
     </ClInclude>
+    <ClInclude Include="src\serialize.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
