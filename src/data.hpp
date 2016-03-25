@@ -21,6 +21,9 @@ public:
     virtual item_definition const* find(item_id id) const noexcept = 0;
     virtual entity_definition const* find(entity_id id) const noexcept = 0;
 
+    virtual string_view find(item_property_id id) const noexcept = 0;
+    virtual string_view find(entity_property_id id) const noexcept = 0;
+
     virtual tile_map const& get_tile_map(tile_map_type type) const noexcept = 0;
 };
 

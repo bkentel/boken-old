@@ -13,15 +13,14 @@ namespace boken {
 
 template <typename Property, typename Value>
 class property_set {
-    static_assert(std::is_enum<Property>::value, "");
+    static_assert(std::is_standard_layout<Property>::value, "");
     static_assert(std::is_standard_layout<Value>::value, "");
 
     auto find_(Property const property) noexcept {
         return std::lower_bound(
             std::begin(values_), std::end(values_), property
           , [](pair_t const& a, Property const b) noexcept {
-                using type = std::underlying_type_t<Property>;
-                return static_cast<type>(a.first) < static_cast<type>(b);
+                return a.first < b;
             });
     }
 
@@ -88,6 +87,10 @@ public:
           });
 
         return it != std::end(values_) && (values_.erase(it), true);
+    }
+
+    void clear() {
+        values_.clear();
     }
 private:
     std::vector<pair_t> values_;

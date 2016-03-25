@@ -754,9 +754,6 @@ struct game_state {
                     return p;
                 }
 
-                auto const temperment =
-                    e.property_value_or(database, entity_property::temperment, 0);
-
                 if (!random_chance_in_x(rng_superficial, 1, 10)) {
                     return p;
                 }

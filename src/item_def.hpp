@@ -8,12 +8,8 @@ namespace boken { class game_database; }
 
 namespace boken {
 
-enum class item_property : uint32_t {
-    invalid = 0
-};
-
-using item_property_value = int32_t;
-using item_properties = property_set<item_property, item_property_value>;
+using item_property_value = uint32_t;
+using item_properties = property_set<item_property_id, item_property_value>;
 
 struct item_definition : basic_definition {
     using definition_type     = item_id;
@@ -37,11 +33,11 @@ struct item_definition : basic_definition {
     item_properties properties;
 };
 
-bool has_property(game_database const& data, item_id const& def, item_property property) noexcept;
-bool has_property(item_definition const& def, item_property property) noexcept;
+bool has_property(game_database const& data, item_id const& def, item_property_id property) noexcept;
+bool has_property(item_definition const& def, item_property_id property) noexcept;
 
-item_property_value property_value_or(game_database const& data, item_id const& def, item_property property, item_property_value value) noexcept;
-item_property_value property_value_or(item_definition const& def, item_property property, item_property_value value) noexcept;
+item_property_value property_value_or(game_database const& data, item_id const& def, item_property_id property, item_property_value value) noexcept;
+item_property_value property_value_or(item_definition const& def, item_property_id property, item_property_value value) noexcept;
 
 
 } //namespace boken

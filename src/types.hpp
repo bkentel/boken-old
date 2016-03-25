@@ -13,8 +13,10 @@ namespace boken {
 //===------------------------------------------------------------------------===
 struct tag_id_entity          {};
 struct tag_id_instance_entity {};
+struct tag_id_property_entity {};
 struct tag_id_item            {};
 struct tag_id_instance_item   {};
+struct tag_id_property_item   {};
 
 //===------------------------------------------------------------------------===
 //                              Type aliases
@@ -22,8 +24,10 @@ struct tag_id_instance_item   {};
 
 using entity_id          = tagged_value<uint32_t, tag_id_entity>;
 using entity_instance_id = tagged_value<uint32_t, tag_id_instance_entity>;
+using entity_property_id = tagged_value<uint32_t, tag_id_property_entity>;
 using item_id            = tagged_value<uint32_t, tag_id_item>;
 using item_instance_id   = tagged_value<uint32_t, tag_id_instance_item>;
+using item_property_id   = tagged_value<uint32_t, tag_id_property_item>;
 
 //===------------------------------------------------------------------------===
 //                              Custom deleters
