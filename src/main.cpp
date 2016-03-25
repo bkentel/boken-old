@@ -110,6 +110,8 @@ struct game_state {
         renderer.set_inventory_window(&inventory);
 
         generate();
+
+        reset_view_to_player();
     }
 
     void make_inventory() {
