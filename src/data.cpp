@@ -94,22 +94,6 @@ game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
 }
 
 void game_database_impl::load_entity_defs_() {
-    load_item_definitions(
-        [&](item_definition const& def) {
-            return;
-        }
-      , [&](string_view const string, uint32_t const hash, serialize_data_type const type, uint32_t const value) {
-            auto const id = item_property_id {hash};
-            auto const it = item_properties_.find(id);
-            if (it == end(item_properties_)) {
-                item_properties_.insert({id, string.to_string()});
-            } else if (string != it->second) {
-                BK_ASSERT(false); //TODO collision
-            }
-
-            return true;
-        });
-
     {
         auto       id      = std::string {"rat_small"};
         auto const id_hash = djb2_hash_32(id.data());
@@ -137,18 +121,29 @@ void game_database_impl::load_entity_defs_() {
 }
 
 void game_database_impl::load_item_defs_() {
-    {
-        auto       id      = std::string {"dagger"};
-        auto const id_hash = djb2_hash_32(id.data());
+    load_item_definitions(
+        [&](item_definition const& def) {
+            auto const id = def.id;
+            auto const tile_index = def.properties.value_or(djb2_hash_32c("tile_index"), 0);
 
-        item_defs_.insert(std::make_pair(
-            item_id {id_hash}
-          , item_definition {
-                basic_definition {std::move(id), "dagger", "source", 0}
-              , item_id {id_hash}}));
-    }
+            auto const result = item_defs_.insert({id, std::move(def)});
+            if (!result.second) {
+                BK_ASSERT(false); //TODO collision
+            }
 
-    tile_map_items_.add_mapping(entity_id {djb2_hash_32("dagger")}, 3);
+            tile_map_items_.add_mapping(id, tile_index);
+        }
+      , [&](string_view const string, uint32_t const hash, serialize_data_type const type, uint32_t const value) {
+            auto const id = item_property_id {hash};
+            auto const it = item_properties_.find(id);
+            if (it == end(item_properties_)) {
+                item_properties_.insert({id, string.to_string()});
+            } else if (string != it->second) {
+                BK_ASSERT(false); //TODO collision
+            }
+
+            return true;
+        });
 }
 
 game_database_impl::game_database_impl() {

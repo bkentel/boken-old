@@ -6,6 +6,7 @@
       "properties": {
         "type": "weapon",
         "sub_type": "dagger",
+        "tile_index": 3,
         "damage_max": 3,
         "damage_var": 0.1,
         "damage_type": "pierce"
@@ -16,6 +17,7 @@
       "properties": {
         "type": "consumable",
         "sub_type": "potion",
+        "tile_index": 4,
         "effect": "heal_hp",
         "effect_max": 10,
         "effect_var": 0.0

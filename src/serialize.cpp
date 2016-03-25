@@ -4,6 +4,8 @@
 
 #include "scope_guard.hpp"
 
+#include <bkassert/assert.hpp>
+
 #include <rapidjson/reader.h>
 #include <rapidjson/filereadstream.h>
 
@@ -323,7 +325,10 @@ void load_item_definitions(
 
     rapidjson::FileReadStream in {handle, buffer, buffer_size};
 
-    reader.Parse(in, handler);
+    auto const result = reader.Parse(in, handler);
+    if (!result) {
+        BK_ASSERT(false); //TODO parsing error
+    }
 }
 
 } //namespace boken

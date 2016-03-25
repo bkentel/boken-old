@@ -285,7 +285,7 @@ struct game_state {
     void generate_items() {
         auto& lvl = the_world.current_level();
 
-        auto const def = database.find(make_id<item_id>("dagger"));
+        auto const def = database.find(make_id<item_id>("weapon_dagger"));
         BK_ASSERT(!!def);
 
         auto itm = create_item(*def);
@@ -620,7 +620,7 @@ struct game_state {
         def->modify_health(-1);
 
         if (!def->is_alive()) {
-            auto const idef = database.find(make_id<item_id>("dagger"));
+            auto const idef = database.find(make_id<item_id>("potion_health_small"));
             BK_ASSERT(!!idef);
 
             add_item_at(create_item(*idef), def_pos);
