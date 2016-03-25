@@ -370,7 +370,10 @@ struct game_state {
         if (event.went_down) {
             cmd_translator.translate(event);
 
-            if (!kmods.test(kb_modifiers::m_shift)) {
+            if (!kmods.test(kb_modifiers::m_shift)
+               && (event.scancode == kb_scancode::k_lshift
+                || event.scancode == kb_scancode::k_rshift)
+            ) {
                 show_tool_tip({last_mouse_x, last_mouse_y});
             }
         } else {
