@@ -7,6 +7,8 @@ namespace boken {
 
 bsp_generator::~bsp_generator() = default;
 
+//! @returns A reference to the largest of @p a and @p b, otherwise one fo the
+//! two chosen at random if equal.
 template <typename T>
 T&& choose_largest(random_state& rng, T&& a, T&& b) {
     return std::forward<T>(
@@ -15,12 +17,16 @@ T&& choose_largest(random_state& rng, T&& a, T&& b) {
       : random_coin_flip(rng) ? a : b);
 }
 
-template <typename Int, typename R = axis_aligned_rect<Int>>
+//! @return The rectangle @p rect sliced into two smaller rects along its
+//! largest axis. Otherwise the input rect if the result would be smaller than
+//! @p min_size.
+template <typename Int
+        , typename R = axis_aligned_rect<Int>>
 std::pair<R, R> slice_rect(
     random_state&        rng
   , R              const rect
   , size_type<Int> const min_size
-  , double         const variance = 4.0 // higher implies less variance
+  , double         const variance = 4.0 //!< higher implies less variance
 ) noexcept {
     Int const  w = value_cast(rect.width());
     Int const  h = value_cast(rect.height());
@@ -40,19 +46,21 @@ std::pair<R, R> slice_rect(
     return {r0, r1};
 }
 
+//! @return true if @r can be split into two smaller rects with dimensions at
+//! least as big as @p min_size, otherwise false.
 template <typename Int>
 constexpr bool can_slice_rect(
-    axis_aligned_rect<Int> const r
-  , size_type<Int>         const min_size
+    axis_aligned_rect<Int> const r, size_type<Int> const min_size
 ) noexcept {
     return value_cast(r.width())  < value_cast(min_size) * 2
         && value_cast(r.height()) < value_cast(min_size) * 2;
 }
 
+//! @return true if @r has a dimension at least as big as @p max_size, otherwise
+//! false.
 template <typename Int>
 constexpr bool must_slice_rect(
-    axis_aligned_rect<Int> const r
-  , size_type<Int>         const max_size
+    axis_aligned_rect<Int> const r, size_type<Int> const max_size
 ) noexcept {
     return value_cast(r.width())  > value_cast(max_size)
         || value_cast(r.height()) > value_cast(max_size);
@@ -115,10 +123,8 @@ void bsp_generator_impl::generate(random_state& rnd) {
     nodes_.clear();
     leaf_nodes_.clear();
 
-    nodes_.push_back(node_t {
-        recti32 {offi32x {0}, offi32y {0}, p.width, p.height}
-      , 0, 0, 0
-    });
+    nodes_.push_back({
+        {point2i32 {}, p.width, p.height}, 0, 0, 0});
 
     auto const pass_split_chance = [&](recti32 const& r) {
         auto const area = value_cast(r.area());

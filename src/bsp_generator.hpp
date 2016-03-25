@@ -15,14 +15,9 @@ namespace boken { class random_state; }
 
 namespace boken {
 
-template <typename T>
-inline constexpr auto enum_value(T const e) noexcept {
-    static_assert(std::is_enum<T>::value, "");
-    return static_cast<std::underlying_type_t<T>>(e);
-}
-
 template <typename Key, typename Value = Key>
-struct weight_list {
+class weight_list {
+public:
     using key_type   = Key;
     using value_type = Value;
     using pair_type  = std::pair<key_type, value_type>;
@@ -33,40 +28,47 @@ struct weight_list {
 
     weight_list& operator=(std::initializer_list<pair_type> const il) {
         weights.assign(il);
+
+        // sort in descending order
         std::sort(begin(weights), end(weights)
-          , [](auto const a, auto const b) noexcept {
+          , [](pair_type const& a, pair_type const& b) noexcept {
                 return b.first < a.first;
             });
+
         return *this;
     }
 
-    inline Value operator[](Key const k) const noexcept {
-        for (auto const& p : weights) {
-            if (p.first < k) { return p.second; }
-        }
-        return Value {};
-    }
+    //! @returns The value of the closest key <= @p key, or 0 if no such key
+    //! exists.
+    Value operator[](Key const key) const noexcept {
+        auto const it = std::lower_bound(begin(weights), end(weights), key
+          , [](pair_type const& p, Key const& k) noexcept {
+                return k < p.first;
+            });
 
+        return it == end(weights)
+          ? Value {}
+          : it->second;
+    }
+private:
     std::vector<pair_type> weights;
 };
 
-//!
-//!
 //! @note final nodes are sorted first, in descending order, by
 //! min(width, height) and then by area.
 class bsp_generator {
 public:
     struct param_t {
-        static constexpr int default_width           {100};
-        static constexpr int default_height          {100};
-        static constexpr int default_min_region_size {3};
-        static constexpr int default_max_region_size {20};
-        static constexpr int default_min_room_size   {3};
-        static constexpr int default_max_room_size   {20};
-        static constexpr int default_room_chance_num {60};
-        static constexpr int default_room_chance_den {100};
+        static constexpr int32_t default_width           {100};
+        static constexpr int32_t default_height          {100};
+        static constexpr int32_t default_min_region_size {3};
+        static constexpr int32_t default_max_region_size {20};
+        static constexpr int32_t default_min_room_size   {3};
+        static constexpr int32_t default_max_room_size   {20};
+        static constexpr int32_t default_room_chance_num {60};
+        static constexpr int32_t default_room_chance_den {100};
 
-        static constexpr int default_max_weight {1000};
+        static constexpr int32_t default_max_weight {1000};
 
         sizei32x width           {default_width};
         sizei32y height          {default_height};
@@ -77,10 +79,9 @@ public:
         sizei32  room_chance_num {default_room_chance_num};
         sizei32  room_chance_den {default_room_chance_den};
 
-        int              max_weight {default_max_weight};
-        weight_list<int> weights    {{0, default_max_weight}};
+        int32_t              max_weight {default_max_weight};
+        weight_list<int32_t> weights    {{0, default_max_weight}};
 
-        float max_aspect     = 16.0f / 10.0f;
         float split_variance = 5.0f;
     };
 
