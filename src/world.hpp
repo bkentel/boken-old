@@ -19,13 +19,12 @@ public:
 
     //! @returns The instance associated with a given id. Otherwise, a nullptr
     //! if no such definition exists.
-    virtual item const* find(item_instance_id id) const noexcept = 0;
+    virtual item   const* find(item_instance_id   id) const noexcept = 0;
     virtual entity const* find(entity_instance_id id) const noexcept = 0;
+    virtual item*         find(item_instance_id   id)       noexcept = 0;
+    virtual entity*       find(entity_instance_id id)       noexcept = 0;
 
-    virtual item* find(item_instance_id id) noexcept = 0;
-    virtual entity* find(entity_instance_id id) noexcept = 0;
-
-    virtual unique_item create_item(std::function<item (item_instance_id)> const& f) = 0;
+    virtual unique_item   create_item(std::function<item (item_instance_id)> const& f) = 0;
     virtual unique_entity create_entity(std::function<entity (entity_instance_id)> const& f) = 0;
 
     virtual int total_levels() const noexcept = 0;
