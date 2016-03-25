@@ -369,6 +369,10 @@ struct game_state {
     void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
             cmd_translator.translate(event);
+
+            if (!kmods.test(kb_modifiers::m_shift)) {
+                show_tool_tip({last_mouse_x, last_mouse_y});
+            }
         } else {
             if (!kmods.test(kb_modifiers::m_shift)) {
                 renderer.update_tool_tip_visible(false);
