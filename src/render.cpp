@@ -145,6 +145,8 @@ public:
 
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
+    uint32_t choose_tile_color_(tile_id tid, uint32_t rid) noexcept;
+
     void render_text_(text_layout const& text, vec2i32 off) const noexcept;
     void render_tool_tip_() const noexcept;
     void render_message_log_() const noexcept;
@@ -194,16 +196,47 @@ void game_renderer_impl::set_tile_maps(
     }
 }
 
+uint32_t game_renderer_impl::choose_tile_color_(tile_id const tid, uint32_t const rid) noexcept {
+    if (debug_show_regions_) {
+        auto const n = rid + 1;
+
+        return (0xFFu     << 24)  //A
+             | ((n * 11u) << 16)  //B
+             | ((n * 23u) <<  8)  //G
+             | ((n * 37u) <<  0); //R
+    }
+
+    if (tid == tile_id::empty) {
+        return 0xFF222222u;
+    }
+
+    return 0xFFAAAAAAu;
+}
+
 void game_renderer_impl::update_map_data(const_sub_region_range<tile_id> const sub_region) {
     auto const& tmap = *tile_map_items_;
 
     auto dst_it = sub_region_iterator<data_t>(sub_region.first, tile_data.data());
 
-    for (auto it = sub_region.first; it != sub_region.second; ++it, ++dst_it) {
+    auto const region_range = level_->region_ids({
+        point2i32 {
+            static_cast<int32_t>(dst_it.off_x())
+          , static_cast<int32_t>(dst_it.off_y())}
+      , sizei32x {static_cast<int32_t>(dst_it.width())}
+      , sizei32y {static_cast<int32_t>(dst_it.height())}});
+
+
+    auto rgn_it = region_range.first;
+
+    for (auto it = sub_region.first; it != sub_region.second; ++it, ++dst_it, ++rgn_it) {
         auto& dst = *dst_it;
 
-        auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, *it));
+        auto const tid = *it;
+        auto const rid = *rgn_it;
+
+        auto const tex_rect = tmap.index_to_rect(id_to_index(tmap, tid));
         dst.tex_coord = underlying_cast_unsafe<int16_t>(tex_rect.top_left());
+        dst.color     = choose_tile_color_(tid, rid);
     }
 }
 
@@ -218,11 +251,6 @@ void game_renderer_impl::update_map_data() {
     if (tile_data.size() < bounds_size) {
         tile_data.resize(bounds_size);
     }
-
-    auto const region_color = [](uint32_t i) noexcept {
-        ++i;
-        return 0xFFu << 24 | (i * 11u) << 16 | (i * 23u) << 8 | (i * 37u);
-    };
 
     auto const transform_point = position_to_pixel_(tmap);
 
@@ -242,9 +270,7 @@ void game_renderer_impl::update_map_data() {
 
         dst->position  = underlying_cast_unsafe<int16_t>(p);
         dst->tex_coord = underlying_cast_unsafe<int16_t>(tmap.index_to_rect(index).top_left());
-        dst->color = debug_show_regions_
-          ? region_color(rid)
-          : 0xFF0000FFu;
+        dst->color     = choose_tile_color_(tid, rid);
     }
 }
 
