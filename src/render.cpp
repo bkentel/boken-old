@@ -433,6 +433,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     auto const r = inv_window.bounds();
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
     os_.render_fill_rect(r, 0xDF666666u);
+    os_.render_set_clip_rect(r);
 
     auto const v = inv_window.position() - point2i32 {};
 
@@ -448,6 +449,8 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
             render_text_(txt, v);
         });
     }
+
+    os_.render_clear_clip_rect();
 }
 
 } //namespace boken

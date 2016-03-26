@@ -683,6 +683,9 @@ public:
 
     virtual recti32 render_get_client_rect() const = 0;
 
+    virtual void render_set_clip_rect(recti32 r) = 0;
+    virtual void render_clear_clip_rect() = 0;
+
     virtual void render_clear()   = 0;
     virtual void render_present() = 0;
 

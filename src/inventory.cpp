@@ -96,7 +96,7 @@ public:
         auto const& itm = lookup_(id);
 
         for (size_t i = 0; i < cols(); ++i) {
-            row.push_back({trender_, cols_[i].getter(itm), cols_[i].max_width});
+            row.push_back({trender_, cols_[i].getter(itm), cols_[i].max_width, sizei16y {}});
         }
 
         rows_.push_back(std::move(row));
@@ -311,7 +311,7 @@ void inventory_list_impl::add_column(
         return width;
     }();
 
-    auto text = text_layout {trender_, std::move(label), max_w};
+    auto text = text_layout {trender_, std::move(label), max_w, sizei16y {}};
 
     auto const min_w =
         underlying_cast_unsafe<int16_t>(text.extent().width());

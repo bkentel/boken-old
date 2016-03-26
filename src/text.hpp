@@ -47,7 +47,7 @@ public:
         text_renderer& trender
       , std::string    text
       , sizei16x       max_width  = std::numeric_limits<int16_t>::max()
-      , sizei16x       max_height = std::numeric_limits<int16_t>::max()
+      , sizei16y       max_height = std::numeric_limits<int16_t>::max()
     );
 
     void layout(text_renderer& trender, std::string text);

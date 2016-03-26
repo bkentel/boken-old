@@ -76,13 +76,13 @@ text_layout::text_layout(
     text_renderer& trender
   , std::string text
   , sizei16x const max_width
-  , sizei16x const max_height
+  , sizei16y const max_height
 )
   : data_          {}
   , text_          {}
   , position_      {}
-  , max_width_     {value_cast(max_width)}
-  , max_height_    {value_cast(max_height)}
+  , max_width_     {max_width}
+  , max_height_    {max_height}
   , actual_width_  {}
   , actual_height_ {}
   , is_visible_    {true}
@@ -100,6 +100,7 @@ void text_layout::layout(text_renderer& trender) {
 
     auto const line_gap = int32_t {trender.line_gap()};
     auto const max_w    = int32_t {value_cast(max_width_)};
+    auto const max_h    = int32_t {value_cast(max_height_)};
 
     auto     it       = text_.data();
     auto     last     = text_.data() + text_.size();
@@ -110,10 +111,16 @@ void text_layout::layout(text_renderer& trender) {
     int32_t  actual_w = 0;
 
     auto const next_line = [&] {
-        actual_w = std::max(actual_w, x);
+        actual_w =  std::max(actual_w, x);
         y        += line_gap;
-        x        =  0;
-        line_h   =  line_gap;
+
+        if (y >= max_h) {
+            return false;
+        }
+        x      =  0;
+        line_h =  line_gap;
+
+        return true;
     };
 
     while (it != last) {
@@ -128,8 +135,8 @@ void text_layout::layout(text_renderer& trender) {
         auto const glyph_w = int32_t {value_cast(metrics.size.x)};
         auto const glyph_h = int32_t {value_cast(metrics.size.y)};
 
-        if (x + glyph_w > max_w) {
-            next_line();
+        if ((x + glyph_w > max_w) && !next_line()) {
+            break;
         }
 
         data_.push_back(data_t {

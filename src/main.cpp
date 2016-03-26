@@ -115,13 +115,27 @@ struct game_state {
     }
 
     void make_inventory() {
-        inventory.add_column(0, "Name"
+        inventory.add_column(0, ""
+          , [&](item const& itm) {
+                auto const& tmap = database.get_tile_map(tile_map_type::item);
+                auto const index = tmap.find(itm.definition());
+
+                BK_ASSERT(index < 0x7Fu); //TODO
+
+                std::array<char, 7> as_string {};
+                as_string[0] =
+                    static_cast<char>(static_cast<uint8_t>(index & 0x7Fu));
+
+                return std::string {as_string.data()};
+            });
+
+        inventory.add_column(1, "Name"
           , [&](item const& itm) {
                 auto const def = database.find(itm.definition());
                 return def ? def->name : "{unknown}";
             });
 
-        inventory.add_column(1, "Id"
+        inventory.add_column(2, "Id"
           , [&](item const& itm) {
                 auto const def = database.find(itm.definition());
                 return def ? def->id_string : "{unknown}";

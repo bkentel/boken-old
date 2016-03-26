@@ -382,15 +382,31 @@ public:
         SDL_RenderPresent(renderer_);
     }
 
+    template <typename T>
+    static SDL_Rect make_sdl_rect_(axis_aligned_rect<T> const r) noexcept {
+        return { value_cast(r.x0)
+               , value_cast(r.y0)
+               , value_cast(r.width())
+               , value_cast(r.height())};
+    }
+
+    void render_set_clip_rect(recti32 const r) final override {
+        auto const r0 = make_sdl_rect_(r);
+        if (SDL_RenderSetClipRect(renderer_, &r0)) {
+            throw sdl_error {SDL_GetError()};
+        }
+    }
+
+    void render_clear_clip_rect() final override {
+        if (SDL_RenderSetClipRect(renderer_, nullptr)) {
+            throw sdl_error {SDL_GetError()};
+        }
+    }
+
     void render_fill_rect(recti32 const r, uint32_t const color) final override {
         set_draw_color(color);
 
-        SDL_Rect const r0 {
-            value_cast(r.x0)
-          , value_cast(r.y0)
-          , value_cast(r.width())
-          , value_cast(r.height())};
-
+        auto const r0 =  make_sdl_rect_(r);
         SDL_RenderFillRect(renderer_, &r0);
     }
 
