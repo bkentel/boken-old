@@ -52,6 +52,9 @@
     <ClCompile Include="src\test\serialize.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="src\test\hash.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />

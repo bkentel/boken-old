@@ -1,18 +1,10 @@
 #if !defined(BK_NO_TESTS)
 #include "catch.hpp"
 #include "utility.hpp"
-#include "hash.hpp"
 
 #include <algorithm>
 #include <array>
 #include <vector>
-
-TEST_CASE("djb2_hash") {
-    auto const a = boken::djb2_hash_32("test_string");
-    auto const b = boken::djb2_hash_32c("test_string");
-
-    REQUIRE(a == b);
-}
 
 TEST_CASE("static_string_buffer") {
     using namespace boken;

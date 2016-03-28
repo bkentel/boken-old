@@ -71,6 +71,7 @@ set(SOURCES_EXTERNAL
 set(SOURCES_TEST
     src/test/bsp_generator.t.cpp
     src/test/entity.t.cpp
+    src/test/hash.t.cpp
     src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/math_types.t.cpp
