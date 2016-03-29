@@ -903,7 +903,6 @@ void run_tests() {
 } // namespace
 
 int main(int const argc, char const* argv[]) try {
-    BK_ASSERT(false);
     run_tests();
 
     bk::game_state game;
