@@ -658,7 +658,7 @@ public:
         return make_range_(area, data_.ids);
     }
 
-    const_sub_region_range<int16_t>
+    const_sub_region_range<region_id>
     region_ids(recti32 const area) const noexcept final override {
         return make_range_(area, data_.region_ids);
     }
@@ -705,8 +705,6 @@ public:
     // implementation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-
     template <typename T>
     void copy_region(
         tile_data_set const*     const src
@@ -729,7 +727,7 @@ public:
         BK_ASSERT(x0 >= 0 && x1 >= 0 && y0 >= 0 && y1 >= 0);
 
         auto src_off = size_t {};
-        auto dst_off = static_cast<size_t>(x0 + (y0 * dst_w));
+        auto dst_off = static_cast<size_t>(x0) + static_cast<size_t>(y0) * dst_w;
 
         for (auto y = y0; y < y1; ++y, dst_off += step) {
             for (auto x = x0; x < x1; ++x, ++src_off, ++dst_off) {
@@ -914,7 +912,7 @@ private:
         std::vector<tile_id>    ids;
         std::vector<tile_type>  types;
         std::vector<tile_flags> flags;
-        std::vector<int16_t>    region_ids;
+        std::vector<region_id>  region_ids;
     } data_;
 
     world& world_;
@@ -926,7 +924,7 @@ tile_view level_impl::at(point2i32 const p) const noexcept {
         static tile_id    const dummy_id        {};
         static tile_type  const dummy_type      {tile_type::empty};
         static tile_flags const dummy_flags     {};
-        static int16_t    const dummy_region_id {};
+        static region_id  const dummy_region_id {};
         static tile_data* const dummy_data      {};
 
         return {
@@ -1087,12 +1085,14 @@ void level_impl::generate(random_state& rng) {
         buffer.reserve(static_cast<size_t>(std::max(0, value_cast(size))));
     }
 
+    auto next_rid = region_id::type {0};
+
     tile_data_set default_tile {
         tile_data  {}
       , tile_flags {tile_flags::f_solid}
       , tile_id    {}
       , tile_type  {tile_type::empty}
-      , int16_t    {}
+      , next_rid
     };
 
     auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
@@ -1104,7 +1104,7 @@ void level_impl::generate(random_state& rng) {
 
     for (auto& region : regions_) {
         auto const rect = region.bounds;
-        fill_rect(data_.region_ids, width(), rect, default_tile.region_id++);
+        fill_rect(data_.region_ids, width(), rect, (default_tile.region_id = next_rid++));
 
         if (!roll_room_chance()) {
             continue;

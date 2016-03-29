@@ -58,12 +58,16 @@ public:
     difference_type operator-(simple_circular_buffer_iterator<U> const rhs) noexcept {
         static_assert(std::is_same<std::decay_t<U>, std::decay_t<T>>::value, "");
 
-        auto const result = ( p_ &&  rhs.p_) ? (front_ - rhs.front_)
-                          : (!p_ &&  rhs.p_) ? (rhs.capacity_ - rhs.delta_)
-                          : ( p_ && !rhs.p_) ? (capacity_ - delta_)
-                          : 0u;
+        auto const diff = [](auto const a, auto const b) noexcept {
+            return static_cast<difference_type>(
+                static_cast<difference_type>(a)
+              - static_cast<difference_type>(b));
+        };
 
-        return static_cast<difference_type>(result);
+        return ( p_ &&  rhs.p_) ? diff(front_, rhs.front_)
+             : (!p_ &&  rhs.p_) ? diff(rhs.capacity_, rhs.delta_)
+             : ( p_ && !rhs.p_) ? diff(capacity_, delta_)
+             : difference_type {};
     }
 
     bool operator<(this_t const& other) const noexcept {
@@ -136,9 +140,11 @@ public:
     T const& operator[](ptrdiff_t const where) const {
         BK_ASSERT(static_cast<size_t>(std::abs(where)) < data_.size());
 
-        auto const i = (where >= 0
-          ? (front_ + where)
-          : (front_ + data_.size() + where)) % data_.size();
+        auto const size = data_.size();
+
+        auto const i = static_cast<size_t>(
+            static_cast<ptrdiff_t>(front_)
+          + static_cast<ptrdiff_t>(size) + where) % size;
 
         return data_[i];
     }

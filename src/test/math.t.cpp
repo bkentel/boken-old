@@ -18,6 +18,11 @@ void arity_2(int, int) {};
 TEST_CASE("arity_of") {
     using namespace boken;
 
+    // suppress warnings
+    arity_0();
+    arity_1(0);
+    arity_2(0, 0);
+
     // free functions
     static_assert(arity_of<decltype(arity_0)>::value == 0, "");
     static_assert(arity_of<decltype(arity_1)>::value == 1, "");
@@ -53,6 +58,11 @@ TEST_CASE("arity_of") {
         void member_1(int) {}
         void member_2(int, int) {}
     };
+
+    // suppress warnings
+    foo {}.member_0();
+    foo {}.member_1(0);
+    foo {}.member_2(0, 0);
 
     static_assert(arity_of<decltype(&foo::member_0)>::value == 0, "");
     static_assert(arity_of<decltype(&foo::member_1)>::value == 1, "");

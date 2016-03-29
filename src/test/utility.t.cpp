@@ -73,7 +73,7 @@ namespace {
 template <typename T>
 decltype(boken::as_const(std::declval<T&&>())) as_const_test(T&&);
 // Catch-all fallback to always false
-void as_const_test(...);
+void as_const_test(...) {}
 } //namespace
 
 TEST_CASE("as_const") {
@@ -84,6 +84,7 @@ TEST_CASE("as_const") {
 
     REQUIRE(a == 0); // unused variables
     REQUIRE(b == 0); // unused variables
+    as_const_test(); // suppress warning
 
     using rval_a = decltype(as_const_test(std::move(a)));
     using lval_a = decltype(as_const_test(a));

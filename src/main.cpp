@@ -176,7 +176,7 @@ struct game_state {
           , tile_flags {0}
           , tile_id::tunnel
           , tile_type::tunnel
-          , 0
+          , region_id {}
         };
 
         renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
@@ -254,7 +254,7 @@ struct game_state {
                 "Region  : %d\n"
                 "Tile    : %s\n"
               , value_cast(p0.x), value_cast(p0.y)
-              , tile.region_id
+              , value_cast<int>(tile.region_id)
               , enum_to_string(lvl.at(p0).id).data())
          && print_entity()
          && print_items();
@@ -700,19 +700,21 @@ struct game_state {
             return;
         }
 
-        auto const id = the_world.current_level().id();
-        if (id == 0 && delta < 0) {
+        auto const id = static_cast<ptrdiff_t>(the_world.current_level().id());
+        if (id + delta < 0) {
             message_window.println("You can't leave.");
             return;
         }
 
+        auto const next_id = static_cast<size_t>(id + delta);
+
         auto player_ent = the_world.current_level()
           .remove_entity(player.first.instance());
 
-        if (!the_world.has_level(id + delta)) {
-            generate(id + delta);
+        if (!the_world.has_level(next_id)) {
+            generate(next_id);
         } else {
-            set_current_level(id + delta);
+            set_current_level(next_id);
         }
 
         auto const p = (delta > 0)
@@ -736,7 +738,7 @@ struct game_state {
                 , tile_flags {0}
                 , id
                 , tile.type
-                , 0
+                , region_id {}
             };
 
             renderer.update_map_data(lvl.update_tile_at(rng_superficial, obstacle_pos, data));
@@ -901,6 +903,7 @@ void run_tests() {
 } // namespace
 
 int main(int const argc, char const* argv[]) try {
+    BK_ASSERT(false);
     run_tests();
 
     bk::game_state game;

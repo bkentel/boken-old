@@ -145,7 +145,7 @@ public:
 
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
-    uint32_t choose_tile_color_(tile_id tid, uint32_t rid) noexcept;
+    uint32_t choose_tile_color_(tile_id tid, region_id rid) noexcept;
 
     void render_text_(text_layout const& text, vec2i32 off) const noexcept;
     void render_tool_tip_() const noexcept;
@@ -196,9 +196,9 @@ void game_renderer_impl::set_tile_maps(
     }
 }
 
-uint32_t game_renderer_impl::choose_tile_color_(tile_id const tid, uint32_t const rid) noexcept {
+uint32_t game_renderer_impl::choose_tile_color_(tile_id const tid, region_id const rid) noexcept {
     if (debug_show_regions_) {
-        auto const n = rid + 1;
+        auto const n = value_cast(rid) + 1u;
 
         return (0xFFu     << 24)  //A
              | ((n * 11u) << 16)  //B

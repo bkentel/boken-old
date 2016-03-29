@@ -3,9 +3,12 @@
 
 namespace boken {
 
-#if defined(__GNUC__)
+#if defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wformat-nonliteral"
+#elif defined(__GNUC__)
 #   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#   pragma GCC diagnostic ignored "-Wsuggest-attribute"
 #endif
 
 bool detail::static_string_buffer_append(
@@ -37,8 +40,9 @@ bool detail::static_string_buffer_append(
     offset += n;
     return true; // ok
 }
-
-#if defined(__GNUC__)
+#if defined(__clang__)
+#   pragma clang diagnostic pop
+#elif defined(__GNUC__)
 #   pragma GCC diagnostic pop
 #endif
 

@@ -7,7 +7,7 @@ namespace boken {
 
 bsp_generator::~bsp_generator() = default;
 
-//! @returns A reference to the largest of @p a and @p b, otherwise one fo the
+//! @returns A reference to the largest of @p a and @p b, otherwise one of the
 //! two chosen at random if equal.
 template <typename T>
 T&& choose_largest(random_state& rng, T&& a, T&& b) {
@@ -46,7 +46,7 @@ std::pair<R, R> slice_rect(
     return {r0, r1};
 }
 
-//! @return true if @r can be split into two smaller rects with dimensions at
+//! @return true if @p r can be split into two smaller rects with dimensions at
 //! least as big as @p min_size, otherwise false.
 template <typename Int>
 constexpr bool can_slice_rect(
@@ -56,8 +56,8 @@ constexpr bool can_slice_rect(
         && value_cast(r.height()) < value_cast(min_size) * 2;
 }
 
-//! @return true if @r has a dimension at least as big as @p max_size, otherwise
-//! false.
+//! @return true if @p r has a dimension at least as big as @p max_size,
+//! otherwise false.
 template <typename Int>
 constexpr bool must_slice_rect(
     axis_aligned_rect<Int> const r, size_type<Int> const max_size
@@ -136,6 +136,8 @@ void bsp_generator_impl::generate(random_state& rnd) {
         nodes_.push_back(node_t {pair.second, i, 0, 0});
     };
 
+    auto const split_variance = static_cast<double>(p.split_variance);
+
     for (uint16_t i = 0; i != static_cast<uint16_t>(nodes_.size()); ++i) {
         node_t&     n = nodes_[i];
         auto const& r = n.rect;
@@ -144,7 +146,7 @@ void bsp_generator_impl::generate(random_state& rnd) {
          || (can_slice_rect(r, p.min_region_size) && pass_split_chance(r))
         ) {
             n.child = static_cast<uint16_t>(i + 1);
-            add_children(slice_rect(rnd, r, p.min_region_size, p.split_variance), i);
+            add_children(slice_rect(rnd, r, p.min_region_size, split_variance), i);
         } else {
             leaf_nodes_.push_back(n);
         }

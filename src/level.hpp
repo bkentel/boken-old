@@ -29,7 +29,7 @@ struct tile_view {
     tile_id    const&       id;
     tile_type  const&       type;
     tile_flags const&       flags;
-    int16_t    const&       region_id;
+    region_id  const&       region_id;
     tile_data  const* const data;
 };
 
@@ -168,8 +168,8 @@ public:
     virtual std::pair<item_id const*, item_id const*>
         item_ids() const noexcept = 0;
 
-    virtual const_sub_region_range<tile_id> tile_ids(recti32 area) const noexcept = 0;
-    virtual const_sub_region_range<int16_t> region_ids(recti32 area) const noexcept = 0;
+    virtual const_sub_region_range<tile_id>   tile_ids(recti32 area) const noexcept = 0;
+    virtual const_sub_region_range<region_id> region_ids(recti32 area) const noexcept = 0;
 };
 
 std::unique_ptr<level> make_level(random_state& rng, world& w, sizei32x width, sizei32y height, size_t id);

@@ -38,7 +38,7 @@ private:
 
 };
 
-#if (__cplusplus > 201406L) || (_MSC_VER >= 1900)
+#if (__cplusplus > 201406L) || (defined(_MSC_VER) && _MSC_VER >= 1900)
 
 template <typename F, bool Execute>
 class scope_guard_new_exception {

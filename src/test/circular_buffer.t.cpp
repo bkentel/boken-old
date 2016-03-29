@@ -56,7 +56,7 @@ TEST_CASE("circular_buffer") {
 
         for (size_t j = 0; j < buffer.size(); ++j) {
             auto const k = j + (i / buffer.size());
-            REQUIRE(buffer[j] == strings[k]);
+            REQUIRE(buffer[static_cast<int>(j)] == strings[k]);
         }
     }
 

@@ -17,7 +17,7 @@ struct tag_id_property_entity {};
 struct tag_id_item            {};
 struct tag_id_instance_item   {};
 struct tag_id_property_item   {};
-
+struct tag_id_region          {};
 //===------------------------------------------------------------------------===
 //                              Type aliases
 //===------------------------------------------------------------------------===
@@ -28,6 +28,8 @@ using entity_property_id = tagged_value<uint32_t, tag_id_property_entity>;
 using item_id            = tagged_value<uint32_t, tag_id_item>;
 using item_instance_id   = tagged_value<uint32_t, tag_id_instance_item>;
 using item_property_id   = tagged_value<uint32_t, tag_id_property_item>;
+
+using region_id = tagged_value<uint16_t, tag_id_region>;
 
 //===------------------------------------------------------------------------===
 //                              Custom deleters
