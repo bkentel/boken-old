@@ -38,6 +38,8 @@ private:
 
 };
 
+#if (__cplusplus > 201406L) || (_MSC_VER >= 1900)
+
 template <typename F, bool Execute>
 class scope_guard_new_exception {
 public:
@@ -48,7 +50,7 @@ public:
     scope_guard_new_exception& operator=(scope_guard_new_exception&&) = default;
 
     ~scope_guard_new_exception() noexcept(Execute) {
-        if (execute == (count_ != std::uncaught_exceptions())) {
+        if (Execute == (count_ != std::uncaught_exceptions())) {
             function_();
         }
     }
@@ -63,6 +65,8 @@ private:
     F   function_;
     int count_;
 };
+
+#endif
 
 template <typename F>
 auto operator+(detail::scope_guard_tag, F&& f) {

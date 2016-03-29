@@ -3,6 +3,11 @@
 
 namespace boken {
 
+#if defined(__GNUC__)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#endif
+
 bool detail::static_string_buffer_append(
     char const* const fmt
   , char*       const buffer
@@ -32,5 +37,9 @@ bool detail::static_string_buffer_append(
     offset += n;
     return true; // ok
 }
+
+#if defined(__GNUC__)
+#   pragma GCC diagnostic pop
+#endif
 
 } //namespace boken

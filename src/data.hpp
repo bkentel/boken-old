@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "config.hpp" //string_view
 #include <memory>
 #include <cstdint>
 

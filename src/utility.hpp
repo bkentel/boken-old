@@ -329,11 +329,6 @@ sub_region_range<T> make_sub_region_range(
 }
 
 namespace detail {
-#ifndef _MSC_VER
-#   define BK_PRINTF_ATTRIBUTE __attribute__ ((__format__(__printf__, 1, 5)))
-#else
-#   define BK_PRINTF_ATTRIBUTE
-#endif
 
 bool static_string_buffer_append(
     char const* fmt
@@ -341,7 +336,6 @@ bool static_string_buffer_append(
   , ptrdiff_t&  offset
   , size_t      size
   , va_list     args) noexcept;
-#undef BK_PRINTF_ATTRIBUTE
 
 } // namespace detail
 
@@ -360,7 +354,13 @@ public:
         return first_ >= 0 && first_ < last_index;
     }
 
-    bool append(char const* const fmt, ...) noexcept {
+#ifndef _MSC_VER
+#   define BK_PRINTF_ATTRIBUTE __attribute__ ((__format__(__printf__, 2, 3)))
+#else
+#   define BK_PRINTF_ATTRIBUTE
+#endif
+
+    bool append(char const* const fmt, ...) noexcept BK_PRINTF_ATTRIBUTE {
         va_list args;
         va_start(args, fmt);
 
@@ -371,6 +371,8 @@ public:
 
         return result;
     }
+
+#undef BK_PRINTF_ATTRIBUTE
 
     void clear() noexcept {
         first_ = 0;

@@ -294,7 +294,7 @@ bool item_definition_handler::run() {
             def_.name.clear();
             def_.properties.clear();
             def_.source_line = 0;
-            def_.source_name.clear();
+            def_.source_name = "";
         });
     case state::data_end:
         return require(type::obj_end, state::end);
@@ -315,7 +315,7 @@ void load_item_definitions(
 
     item_definition_handler handler {on_finish, on_property};
 
-    rapidjson::Reader reader;
+    rapidjson::Reader reader {nullptr};
     char buffer[buffer_size];
 
     auto const handle = fopen("./data/items.dat", "rb");

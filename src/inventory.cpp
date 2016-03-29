@@ -337,8 +337,8 @@ void inventory_list_impl::layout() noexcept {
 
     auto const header_h = value_cast_unsafe<int16_t>(header_height());
 
-    int16_t x = 0;
-    int16_t y = 0;
+    int32_t x = 0;
+    int32_t y = 0;
 
     auto const get_max_col_w = [&](size_t const i) noexcept {
         auto const header_w = cols_[i].text.extent().width();
@@ -364,7 +364,7 @@ void inventory_list_impl::layout() noexcept {
 
         auto const w = clamp(get_max_col_w(i), col.min_width, col.max_width);
 
-        col.left  = x;
+        col.left  = static_cast<int16_t>(x);
         col.right = col.left + underlying_cast_unsafe<int16_t>(w) + col_padding;
 
         col.text.move_to(value_cast(col.left), y);

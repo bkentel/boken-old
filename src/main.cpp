@@ -30,6 +30,7 @@
 
 #include <cstdint>          // for uint16_t, uint32_t, uintptr_t
 #include <cstdio>           // for printf
+#include <cinttypes>
 
 namespace boken {};
 namespace bk = boken;
@@ -881,17 +882,26 @@ struct game_state {
 
 } // namespace boken
 
+namespace {
+#if defined(BK_NO_TESTS)
+void run_tests() {
+}
+#else
+void run_tests() {
+    using namespace std::chrono;
+
+    auto const beg = high_resolution_clock::now();
+    boken::run_unit_tests();
+    auto const end = high_resolution_clock::now();
+
+    std::printf("Tests took %" PRId64 " microseconds.\n",
+        duration_cast<microseconds>(end - beg).count());
+}
+#endif // BK_NO_TESTS
+} // namespace
+
 int main(int const argc, char const* argv[]) try {
-    {
-        using namespace std::chrono;
-
-        auto const beg = high_resolution_clock::now();
-        bk::run_unit_tests();
-        auto const end = high_resolution_clock::now();
-
-        auto const us = duration_cast<microseconds>(end - beg);
-        std::printf("Tests took %lld microseconds.\n", us.count());
-    }
+    run_tests();
 
     bk::game_state game;
     game.run();
