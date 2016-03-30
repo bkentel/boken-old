@@ -1104,7 +1104,7 @@ void level_impl::generate(random_state& rng) {
 
     for (auto& region : regions_) {
         auto const rect = region.bounds;
-        fill_rect(data_.region_ids, width(), rect, (default_tile.region_id = next_rid++));
+        fill_rect(data_.region_ids, width(), rect, (default_tile.rid = next_rid++));
 
         if (!roll_room_chance()) {
             continue;
