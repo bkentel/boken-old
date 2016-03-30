@@ -76,6 +76,7 @@ set(SOURCES_TEST
     src/test/level.t.cpp
     src/test/math.t.cpp
     src/test/math_types.t.cpp
+    src/test/random.t.cpp
     src/test/serialize.t.cpp
     src/test/spatial_map.t.cpp
     src/test/unicode.t.cpp

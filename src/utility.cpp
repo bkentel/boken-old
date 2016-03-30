@@ -8,7 +8,7 @@ namespace boken {
 #   pragma clang diagnostic ignored "-Wformat-nonliteral"
 #elif defined(__GNUC__)
 #   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wsuggest-attribute"
+#   pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
 #endif
 
 bool detail::static_string_buffer_append(
