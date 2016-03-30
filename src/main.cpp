@@ -254,7 +254,7 @@ struct game_state {
                 "Region  : %d\n"
                 "Tile    : %s\n"
               , value_cast(p0.x), value_cast(p0.y)
-              , value_cast<int>(tile.region_id)
+              , value_cast<int>(tile.rid)
               , enum_to_string(lvl.at(p0).id).data())
          && print_entity()
          && print_items();

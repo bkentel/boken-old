@@ -29,7 +29,7 @@ struct tile_view {
     tile_id    const&       id;
     tile_type  const&       type;
     tile_flags const&       flags;
-    region_id  const&       region_id;
+    region_id  const&       rid;
     tile_data  const* const data;
 };
 
