@@ -194,8 +194,8 @@ struct game_state {
             return; // the tile the mouse points to is unchanged from last time
         }
 
-        auto  const& lvl    = the_world.current_level();
-        auto  const& tile   = lvl.at(p0);
+        auto const& lvl  = the_world.current_level();
+        auto const& tile = lvl.at(p0);
 
         static_string_buffer<256> buffer;
 

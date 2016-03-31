@@ -19,6 +19,7 @@
       <ForcedIncludeFiles>pch.hpp</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>src/</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4373;4814;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
