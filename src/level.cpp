@@ -93,40 +93,35 @@ std::pair<boken::point2<T>, bool> find_random_nearest(
     boken::random_state&         rng
   , boken::point2<T> const       origin
   , T const                      max_distance
-  , std::vector<boken::point2i32>& points
   , Predicate                    pred
 ) {
     using namespace boken;
 
-    BK_ASSERT(max_distance >= 0);
+    constexpr size_t buffer_size = 128;
 
-    points.clear();
-    points.reserve(static_cast<size_t>(max_distance * 8 + 1));
+    BK_ASSERT(max_distance >= 0
+           && static_cast<size_t>(max_distance) <= buffer_size / 8);
+
+    std::array<point2i32, buffer_size> points;
 
     for (T d = 0; d <= max_distance; ++d) {
-        boken::points_around(origin, d
-          , [&](point2i32 const p) noexcept { points.push_back(p); });
+        size_t last_index = 0;
 
-        std::shuffle(begin(points), end(points), rng);
+        points_around(origin, d
+          , [&](point2i32 const p) noexcept { points[last_index++] = p; });
 
-        auto const it = std::find_if(begin(points), end(points), pred);
-        if (it != std::end(points)) {
+        auto const first = begin(points);
+        auto const last  = first + static_cast<ptrdiff_t>(last_index);
+
+        std::shuffle(first, last, rng);
+
+        auto const it = std::find_if(first, last, pred);
+        if (it != last) {
             return {*it, true};
         }
     }
 
     return {origin, false};
-}
-
-template <typename T, typename Predicate>
-auto find_random_nearest(
-    boken::random_state&   rng
-  , boken::point2<T> const origin
-  , T const                max_distance
-  , Predicate              pred
-) {
-    std::vector<boken::point2i32> points;
-    return find_random_nearest(rng, origin, max_distance, points, pred);
 }
 
 bool can_remove_wall_code(
