@@ -2,7 +2,7 @@
 
 #include <bkassert/assert.hpp>
 
-#include "math_types.hpp"
+#include "math.hpp"
 #include "random.hpp"
 
 namespace boken {
