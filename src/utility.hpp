@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <utility>
 #include <memory>
 #include <cstddef>
 #include <cstdint>
@@ -53,6 +55,13 @@ auto* find_ptr_if(Container&& c, Predicate pred) {
 }
 
 } // container_algorithms
+
+template <size_t N, typename Predicate = std::less<>>
+auto sort_by_nth_element(Predicate pred = Predicate {}) noexcept {
+    return [pred](auto const& a, auto const& b) noexcept {
+        return pred(std::get<N>(a), std::get<N>(b));
+    };
+}
 
 enum class convertion_type {
     unchecked, clamp, fail, modulo
@@ -403,6 +412,63 @@ public:
 private:
     ptrdiff_t first_;
     std::array<char, N> buffer_;
+};
+
+template <typename Key, typename Value>
+class weight_list {
+public:
+    using key_type   = Key;
+    using value_type = Value;
+    using pair_type  = std::pair<key_type, value_type>;
+
+    weight_list(std::initializer_list<pair_type> const il)
+      : weights_ {il}
+    {
+        normalize_();
+    }
+
+    weight_list& operator=(std::initializer_list<pair_type> const il) {
+        weights_.assign(il);
+        normalize_();
+        return *this;
+    }
+
+    //! @returns The value of the closest key <= @p key, or 0 if no such key
+    //! exists.
+    pair_type operator[](Key const key) const noexcept {
+        auto const first = begin(weights_);
+        auto const last  = end(weights_);
+
+        for (auto it = first, prev = first; it != last; prev = it++) {
+            if (!(it->first <= key)) {
+                return *prev;
+            }
+        }
+
+        return weights_.back();
+    }
+
+    key_type   const& min_key() const noexcept { return weights_.front().first; }
+    key_type   const& max_key() const noexcept { return weights_.back().first; }
+    value_type const& min_val() const noexcept { return weights_[min_val_index_].second; }
+    value_type const& max_val() const noexcept { return weights_[max_val_index_].second; }
+private:
+    void normalize_() {
+        auto const first = begin(weights_);
+        auto const last  = end(weights_);
+
+        std::sort(first, last, sort_by_nth_element<0>());
+
+        auto const p = std::minmax_element(first, last, sort_by_nth_element<1>());
+
+        min_val_index_ = static_cast<uint16_t>(std::distance(first, p.first));
+        max_val_index_ = static_cast<uint16_t>(std::distance(first, p.second));
+    }
+
+    uint16_t min_val_index_ {};
+    uint16_t max_val_index_ {};
+
+    std::vector<pair_type> weights_;
 };
 
 } //namespace boken

@@ -152,6 +152,7 @@
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />
     <ClInclude Include="src\random.hpp" />
+    <ClInclude Include="src\rect.hpp" />
     <ClInclude Include="src\render.hpp" />
     <ClInclude Include="src\scope_guard.hpp" />
     <ClInclude Include="src\serialize.hpp" />

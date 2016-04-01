@@ -4,6 +4,10 @@
 #include <cstdint>
 
 namespace boken {
+    template <typename Key, typename Value> class weight_list;
+}
+
+namespace boken {
 
 class random_state {
 public:
@@ -36,5 +40,11 @@ double random_normal(random_state& rng, double mean, double variance = 1.0) noex
 //                          Derivative algorithms
 //===------------------------------------------------------------------------===
 uint32_t random_color(random_state& rng) noexcept;
+
+template <typename Key, typename Value>
+Value random_weighted(random_state& rng, weight_list<Key, Value> const& weights) noexcept {
+    return weights[
+        random_uniform_int(rng, weights.min_key(), weights.max_key())].second;
+}
 
 } //namespace boken

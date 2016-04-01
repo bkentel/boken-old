@@ -2,57 +2,14 @@
 
 #include "math.hpp"          // for axis_aligned_rect
 #include "types.hpp"         // for sizei, sizeix, sizeiy
-#include <algorithm>         // for sort
-#include <initializer_list>  // for initializer_list
-#include <iterator>          // for begin, end
+#include "utility.hpp"
 #include <memory>            // for unique_ptr
-#include <type_traits>       // for is_enum, underlying_type_t
-#include <utility>           // for pair
 #include <vector>            // for vector, vector<>::const_iterator
 #include <cstdint>           // for uint16_t
 
 namespace boken { class random_state; }
 
 namespace boken {
-
-template <typename Key, typename Value = Key>
-class weight_list {
-public:
-    using key_type   = Key;
-    using value_type = Value;
-    using pair_type  = std::pair<key_type, value_type>;
-
-    weight_list(std::initializer_list<pair_type> const il) {
-        *this = il;
-    }
-
-    weight_list& operator=(std::initializer_list<pair_type> const il) {
-        weights.assign(il);
-
-        // sort in descending order
-        std::sort(begin(weights), end(weights)
-          , [](pair_type const& a, pair_type const& b) noexcept {
-                return b.first < a.first;
-            });
-
-        return *this;
-    }
-
-    //! @returns The value of the closest key <= @p key, or 0 if no such key
-    //! exists.
-    Value operator[](Key const key) const noexcept {
-        auto const it = std::lower_bound(begin(weights), end(weights), key
-          , [](pair_type const& p, Key const& k) noexcept {
-                return k < p.first;
-            });
-
-        return it == end(weights)
-          ? Value {}
-          : it->second;
-    }
-private:
-    std::vector<pair_type> weights;
-};
 
 //! @note final nodes are sorted first, in descending order, by
 //! min(width, height) and then by area.
@@ -68,8 +25,6 @@ public:
         static constexpr int32_t default_room_chance_num {60};
         static constexpr int32_t default_room_chance_den {100};
 
-        static constexpr int32_t default_max_weight {1000};
-
         sizei32x width           {default_width};
         sizei32y height          {default_height};
         sizei32  min_region_size {default_min_region_size};
@@ -79,8 +34,7 @@ public:
         sizei32  room_chance_num {default_room_chance_num};
         sizei32  room_chance_den {default_room_chance_den};
 
-        int32_t              max_weight {default_max_weight};
-        weight_list<int32_t> weights    {{0, default_max_weight}};
+        weight_list<int32_t, int32_t> weights {{0, 0}};
 
         float split_variance = 5.0f;
     };

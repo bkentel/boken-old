@@ -2,69 +2,11 @@
 #include "random.hpp"   // for random_state (ptr only), random_coin_flip, etc
 #include "types.hpp"    // for value_cast, size_type, offix, offiy
 #include "utility.hpp"  // for sort
+#include "rect.hpp"
 
 namespace boken {
 
 bsp_generator::~bsp_generator() = default;
-
-//! @returns A reference to the largest of @p a and @p b, otherwise one of the
-//! two chosen at random if equal.
-template <typename T>
-T&& choose_largest(random_state& rng, T&& a, T&& b) {
-    return std::forward<T>(
-        a < b ? b
-      : b < a ? a
-      : random_coin_flip(rng) ? a : b);
-}
-
-//! @return The rectangle @p rect sliced into two smaller rects along its
-//! largest axis. Otherwise the input rect if the result would be smaller than
-//! @p min_size.
-template <typename Int
-        , typename R = axis_aligned_rect<Int>>
-std::pair<R, R> slice_rect(
-    random_state&        rng
-  , R              const rect
-  , size_type<Int> const min_size
-  , double         const variance = 4.0 //!< higher implies less variance
-) noexcept {
-    Int const  w = value_cast(rect.width());
-    Int const  h = value_cast(rect.height());
-    Int const& x = choose_largest(rng, w, h);
-    Int const  p = round_as<Int>(random_normal(rng, x / 2.0, x / variance));
-    Int const  n = clamp(p, value_cast(min_size), x - value_cast(min_size));
-
-    R r0 = rect;
-    R r1 = rect;
-
-    if (&x == &w) {
-        r1.x0 = (r0.x1 = r0.x0 + size_type_x<Int> {n});
-    } else {
-        r1.y0 = (r0.y1 = r0.y0 + size_type_y<Int> {n});
-    }
-
-    return {r0, r1};
-}
-
-//! @return true if @p r can be split into two smaller rects with dimensions at
-//! least as big as @p min_size, otherwise false.
-template <typename Int>
-constexpr bool can_slice_rect(
-    axis_aligned_rect<Int> const r, size_type<Int> const min_size
-) noexcept {
-    return value_cast(r.width())  < value_cast(min_size) * 2
-        && value_cast(r.height()) < value_cast(min_size) * 2;
-}
-
-//! @return true if @p r has a dimension at least as big as @p max_size,
-//! otherwise false.
-template <typename Int>
-constexpr bool must_slice_rect(
-    axis_aligned_rect<Int> const r, size_type<Int> const max_size
-) noexcept {
-    return value_cast(r.width())  > value_cast(max_size)
-        || value_cast(r.height()) > value_cast(max_size);
-}
 
 class bsp_generator_impl : public bsp_generator {
 public:
@@ -109,16 +51,8 @@ private:
     std::vector<node_t> leaf_nodes_;
 };
 
-void bsp_generator_impl::generate(random_state& rnd) {
+void bsp_generator_impl::generate(random_state& rng) {
     auto const& p = params_;
-
-    params_.weights = {
-        {400, 1000}
-      , {100, 800}
-      , {50,  400}
-      , {25,  100}
-      , {0,   100}
-    };
 
     nodes_.clear();
     leaf_nodes_.clear();
@@ -126,30 +60,48 @@ void bsp_generator_impl::generate(random_state& rnd) {
     nodes_.push_back({
         {point2i32 {}, p.width, p.height}, 0, 0, 0});
 
-    auto const pass_split_chance = [&](recti32 const& r) {
+    auto const pass_split_chance = [&](recti32 const& r) noexcept {
+        auto const lo   = p.weights.min_val();
+        auto const hi   = p.weights.max_val();
         auto const area = value_cast(r.area());
-        return p.weights[area] >= random_uniform_int(rnd, 0, p.max_weight);
+
+        return p.weights[area].second >= random_uniform_int(rng, lo, hi);
     };
 
-    auto const add_children = [&](auto const& pair, uint16_t const i) {
-        nodes_.push_back(node_t {pair.first,  i, 0, 0});
-        nodes_.push_back(node_t {pair.second, i, 0, 0});
-    };
+    auto const min_w = sizei32x {value_cast(p.min_region_size)};
+    auto const min_h = sizei32y {value_cast(p.min_region_size)};
+
+    auto const max_w = sizei32x {value_cast(p.max_region_size)};
+    auto const max_h = sizei32y {value_cast(p.max_region_size)};
 
     auto const split_variance = static_cast<double>(p.split_variance);
 
-    for (uint16_t i = 0; i != static_cast<uint16_t>(nodes_.size()); ++i) {
+    for (size_t i = 0; i != nodes_.size(); ++i) {
         node_t&     n = nodes_[i];
         auto const& r = n.rect;
 
-        if (must_slice_rect(r, p.max_region_size)
-         || (can_slice_rect(r, p.min_region_size) && pass_split_chance(r))
-        ) {
-            n.child = static_cast<uint16_t>(i + 1);
-            add_children(slice_rect(rnd, r, p.min_region_size, split_variance), i);
-        } else {
+        // neither the need nor roll to split
+        if (!must_slice_rect(r, max_w, max_h) && !pass_split_chance(r)) {
             leaf_nodes_.push_back(n);
+            continue;
         }
+
+        auto const child_rects =
+            slice_rect(rng, r, min_w, min_h, split_variance);
+
+        // couldn't split
+        if (child_rects.first == r) {
+            leaf_nodes_.push_back(n);
+            continue;
+        }
+
+        // ok
+        auto const parent = static_cast<uint16_t>(i);
+
+        nodes_.push_back({child_rects.first,  parent, 0, 0});
+        nodes_.push_back({child_rects.second, parent, 0, 0});
+
+        n.child = static_cast<uint16_t>(i + 1);
     }
 
     using namespace container_algorithms;

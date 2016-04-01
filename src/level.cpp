@@ -1061,8 +1061,17 @@ void level_impl::generate(random_state& rng) {
     std::fill(begin(data_.types), end(data_.types), tile_type::empty);
     std::fill(begin(data_.flags), end(data_.flags), tile_flags {tile_flags::f_solid});
 
-    auto&       bsp = *bsp_gen_;
-    auto const& p   = bsp.params();
+    auto& bsp = *bsp_gen_;
+
+    bsp.params().weights = {
+        {400, 1000}
+      , {100, 400}
+      , {50,  200}
+      , {25,  100}
+      , {0,   100}
+    };
+
+    auto const& p = bsp.params();
 
     bsp.clear();
     bsp.generate(rng);
