@@ -10,36 +10,6 @@
 
 namespace boken {
 
-//! Type trait for the number of parameters a function (object) takes.
-template <typename F>
-struct arity_of;
-
-template <typename R, typename... Args>
-struct arity_of<R (*)(Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename C, typename R, typename... Args>
-struct arity_of<R (C::*)(Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename C, typename R, typename... Args>
-struct arity_of<R (C::*)(Args...) const> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename R, typename... Args>
-struct arity_of<R (Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename F>
-struct arity_of {
-    static_assert(std::is_class<std::decay_t<F>>::value, "");
-    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
-};
-
 // unsigned -> unsigned
 template <typename To, typename From>
 constexpr bool is_in_range(From const n, std::integral_constant<int, 0>) noexcept {
@@ -98,23 +68,6 @@ size_type<T> distance2(point2<T> const p, point2<T> const q) noexcept {
       + square_of(value_cast(p.y) - value_cast(q.y)))};
 }
 
-template <typename T> inline constexpr
-axis_aligned_rect<T> shrink_rect(axis_aligned_rect<T> const r) noexcept {
-    return {r.top_left()     + vec2<T> {T {1}, T {1}}
-          , r.bottom_right() - vec2<T> {T {1}, T {1}}};
-}
-
-template <typename T> inline constexpr
-axis_aligned_rect<T> grow_rect(axis_aligned_rect<T> const r) noexcept {
-    return {r.top_left()     - vec2<T> {T {1}, T {1}}
-          , r.bottom_right() + vec2<T> {T {1}, T {1}}};
-}
-
-template <typename T> inline constexpr
-axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
-    return r + (point2<T> {0, 0} - r.top_left());
-}
-
 template <typename T, typename U> inline constexpr
 bool intersects(axis_aligned_rect<T> const& r, point2<U> const& p) noexcept {
     return (p.x >= r.x0)
@@ -126,101 +79,6 @@ bool intersects(axis_aligned_rect<T> const& r, point2<U> const& p) noexcept {
 template <typename T, typename U> inline constexpr
 bool intersects(point2<U> const& p, axis_aligned_rect<T> const& r) noexcept {
     return intersects(r, p);
-}
-
-template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 2>) {
-    auto const x0 = value_cast(r.x0);
-    auto const x1 = value_cast(r.x1);
-    auto const y0 = value_cast(r.y0);
-    auto const y1 = value_cast(r.y1);
-
-    for (auto y = y0; y < y1; ++y) {
-        bool const on_edge_y = (y == y0) || (y == y1 - 1);
-        for (auto x = x0; x < x1; ++x) {
-            bool const on_edge = on_edge_y || (x == x0) || (x == x1 - 1);
-            f(point2<T> {x, y}, on_edge);
-        }
-    }
-}
-
-template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f, std::integral_constant<int, 1>) {
-    auto const x0 = value_cast(r.x0);
-    auto const x1 = value_cast(r.x1);
-    auto const y0 = value_cast(r.y0);
-    auto const y1 = value_cast(r.y1);
-
-    for (auto y = y0; y < y1; ++y) {
-        for (auto x = x0; x < x1; ++x) {
-            f(point2<T> {x, y});
-        }
-    }
-}
-
-template <typename T, typename F>
-void for_each_xy(axis_aligned_rect<T> const r, F f) {
-    constexpr int n = arity_of<F>::value;
-    for_each_xy(r, f, std::integral_constant<int, n> {});
-}
-
-template <typename T, typename UnaryF>
-void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f)
-    noexcept (noexcept(f(std::declval<point2<T>>())))
-{
-    if (value_cast(r.area()) == 1) {
-        f(r.top_left());
-        return;
-    }
-
-    auto const x0 = value_cast(r.x0);
-    auto const x1 = value_cast(r.x1);
-    auto const y0 = value_cast(r.y0);
-    auto const y1 = value_cast(r.y1);
-
-    //top edge
-    for (auto x = x0; x < x1; ++x) {
-        f(point2<T> {x, y0});
-    }
-
-    //left and right edge
-    for (auto y = y0 + 1; y < y1 - 1; ++y) {
-        f(point2<T> {x0,     y});
-        f(point2<T> {x1 - 1, y});
-    }
-
-    // bottom edge
-    for (auto x = x0; x < x1; ++x) {
-        f(point2<T> {x, y1 - 1});
-    }
-}
-
-//
-// 1111111111
-// 2000000002
-// 2000000002
-// 2000000002
-// 3333333333
-//
-template <typename T, typename CenterF, typename EdgeF>
-void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
-    for_each_xy(shrink_rect(r), center);
-    for_each_xy_edge(r, edge);
-}
-
-template <typename T, typename UnaryF>
-void points_around(point2<T> const p, T const distance, UnaryF f)
-    noexcept (noexcept(f(p)))
-{
-    auto const d = distance;
-    auto const q = p - vec2<T> {d, d};
-    auto const s = d * 2 + 1;
-
-    size_type_x<T> const w = s;
-    size_type_y<T> const h = s;
-    axis_aligned_rect<T> r (q, w, h);
-
-    for_each_xy_edge(r, f);
 }
 
 template <typename T>

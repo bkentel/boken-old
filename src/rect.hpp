@@ -7,6 +7,71 @@
 
 namespace boken {
 
+//! Type trait for the number of parameters a function (object) takes.
+template <typename F>
+struct arity_of;
+
+template <typename R, typename... Args>
+struct arity_of<R (*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...) const> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename R, typename... Args>
+struct arity_of<R (Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename F>
+struct arity_of {
+    static_assert(std::is_class<std::decay_t<F>>::value, "");
+    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
+};
+
+//! @return a rectangle that has been shrunk symmetrically by @p size on all
+//! sides.
+template <typename T, typename U = T>
+axis_aligned_rect<T> shrink_rect(
+    axis_aligned_rect<T> const r
+  , U                    const size = U {1}
+) noexcept {
+    BK_ASSERT(size >= 0
+           && size <= value_cast(r.width())
+           && size <= value_cast(r.height()));
+
+    auto const v = vec2<U> {size, size};
+    return {r.top_left() + v, r.bottom_right() - v};
+}
+
+//! @return a rectangle that has been expanded symmetrically by @p size on all
+//! sides.
+template <typename T, typename U = T>
+axis_aligned_rect<T> grow_rect(
+    axis_aligned_rect<T> const r
+  , U                    const size = U {1}
+) noexcept {
+    BK_ASSERT(size >= 0
+           && size <= value_cast(r.width())
+           && size <= value_cast(r.height()));
+
+    auto const v = vec2<U> {size, size};
+    return {r.top_left() - v, r.bottom_right() + v};
+}
+
+template <typename T> inline constexpr
+axis_aligned_rect<T> move_to_origin(axis_aligned_rect<T> const r) noexcept {
+    return r + (point2<T> {0, 0} - r.top_left());
+}
+
 //! @returns true if the rectangle @p r can be split horizontally into two new
 //! rectangles with a height at least @p min_h. Otherwise, false.
 template <typename T, typename U>
@@ -247,6 +312,145 @@ axis_aligned_rect<T> random_sub_rect(
     return {r.top_left() + vec2<T> {new_x, new_y}
           , size_type_x<T> {new_w}
           , size_type_y<T> {new_h}};
+}
+
+namespace detail {
+
+template <typename T, typename BinaryF>
+void for_each_xy_impl(
+    std::integral_constant<int, 2>
+  , axis_aligned_rect<T> const r
+  , BinaryF f
+) {
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    for (auto y = y0; y < y1; ++y) {
+        bool const on_edge_y = (y == y0) || (y == y1 - 1);
+        for (auto x = x0; x < x1; ++x) {
+            bool const on_edge = on_edge_y || (x == x0) || (x == x1 - 1);
+            f(point2<T> {x, y}, on_edge);
+        }
+    }
+}
+
+template <typename T, typename UnaryF>
+void for_each_xy_impl(
+    std::integral_constant<int, 1>
+  , axis_aligned_rect<T> const r
+  , UnaryF f
+) {
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    for (auto y = y0; y < y1; ++y) {
+        for (auto x = x0; x < x1; ++x) {
+            f(point2<T> {x, y});
+        }
+    }
+}
+
+} //namespace detail
+
+//! Invoke the function @p f for every point in the rectangle @p r.
+//! @param f can be of the form:
+//! (1) void f(point2<T>) or
+//! (2) void f(point2<T>, bool)
+//! For (2), the bool parameter indicated whether the first parameter is on the
+//! the perimeter of @p r.
+template <typename T, typename F>
+void for_each_xy(axis_aligned_rect<T> const r, F f) {
+    constexpr int n = arity_of<F>::value;
+    detail::for_each_xy_impl(std::integral_constant<int, n> {}, r, f);
+}
+
+//! Invoke the function @p f for every point on the perimeter of the rectangle
+//! @p r.
+//! @param f A unary function of the form void f(point2<T>).
+template <typename T, typename UnaryF>
+void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f) {
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    auto const w = value_cast(r.width());
+    auto const h = value_cast(r.height());
+    auto const type = (w > T {1}) << 0u
+                    | (h > T {1}) << 1u;
+
+    switch (type) {
+    case 0: // w <= 1 && h <= 1
+        if (w == T {1} && h == T {1}) {
+            f (r.top_left());
+        }
+        break;
+    case 1: // w > 1  && h == 1
+        // top edge
+        for (auto x = x0; x < x1; ++x) {
+            f(point2<T> {x, y0});
+        }
+        break;
+    case 2: // w == 1 && h > 1
+        // left edge
+        for (auto y = y0 + 1; y < y1 - 1; ++y) {
+            f(point2<T> {x0, y});
+        }
+        break;
+    case 3: // w > 1  && h > 1
+        // top edge
+        for (auto x = x0; x < x1; ++x) {
+            f(point2<T> {x, y0});
+        }
+
+        // left and right edge
+        for (auto y = y0 + 1; y < y1 - 1; ++y) {
+            auto const x = static_cast<T>(x1 - 1);
+            f(point2<T> {x0, y});
+            f(point2<T> {x,  y});
+        }
+
+        // bottom edge
+        for (auto x = x0; x < x1; ++x) {
+            auto const y = static_cast<T>(y1 - 1);
+            f(point2<T> {x, y});
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+//! Invoke @p center and @p edge as in for_each_xy and for_each_xy_edge
+//! respectfully.
+//!
+//! 1111111111
+//! 2000000002
+//! 2000000002
+//! 2000000002
+//! 3333333333
+//!
+template <typename T, typename CenterF, typename EdgeF>
+void for_each_xy_center_first(axis_aligned_rect<T> const r, CenterF center, EdgeF edge) {
+    for_each_xy(shrink_rect(r), center);
+    for_each_xy_edge(r, edge);
+}
+
+//! Invoke the function @p f for every point @p distance from the point @p p.
+//! @param f A unary function of the form void f(point2<T>).
+template <typename T, typename UnaryF>
+void points_around(point2<T> const p, T const distance, UnaryF f) {
+    auto const s = static_cast<T>(distance * T {2} + T {1});
+    auto const r = axis_aligned_rect<T> {
+        p - vec2<T> {distance, distance}
+      , size_type_x<T> {s}
+      , size_type_y<T> {s}};
+
+    for_each_xy_edge(r, f);
 }
 
 } //namespace boken

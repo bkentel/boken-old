@@ -61,6 +61,9 @@
     <ClCompile Include="src\test\random.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="src\test\rect.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -98,6 +101,7 @@
       <Filter>external</Filter>
     </ClInclude>
     <ClInclude Include="src\serialize.hpp" />
+    <ClInclude Include="src\rect.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
