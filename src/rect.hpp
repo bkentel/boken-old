@@ -200,6 +200,8 @@ point2<T> random_point_in_rect(
     };
 }
 
+//! @return a random rectangle that is strictly contained within @p r that meets
+//! the size constraints given by @p min_w, @p max_w and @p min_h, @p max_h.
 template <typename T>
 axis_aligned_rect<T> random_sub_rect(
     random_state&              rng
