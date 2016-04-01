@@ -60,7 +60,7 @@ void bsp_generator_impl::generate(random_state& rng) {
     nodes_.push_back({
         {point2i32 {}, p.width, p.height}, 0, 0, 0});
 
-    auto const pass_split_chance = [&](recti32 const& r) noexcept {
+    auto const pass_split_chance = [&](recti32 const r) noexcept {
         auto const lo   = p.weights.min_val();
         auto const hi   = p.weights.max_val();
         auto const area = value_cast(r.area());

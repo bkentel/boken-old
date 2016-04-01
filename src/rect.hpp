@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bkassert/assert.hpp>
+
 #include "math_types.hpp"
 #include "random.hpp"
 
@@ -183,6 +185,66 @@ std::pair<R, R> slice_rect(
     }
 
     return {r0, r1};
+}
+
+//! @returns a random point inside the rectangle given by @p r
+template <typename T>
+point2<T> random_point_in_rect(
+    random_state& rng
+  , axis_aligned_rect<T> const r
+) noexcept {
+    return {static_cast<T>(random_uniform_int(
+                rng, value_cast(r.x0), value_cast(r.x1) - 1))
+          , static_cast<T>(random_uniform_int(
+                rng, value_cast(r.y0), value_cast(r.y1) - 1))
+    };
+}
+
+template <typename T>
+axis_aligned_rect<T> random_sub_rect(
+    random_state&              rng
+  , axis_aligned_rect<T> const r
+  , size_type_x<T>       const min_w
+  , size_type_x<T>       const max_w
+  , size_type_y<T>       const min_h
+  , size_type_y<T>       const max_h
+  , double               const inverse_variance = 6.0
+) noexcept {
+    BK_ASSERT(value_cast(min_w) >= 0 && min_w <= max_w
+           && value_cast(min_h) >= 0 && min_h <= max_h
+           && inverse_variance > 0.0);
+
+    auto const new_size = [&](auto const size, auto const min, auto const max) noexcept {
+        auto const lo    = min;
+        auto const hi    = std::min(max, size);
+        auto const range = value_cast(hi - lo);
+
+        return (range == 0)
+          ? value_cast(size)
+          : random_bounded_normal(rng
+                                , value_cast(lo) + range / 2.0
+                                , range / inverse_variance
+                                , value_cast(lo)
+                                , value_cast(hi));
+    };
+
+    auto const new_offset = [&](auto const size) noexcept {
+        return (size <= 0)
+          ? T {0}
+          : static_cast<T>(random_uniform_int(rng, 0, size));
+    };
+
+    auto const w = r.width();
+    auto const h = r.height();
+
+    T const new_w = new_size(w, min_w, max_w);
+    T const new_h = new_size(h, min_h, max_h);
+    T const new_x = new_offset(value_cast(w) - new_w);
+    T const new_y = new_offset(value_cast(h) - new_h);
+
+    return {r.top_left() + vec2<T> {new_x, new_y}
+          , size_type_x<T> {new_w}
+          , size_type_y<T> {new_h}};
 }
 
 } //namespace boken

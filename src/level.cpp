@@ -6,6 +6,7 @@
 #include "utility.hpp"          // for find_if
 #include "item_pile.hpp"
 #include "spatial_map.hpp"
+#include "rect.hpp"
 
 #include "forward_declarations.hpp"
 
@@ -303,63 +304,23 @@ namespace boken {
 level::~level() = default;
 
 struct generate_rect_room {
-    template <typename T>
-    static axis_aligned_rect<T> random_sub_rect(
-        random_state&              rng
-      , axis_aligned_rect<T> const r
-      , size_type<T>         const min_size
-      , size_type<T>         const max_size
-      , double               const inverse_variance = 6.0
-    ) noexcept {
-        BK_ASSERT(min_size <= max_size);
-        BK_ASSERT(inverse_variance > 0);
-
-        T const w = value_cast(r.width());
-        T const h = value_cast(r.height());
-
-        auto const new_size = [&](T const size) noexcept -> T {
-            T const min_s = value_cast(min_size);
-            if (min_s > size) {
-                return size;
-            }
-
-            T const max_s = std::min(size, value_cast(max_size));
-            if (max_s - min_s <= 0) {
-                return size;
-            }
-
-            T      const range    = max_s - min_s;
-            double const median   = min_s + range / 2.0;
-            double const variance = range / inverse_variance;
-            double const roll     = random_normal(rng, median, variance);
-
-            return clamp(round_as<T>(roll), min_s, max_s);
-        };
-
-        T const new_w = new_size(w);
-        T const new_h = new_size(h);
-
-        auto const new_offset = [&](T const size) noexcept {
-            return static_cast<T>((size <= 0)
-              ? 0 : random_uniform_int(rng, 0, size));
-        };
-
-        auto const p = r.top_left() +
-            vec2<T> {new_offset(w - new_w), new_offset(h - new_h)};
-
-        return {p, size_type_x<T> {new_w}, size_type_y<T> {new_h}};
-    }
-
     generate_rect_room(sizei32 const room_min_size, sizei32 const room_max_size) noexcept
-      : room_min_size_ {room_min_size}
-      , room_max_size_ {room_max_size}
+      : room_min_w_ {value_cast(room_min_size)}
+      , room_max_w_ {value_cast(room_max_size)}
+      , room_min_h_ {value_cast(room_min_size)}
+      , room_max_h_ {value_cast(room_max_size)}
     {
     }
 
     int32_t operator()(random_state& rng, recti32 const area, std::vector<tile_data_set>& out) {
         int32_t count = 0;
 
-        auto const r = random_sub_rect(rng, move_to_origin(area), room_min_size_, room_max_size_);
+        auto const r = random_sub_rect(
+            rng
+          , move_to_origin(area)
+          , room_min_w_, room_max_w_
+          , room_min_h_, room_max_h_);
+
         auto const area_w = value_cast(area.width());
         auto const room_w = value_cast(r.width());
         auto const step   = area_w - room_w;
@@ -388,8 +349,11 @@ struct generate_rect_room {
         return count;
     }
 
-    sizei32 room_min_size_;
-    sizei32 room_max_size_;
+    sizei32x room_min_w_;
+    sizei32x room_max_w_;
+
+    sizei32y room_min_h_;
+    sizei32y room_max_h_;
 };
 
 class level_impl : public level {
@@ -1018,14 +982,6 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
         });
     };
 
-    // choose a random location within a rect
-    auto const random_point_in_rect = [&](recti32 const r) noexcept {
-        return point2i32 {
-            random_uniform_int(rng, value_cast(r.x0), value_cast(r.x1) - 1)
-          , random_uniform_int(rng, value_cast(r.y0), value_cast(r.y1) - 1)
-        };
-    };
-
     // find a random valid position within the chosen candidate
     auto const find_stair_pos = [&](recti32 const r) noexcept {
         auto const is_ok = [&](point2i32 const p) noexcept {
@@ -1033,7 +989,7 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
         };
 
         for (int i = 0; i < 1000; ++i) {
-            auto const p = random_point_in_rect(r);
+            auto const p = random_point_in_rect(rng, r);
             if (is_ok(p)) {
                 return p;
             }
