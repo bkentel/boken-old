@@ -947,21 +947,34 @@ void level_impl::place_doors(random_state& rng, recti32 const area) {
 }
 
 void level_impl::place_stairs(random_state& rng, recti32 const area) {
-    // the number of candidate regions where a stair might be placed.
-    auto const candidates = static_cast<int32_t>(std::count_if(begin(regions_), end(regions_)
-      , [](region_info const& info) noexcept {
-            return info.tile_count > 0;
-        }));
-
-    BK_ASSERT(candidates > 0);
-
-    // choose a random candidate
     auto const get_random_region = [&]() noexcept {
-        auto i = static_cast<size_t>(random_uniform_int(rng, 0, candidates));
-        return *std::find_if(begin(regions_), end(regions_), [&](region_info const& info) noexcept {
-            return info.tile_count > 0 && i--;
-        });
-    };
+        auto const is_candidate = [](region_info const& info) noexcept {
+            return info.tile_count > 0;
+        };
+
+        auto const first_r = begin(regions_);
+        auto const last_r  = end(regions_);
+
+        // the number of candidate regions where a stair might be placed.
+        auto const candidates = static_cast<int>(
+            std::count_if(first_r, last_r, is_candidate));
+        BK_ASSERT(candidates > 0);
+
+        // choose a random candidate
+        return [=, &rng]() noexcept {
+            int const n = random_uniform_int(rng, 1, candidates);
+            int       i = 0;
+
+            auto const it = std::find_if(first_r, last_r
+              , [&](region_info const& info) noexcept {
+                    return is_candidate(info) && (++i >= n);
+                });
+
+            BK_ASSERT(it != last_r);
+
+            return *it;
+        };
+    }();
 
     // find a random valid position within the chosen candidate
     auto const find_stair_pos = [&](recti32 const r) noexcept {
@@ -991,7 +1004,6 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
 
     stair_down_ = make_stair_at(find_stair_pos(get_random_region().bounds)
                               , tile_id::stair_down);
-
 }
 
 void level_impl::generate(random_state& rng) {
