@@ -380,14 +380,16 @@ void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f) {
 
     auto const w = value_cast(r.width());
     auto const h = value_cast(r.height());
-    auto const type = (w > T {1}) << 0u
-                    | (h > T {1}) << 1u;
+
+    if (w <= T {0} || h <= T {0}) {
+        return;
+    }
+
+    auto const type = ((w > T {1}) ? 1 : 0) | ((h > T {1}) ? 2 : 0);
 
     switch (type) {
     case 0: // w <= 1 && h <= 1
-        if (w == T {1} && h == T {1}) {
-            f (r.top_left());
-        }
+        f (r.top_left());
         break;
     case 1: // w > 1  && h == 1
         // top edge
@@ -397,7 +399,7 @@ void for_each_xy_edge(axis_aligned_rect<T> const r, UnaryF f) {
         break;
     case 2: // w == 1 && h > 1
         // left edge
-        for (auto y = y0 + 1; y < y1 - 1; ++y) {
+        for (auto y = y0; y < y1; ++y) {
             f(point2<T> {x0, y});
         }
         break;

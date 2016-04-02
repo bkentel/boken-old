@@ -133,4 +133,60 @@ TEST_CASE("for_each_xy") {
     });
 }
 
+TEST_CASE("for_each_xy_edge") {
+    using namespace boken;
+
+    auto const count = [](recti32 const r) noexcept {
+        int n = 0;
+
+        for_each_xy_edge(r, [&](point2i32 const p) noexcept {
+            ++n;
+        });
+
+        return n;
+    };
+
+    // 0 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {0}};
+        REQUIRE(count(r) == 0);
+    }
+
+    // 0 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {10}};
+        REQUIRE(count(r) == 0);
+    }
+
+    // 10 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {0}};
+        REQUIRE(count(r) == 0);
+    }
+
+    // 1 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {1}};
+        REQUIRE(count(r) == 1);
+    }
+
+    // 1 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {10}};
+        REQUIRE(count(r) == 10);
+    }
+
+    // 10 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {1}};
+        REQUIRE(count(r) == 10);
+    }
+
+    // 10 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {10}};
+        REQUIRE(count(r) == 36);
+    }
+}
+
 #endif // !defined(BK_NO_TESTS)
