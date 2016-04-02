@@ -308,40 +308,26 @@ struct generate_rect_room {
     }
 
     int32_t operator()(random_state& rng, recti32 const area, std::vector<tile_data_set>& out) {
-        int32_t count = 0;
-
-        auto const r = random_sub_rect(
-            rng
-          , move_to_origin(area)
+        auto const r = random_sub_rect(rng, move_to_origin(area)
           , room_min_w_, room_max_w_
           , room_min_h_, room_max_h_);
 
-        auto const area_w = value_cast(area.width());
-        auto const room_w = value_cast(r.width());
-        auto const step   = area_w - room_w;
+        auto const w = value_cast(area.width());
 
-        auto const x0 = value_cast(r.x0);
-        auto const x1 = value_cast(r.x1);
-        auto const y0 = value_cast(r.y0);
-        auto const y1 = value_cast(r.y1);
+        for_each_xy(r, [&](point2i32 const p, bool const on_edge) noexcept {
+            auto& data = out[static_cast<size_t>(
+                value_cast(p.x) + value_cast(p.y) * w)];
 
-        auto it = begin(out) + x0 + (y0 * area_w);
-        for (auto y = y0; y < y1; ++y) {
-            bool const on_edge_y = (y == y0) || (it += step, false) || (y == y1 - 1);
-            for (auto x = x0; x < x1; ++x, ++it) {
-                bool const on_edge = on_edge_y || (x == x0) || (x == x1 - 1);
-                if (on_edge) {
-                    it->type  = tile_type::wall;
-                    it->flags = tile_flags {tile_flags::f_solid};
-                } else {
-                    it->type  = tile_type::floor;
-                    it->flags = tile_flags {};
-                }
-                ++count;
+            if (on_edge) {
+                data.type  = tile_type::wall;
+                data.flags = tile_flags {tile_flags::f_solid};
+            } else {
+                data.type  = tile_type::floor;
+                data.flags = tile_flags {};
             }
-        }
+        });
 
-        return count;
+        return value_cast(r.area());
     }
 
     sizei32x room_min_w_;
