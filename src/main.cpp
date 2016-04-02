@@ -324,8 +324,8 @@ struct game_state {
     }
 
     void generate_level(level* const parent, size_t const id) {
-        auto const level_w = 100;
-        auto const level_h = 80;
+        auto const level_w = 50;
+        auto const level_h = 40;
 
         the_world.add_new_level(parent
           , make_level(rng_substantive, the_world, sizei32x {level_w}, sizei32y {level_h}, id));
@@ -722,6 +722,8 @@ struct game_state {
           : the_world.current_level().stair_down(0);
 
         add_entity_near(std::move(player_ent), p, 5, rng_substantive);
+
+        reset_view_to_player();
     }
 
     void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {

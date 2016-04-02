@@ -1078,8 +1078,8 @@ void level_impl::generate(random_state& rng) {
         buffer.resize(0);
     }
 
-    generate_make_connections(rng);
     merge_walls_at(rng, bounds_);
+    generate_make_connections(rng);
     place_stairs(rng, bounds_);
     place_doors(rng, bounds_);
     update_tile_ids(rng, bounds_);
