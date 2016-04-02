@@ -327,6 +327,10 @@ void for_each_xy_impl(
     auto const y0 = value_cast(r.y0);
     auto const y1 = value_cast(r.y1);
 
+    if (x1 - x0 <= T {0} || y1 - y0 <= T {0}) {
+        return;
+    }
+
     for (auto y = y0; y < y1; ++y) {
         bool const on_edge_y = (y == y0) || (y == y1 - 1);
         for (auto x = x0; x < x1; ++x) {
@@ -346,6 +350,10 @@ void for_each_xy_impl(
     auto const x1 = value_cast(r.x1);
     auto const y0 = value_cast(r.y0);
     auto const y1 = value_cast(r.y1);
+
+    if (x1 - x0 <= T {0} || y1 - y0 <= T {0}) {
+        return;
+    }
 
     for (auto y = y0; y < y1; ++y) {
         for (auto x = x0; x < x1; ++x) {

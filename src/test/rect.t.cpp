@@ -123,14 +123,120 @@ TEST_CASE("points around rect") {
 TEST_CASE("for_each_xy") {
     using namespace boken;
 
-    auto const r = recti32 {
-        offi32x {1}, offi32y {2}, sizei32x {10}, sizei32y {5}};
+    auto const count1 = [](recti32 const r) noexcept {
+        int n = 0;
 
-    for_each_xy(r, [](point2i32) {
-    });
+        for_each_xy(r, [&](point2i32 const p) noexcept {
+            ++n;
+        });
 
-    for_each_xy(r, [](point2i32, bool) {
-    });
+        return n;
+    };
+
+    auto const count2 = [](recti32 const r) noexcept {
+        int n = 0;
+        int m = 0;
+
+        for_each_xy(r, [&](point2i32 const p, bool const edge) noexcept {
+            ++(edge ? m : n);
+        });
+
+        return std::make_pair(n, m);
+    };
+
+    //
+    // no edge
+    //
+
+    // 0 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {0}};
+        REQUIRE(count1(r) == 0);
+    }
+
+    // 0 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {10}};
+        REQUIRE(count1(r) == 0);
+    }
+
+    // 10 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {0}};
+        REQUIRE(count1(r) == 0);
+    }
+
+    // 1 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {1}};
+        REQUIRE(count1(r) == 1);
+    }
+
+    // 1 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {10}};
+        REQUIRE(count1(r) == 10);
+    }
+
+    // 10 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {1}};
+        REQUIRE(count1(r) == 10);
+    }
+
+    // 10 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {10}};
+        REQUIRE(count1(r) == 100);
+    }
+
+    //
+    // edge
+    //
+
+    using pair = std::pair<int, int>;
+
+    // 0 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {0}};
+        REQUIRE(count2(r) == pair(0, 0));
+    }
+
+    // 0 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {0}, sizei32y {10}};
+        REQUIRE(count2(r) == pair(0, 0));
+    }
+
+    // 10 width 0 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {0}};
+        REQUIRE(count2(r) == pair(0, 0));
+    }
+
+    // 1 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {1}};
+        REQUIRE(count2(r) == pair(0, 1));
+    }
+
+    // 1 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {1}, sizei32y {10}};
+        REQUIRE(count2(r) == pair(0, 10));
+    }
+
+    // 10 width 1 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {1}};
+        REQUIRE(count2(r) == pair(0, 10));
+    }
+
+    // 10 width 10 height
+    {
+        recti32 const r {point2i32 {}, sizei32x {10}, sizei32y {10}};
+        REQUIRE(count2(r) == pair(64, 36));
+    }
 }
 
 TEST_CASE("for_each_xy_edge") {
