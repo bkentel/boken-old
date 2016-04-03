@@ -2,6 +2,7 @@
 
 #include "bsp_generator.hpp"    // for bsp_generator, etc
 #include "random.hpp"           // for random_state (ptr only), etc
+#include "random_algorithm.hpp"
 #include "tile.hpp"             // for tile_data_set, tile_type, tile_flags, etc
 #include "utility.hpp"          // for find_if
 #include "item_pile.hpp"
@@ -86,42 +87,6 @@ template <typename Vector>
 auto& data_at(Vector&& v, boken::point2i32 const p, boken::sizei32x const w) noexcept {
     using namespace boken;
     return data_at(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
-}
-
-template <typename T, typename Predicate>
-std::pair<boken::point2<T>, bool> find_random_nearest(
-    boken::random_state&         rng
-  , boken::point2<T> const       origin
-  , T const                      max_distance
-  , Predicate                    pred
-) {
-    using namespace boken;
-
-    constexpr size_t buffer_size = 128;
-
-    BK_ASSERT(max_distance >= 0
-           && static_cast<size_t>(max_distance) <= buffer_size / 8);
-
-    std::array<point2i32, buffer_size> points;
-
-    for (T d = 0; d <= max_distance; ++d) {
-        size_t last_index = 0;
-
-        points_around(origin, d
-          , [&](point2i32 const p) noexcept { points[last_index++] = p; });
-
-        auto const first = begin(points);
-        auto const last  = first + static_cast<ptrdiff_t>(last_index);
-
-        std::shuffle(first, last, rng);
-
-        auto const it = std::find_if(first, last, pred);
-        if (it != last) {
-            return {*it, true};
-        }
-    }
-
-    return {origin, false};
 }
 
 bool can_remove_wall_code(
@@ -689,52 +654,7 @@ public:
 
     void update_tile_ids(random_state& rng, recti32 area);
 
-    void generate_make_connections(random_state& rng) {
-        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
-
-        for (auto const& region : regions_) {
-            if (region.tile_count <= 0) {
-                continue;
-            }
-
-            auto const& bounds = region.bounds;
-            auto p = point2i32 {bounds.x0 + bounds.width()  / 2
-                            , bounds.y0 + bounds.height() / 2};
-
-            auto const segments = random_uniform_int(rng, 0, 10);
-            for (int i = 0; i < segments; ++i) {
-                auto const dir = static_cast<size_t>(random_uniform_int(rng, 0, 3));
-                auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
-
-                for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
-                    auto const p0 = p + d;
-                    if (!check_bounds_(p0)) {
-                        break;
-                    }
-
-                    auto& type = data_at_(data_.types, p0);
-                    switch (type) {
-                    case tile_type::empty:
-                        type = tile_type::tunnel;
-                        data_at_(data_.flags, p0) = tile_flags {0};
-                        break;
-                    case tile_type::wall:
-                        type = tile_type::floor;
-                        data_at_(data_.flags, p0) = tile_flags {0};
-                        break;
-                    case tile_type::floor  : break;
-                    case tile_type::tunnel : break;
-                    case tile_type::door   : break;
-                    case tile_type::stair  : break;
-                    default                : break;
-                    }
-
-                    p = p0;
-                }
-            }
-        }
-    }
+    void generate_make_connections(random_state& rng);
 
     void generate(random_state& rng);
 
@@ -1004,6 +924,61 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
 
     stair_down_ = make_stair_at(find_stair_pos(get_random_region().bounds)
                               , tile_id::stair_down);
+}
+
+void level_impl::generate_make_connections(random_state& rng) {
+    constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+    constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+    auto const region_has_room = [](region_info const& info) noexcept {
+        return info.tile_count > 0;
+    };
+
+    //auto const find_path_start = [&](region_info const& info) noexcept {
+    //    info.bounds
+    //};
+
+    for (auto const& region : regions_) {
+        if (region.tile_count <= 0) {
+            continue;
+        }
+
+        auto const& bounds = region.bounds;
+        auto p = point2i32 {bounds.x0 + bounds.width()  / 2
+                        , bounds.y0 + bounds.height() / 2};
+
+        auto const segments = random_uniform_int(rng, 0, 10);
+        for (int i = 0; i < segments; ++i) {
+            auto const dir = static_cast<size_t>(random_uniform_int(rng, 0, 3));
+            auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
+
+            for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
+                auto const p0 = p + d;
+                if (!check_bounds_(p0)) {
+                    break;
+                }
+
+                auto& type = data_at_(data_.types, p0);
+                switch (type) {
+                case tile_type::empty:
+                    type = tile_type::tunnel;
+                    data_at_(data_.flags, p0) = tile_flags {0};
+                    break;
+                case tile_type::wall:
+                    type = tile_type::floor;
+                    data_at_(data_.flags, p0) = tile_flags {0};
+                    break;
+                case tile_type::floor  : break;
+                case tile_type::tunnel : break;
+                case tile_type::door   : break;
+                case tile_type::stair  : break;
+                default                : break;
+                }
+
+                p = p0;
+            }
+        }
+    }
 }
 
 void level_impl::generate(random_state& rng) {
