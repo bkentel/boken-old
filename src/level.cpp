@@ -22,52 +22,13 @@
 
 #include <cstdint>              // for uint16_t, int32_t
 
-namespace {
+// TODO make testing possible
+namespace boken {
 
-bool can_remove_wall_code(
-    unsigned const wall_type
-  , unsigned const other_type
-) noexcept {
-    // north
-    if (
-        ((wall_type & 0b111'00'000) == 0b111'00'000) && (other_type & 0b000'00'010)
-    ) {
-        return true;
-    }
+tile_id wall_type_from_neighbors(uint32_t const neighbors) noexcept {
+    using ti = tile_id;
 
-    // east
-    if (
-        ((wall_type & 0b001'01'001) == 0b001'01'001) && (other_type & 0b000'10'000)
-    ) {
-        return true;
-    }
-
-    return false;
-}
-
-template <typename Read, typename Check>
-bool can_remove_wall_at(boken::point2i32 const p, Read read, Check check) noexcept {
-    using namespace boken;
-
-    static_assert(noexcept(read(p)), "");
-    static_assert(noexcept(check(p)), "");
-
-    auto const wall_type =
-        fold_neighbors8(p, check, [&](point2i32 const q) noexcept {
-            return read(q) == tile_type::wall;
-        });
-
-    auto const other_type =
-        fold_neighbors8(p, check, [&](point2i32 const q) noexcept {
-            return read(q) == tile_type::floor;
-        });
-
-    return can_remove_wall_code(wall_type, other_type);
-}
-
-boken::tile_id wall_code_to_id(unsigned const code) noexcept {
-    using ti = boken::tile_id;
-    switch (code) {
+    switch (neighbors) {
     case 0b0000 : return ti::wall_0000;
     case 0b0001 : return ti::wall_0001;
     case 0b0010 : return ti::wall_0010;
@@ -90,6 +51,109 @@ boken::tile_id wall_code_to_id(unsigned const code) noexcept {
     return ti::invalid;
 }
 
+template <typename T, typename Read, typename Check>
+bool can_omit_wall_at(point2<T> const p, Read read, Check check) noexcept {
+    auto const is_wall = [&](point2<T> const q) noexcept {
+        return read(q) == tile_type::wall;
+    };
+
+    auto const is_floor = [&](point2<T> const q) noexcept {
+        return read(q) == tile_type::floor;
+    };
+
+    auto const wall_type  = fold_neighbors8(p, check, is_wall);
+    auto const other_type = fold_neighbors8(p, check, is_floor);
+
+    // north
+    if (
+        ((wall_type & 0b111'00'000) == 0b111'00'000) && (other_type & 0b000'00'010)
+    ) {
+        return true;
+    }
+
+    // east
+    if (
+        ((wall_type & 0b001'01'001) == 0b001'01'001) && (other_type & 0b000'10'000)
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+template <typename T, typename Read, typename Check>
+tile_id try_place_door_at(point2<T> const p, Read read, Check check) noexcept {
+    auto const is_wall = [&](point2<T> const q) noexcept {
+        return read(q) == tile_type::wall;
+    };
+
+    auto const is_connectable = [&](point2<T> const q) noexcept {
+        switch (read(q)) {
+        case boken::tile_type::floor:
+        case boken::tile_type::tunnel:
+        case boken::tile_type::stair:
+            return true;
+        case boken::tile_type::empty:
+        case boken::tile_type::wall:
+        case boken::tile_type::door:
+        default:
+            break;
+        }
+
+        return false;
+    };
+
+    auto const wall_type  = fold_neighbors4(p, check, is_wall);
+    auto const other_type = fold_neighbors4(p, check, is_connectable);
+
+    return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
+         : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
+         : tile_id::invalid;
+}
+
+template <typename T, typename Read, typename Check>
+bool can_gen_tunnel_at_wall(point2<T> const p, Read read, Check check) noexcept {
+    auto const is_wall = [&](point2<T> const q) noexcept {
+        return read(q) == tile_type::wall;
+    };
+
+    auto const is_not_wall = [&](point2<T> const q) noexcept {
+        return read(q) != tile_type::wall;
+    };
+
+    auto const wall_type  = fold_neighbors4(p, check, is_wall);
+    auto const other_type = fold_neighbors4(p, check, is_not_wall);
+
+    return (wall_type == 0b1001 && other_type == 0b0110)
+        || (wall_type == 0b0110 && other_type == 0b1001);
+}
+
+template <typename T, typename Read, typename Check>
+bool can_gen_tunnel_at(point2<T> const p, Read read, Check check) noexcept {
+    if (!check(p)) {
+        return false;
+    }
+
+    switch (read(p)) {
+    case tile_type::empty  :
+    case tile_type::floor  :
+    case tile_type::tunnel :
+    case tile_type::door   :
+    case tile_type::stair  :
+        return true;
+    case tile_type::wall :
+        return can_gen_tunnel_at_wall(p, read, check);
+    default :
+        break;
+    }
+
+    return false;
+}
+
+} // namespace boken
+
+namespace {
+
 template <typename Read, typename Check>
 boken::tile_id tile_type_to_id_at(boken::point2i32 const p, Read read, Check check) noexcept {
     using namespace boken;
@@ -107,7 +171,7 @@ boken::tile_id tile_type_to_id_at(boken::point2i32 const p, Read read, Check che
     case tt::tunnel : return ti::tunnel;
     case tt::door   : break;
     case tt::stair  : break;
-    case tt::wall   : return wall_code_to_id(
+    case tt::wall   : return wall_type_from_neighbors(
         fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
             auto const type = read(q);
             return type == tt::wall || type == tt::door;
@@ -115,29 +179,6 @@ boken::tile_id tile_type_to_id_at(boken::point2i32 const p, Read read, Check che
     }
 
     return ti::invalid;
-}
-
-template <typename Read, typename Check>
-boken::tile_id can_place_door_at(boken::point2i32 const p, Read read, Check check) noexcept {
-    using namespace boken;
-
-    static_assert(noexcept(read(p)), "");
-    static_assert(noexcept(check(p)), "");
-
-    auto const wall_type =
-        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
-            return read(q) == tile_type::wall;
-        });
-
-    auto const other_type =
-        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
-            auto const type = read(q);
-            return type == tile_type::floor || type == tile_type::tunnel;
-        });
-
-    return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
-         : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
-         : tile_id::invalid;
 }
 
 template <typename T>
@@ -724,7 +765,7 @@ void level_impl::merge_walls_at(random_state& rng, recti32 const area) {
       , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             auto& type = this->data_at_(data_.types, p);
-            if (type != tile_type::wall || !can_remove_wall_at(p, read, check)) {
+            if (type != tile_type::wall || !can_omit_wall_at(p, read, check)) {
                 return;
             }
 
@@ -751,7 +792,7 @@ void level_impl::place_doors(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
     transform_xy(area, bounds_, make_bounds_checker_()
       , [&](point2i32 const p, auto check) noexcept {
-            auto const id = can_place_door_at(p, read, check);
+            auto const id = try_place_door_at(p, read, check);
             if (id == tile_id::invalid || random_coin_flip(rng)) {
                 return;
             }
@@ -839,49 +880,16 @@ void level_impl::generate_make_connections(random_state& rng) {
         return p.first;
     };
 
-    auto reader  = make_data_reader_(data_.types);
-    auto checker = make_bounds_checker_();
-
-    auto const can_tunnel_through_wall = [&](auto const p) noexcept {
-        auto const wall_type =
-            fold_neighbors4(p, checker, [&](auto const q) noexcept {
-                return reader(q) == tile_type::wall;
-            });
-
-        auto const other_type =
-            fold_neighbors4(p, checker, [&](auto const q) noexcept {
-                return reader(q) != tile_type::wall;
-            });
-
-        return (wall_type == 0b1001 && other_type == 0b0110)
-            || (wall_type == 0b0110 && other_type == 0b1001);
-    };
-
-    auto const can_tunnel_at = [&](auto const p) noexcept {
-        if (!check_bounds_(p)) {
-            return false;
-        }
-
-        switch (data_at_(data_.types, p)) {
-        case tile_type::empty  :
-        case tile_type::floor  :
-        case tile_type::tunnel :
-        case tile_type::door   :
-        case tile_type::stair  :
-            return true;
-        case tile_type::wall :
-            return can_tunnel_through_wall(p);
-        default :
-            break;
-        }
-
-        return false;
-    };
+    auto const level_bounds = bounds();
+    auto       read         = make_data_reader_(data_.types);
+    auto       check        = make_bounds_checker_();
 
     for (auto const& region : regions_) {
         if (!region_has_room(region)) {
             continue;
         }
+
+        bool const must_check = intersects_edge(region.bounds, level_bounds);
 
         auto p = find_path_start(region);
         auto const segments = random_uniform_int(rng, 0, 10);
@@ -892,19 +900,23 @@ void level_impl::generate_make_connections(random_state& rng) {
 
             for (int i = 0; i < len; ++i) {
                 auto const p0 = p + dir;
-                if (!can_tunnel_at(p0)) {
+                auto const ok = must_check
+                  ? can_gen_tunnel_at(p0, read, check)
+                  : can_gen_tunnel_at(p0, read, always_true {});
+
+                if (!ok) {
                     break;
                 }
 
                 p = p0;
 
-                auto& type = data_at_(data_.types, p0);
+                auto& type = data_at_(data_.types, p);
                 if (type == tile_type::empty) {
                     type = tile_type::tunnel;
-                    data_at_(data_.flags, p0) = tile_flags {0};
+                    data_at_(data_.flags, p) = tile_flags {0};
                 } else if (type == tile_type::wall) {
                     type = tile_type::floor;
-                    data_at_(data_.flags, p0) = tile_flags {0};
+                    data_at_(data_.flags, p) = tile_flags {0};
                 }
             }
         }

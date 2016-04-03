@@ -52,6 +52,15 @@ constexpr bool contains(
         && (inner.y1 <= outer.y1);
 }
 
+template <typename T, typename U>
+constexpr bool intersects_edge(
+    axis_aligned_rect<T> const a
+  , axis_aligned_rect<U> const b
+) noexcept {
+    return (a.x0 >= b.x0 && a.x0 < b.x1)
+        && (a.y0 >= b.y0 && a.y0 < b.y1);
+}
+
 //! @return a rectangle that has been shrunk symmetrically by @p size on all
 //! sides.
 template <typename T, typename U = T>
@@ -573,10 +582,7 @@ void transform_xy(
         transform(p, [](auto) noexcept { return true; });
     };
 
-    bool const must_check = area.x0 == bounds.x0
-                         || area.y0 == bounds.y0
-                         || value_cast(bounds.x1 - area.x1) <= T {1}
-                         || value_cast(bounds.y1 - area.y1) <= T {1};
+    bool const must_check = intersects_edge(area, bounds);
 
     if (must_check) {
         for_each_xy_center_first(area, transform_unchecked, transform_checked);
