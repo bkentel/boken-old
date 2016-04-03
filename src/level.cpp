@@ -30,50 +30,6 @@ struct always_true {
     }
 };
 
-template <size_t N, typename Check, typename Predicate>
-unsigned fold_neighbors_impl(
-    std::array<int, N> const& xi
-  , std::array<int, N> const& yi
-  , boken::point2i32 const p
-  , Check check
-  , Predicate pred
-) {
-    using namespace boken;
-
-    unsigned result {};
-
-    auto const x = value_cast(p.x);
-    auto const y = value_cast(p.y);
-
-    for (size_t i = 0; i < N; ++i) {
-        auto const q = point2i32 {x + xi[i], y + yi[i]};
-        auto const bit = check(q) && pred(q) ? 1u : 0u;
-        result |= bit << (N - 1 - i);
-    }
-
-    return result;
-}
-
-//     N[3]
-// W[2]    E[1]
-//     S[0]
-template <typename Check, typename Predicate>
-unsigned fold_neighbors4(boken::point2i32 const p, Check check, Predicate pred) {
-    constexpr std::array<int, 4> yi {-1,  0, 0, 1};
-    constexpr std::array<int, 4> xi { 0, -1, 1, 0};
-    return fold_neighbors_impl(xi, yi, p, check, pred);
-}
-
-// NW[7] N[6] NE[5]
-//  W[4]       E[3]
-// SW[2] S[1] SE[0]
-template <typename Check, typename Predicate>
-unsigned fold_neighbors9(boken::point2i32 const p, Check check, Predicate pred) {
-    constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
-    constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
-    return fold_neighbors_impl(xi, yi, p, check, pred);
-}
-
 template <typename Vector>
 auto& data_at(Vector&& v, int const x, int const y, boken::sizei32x const w) noexcept {
     using namespace boken;
@@ -118,12 +74,12 @@ bool can_remove_wall_at(boken::point2i32 const p, Read read, Check check) noexce
     static_assert(noexcept(check(p)), "");
 
     auto const wall_type =
-        fold_neighbors9(p, check, [&](point2i32 const q) noexcept {
+        fold_neighbors8(p, check, [&](point2i32 const q) noexcept {
             return read(q) == tile_type::wall;
         });
 
     auto const other_type =
-        fold_neighbors9(p, check, [&](point2i32 const q) noexcept {
+        fold_neighbors8(p, check, [&](point2i32 const q) noexcept {
             return read(q) == tile_type::floor;
         });
 

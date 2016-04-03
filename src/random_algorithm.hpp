@@ -118,4 +118,56 @@ find_if_random(random_state& rng, axis_aligned_rect<T> const r, Predicate pred) 
       : std::make_pair(*it, true);
 }
 
+namespace detail {
+
+template <size_t N, typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors_impl(
+    std::array<int, N> const& xi
+  , std::array<int, N> const& yi
+  , point2<T> const p
+  , Check check
+  , Predicate pred
+) noexcept {
+    static_assert(noexcept(check(p)), "");
+    static_assert(noexcept(pred(p)), "");
+    static_assert(N <= 32, "");
+
+    uint32_t result {};
+
+    T const x = value_cast(p.x);
+    T const y = value_cast(p.y);
+
+    for (size_t i = 0; i < N; ++i) {
+        auto const q = point2<T> {static_cast<T>(x + xi[i])
+                                , static_cast<T>(y + yi[i])};
+
+        uint32_t const bit = (check(q) && pred(q)) ? 1u : 0u;
+        result |= bit << (N - 1u - i);
+    }
+
+    return result;
+}
+
+} //namespace detail
+
+//     N[3]
+// W[2]    E[1]
+//     S[0]
+template <typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors4(point2<T> const p, Check check, Predicate pred) noexcept {
+    constexpr std::array<int, 4> yi {-1,  0, 0, 1};
+    constexpr std::array<int, 4> xi { 0, -1, 1, 0};
+    return detail::fold_neighbors_impl(xi, yi, p, check, pred);
+}
+
+// NW[7] N[6] NE[5]
+//  W[4]       E[3]
+// SW[2] S[1] SE[0]
+template <typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors8(point2<T> const p, Check check, Predicate pred) noexcept {
+    constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
+    constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
+    return detail::fold_neighbors_impl(xi, yi, p, check, pred);
+}
+
 } //namespace boken
