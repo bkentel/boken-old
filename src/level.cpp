@@ -1,5 +1,6 @@
 #include "level.hpp"
 
+#include "algorithm.hpp"
 #include "bsp_generator.hpp"    // for bsp_generator, etc
 #include "random.hpp"           // for random_state (ptr only), etc
 #include "random_algorithm.hpp"
@@ -22,28 +23,6 @@
 #include <cstdint>              // for uint16_t, int32_t
 
 namespace {
-
-struct always_true {
-    template <typename... Args>
-    inline constexpr bool operator()(Args...) const noexcept {
-        return true;
-    }
-};
-
-template <typename Vector>
-auto& data_at(Vector&& v, int const x, int const y, boken::sizei32x const w) noexcept {
-    using namespace boken;
-    auto const i = static_cast<size_t>(x)
-                 + static_cast<size_t>(y) * value_cast_unsafe<size_t>(w);
-
-    return v[i];
-}
-
-template <typename Vector>
-auto& data_at(Vector&& v, boken::point2i32 const p, boken::sizei32x const w) noexcept {
-    using namespace boken;
-    return data_at(std::forward<Vector>(v), value_cast(p.x), value_cast(p.y), w);
-}
 
 bool can_remove_wall_code(
     unsigned const wall_type
@@ -159,35 +138,6 @@ boken::tile_id can_place_door_at(boken::point2i32 const p, Read read, Check chec
     return (wall_type == 0b1001 && other_type == 0b0110) ? tile_id::door_ns_closed
          : (wall_type == 0b0110 && other_type == 0b1001) ? tile_id::door_ew_closed
          : tile_id::invalid;
-}
-
-template <typename Check, typename Transform>
-void transform_area(
-    boken::recti32 const area
-  , boken::recti32 const bounds
-  , Check              check
-  , Transform          transform
-) {
-    using namespace boken;
-
-    auto const transform_checked = [&](point2i32 const p) noexcept {
-        transform(p, check);
-    };
-
-    auto const transform_unchecked = [&](point2i32 const p) noexcept {
-        transform(p, always_true {});
-    };
-
-    bool const must_check = area.x0 == bounds.x0
-                         || area.y0 == bounds.y0
-                         || value_cast(area.x1) == value_cast(bounds.x1) - 1
-                         || value_cast(area.y1) == value_cast(bounds.y1) - 1;
-
-    if (must_check) {
-        for_each_xy_center_first(area, transform_unchecked, transform_checked);
-    } else {
-        for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
-    }
 }
 
 template <typename T>
@@ -625,47 +575,39 @@ public:
         return update_tile_rect(rng, area, data.data());
     }
 private:
-    template <typename Vector>
-    auto make_data_reader_(Vector&& v) const noexcept {
-        return [&](point2i32 const p) noexcept {
-            return data_at_(std::forward<Vector>(v), p);
-        };
+    template <typename Container>
+    auto make_data_reader_(Container const& c) const noexcept {
+        return make_at_xy_getter(c, width());
+    }
+
+    template <typename Container>
+    auto make_data_reader_(Container& c) noexcept {
+        return make_at_xy_getter(c, width());
     }
 
     auto make_bounds_checker_() const noexcept {
-        return [&](point2i32 const p) noexcept {
-            return check_bounds_(p);
+        return [&](auto const p) noexcept {
+            return this->check_bounds_(p);
         };
     }
 
-    template <typename Vector>
-    auto data_at_(Vector&& v, int const x, int const y) const noexcept -> decltype(v[0]) {
-        return data_at(std::forward<Vector>(v), x, y, width());
+    template <typename Container, typename T>
+    auto data_at_(Container&& c, point2<T> const p) noexcept
+      -> decltype(c[0])
+    {
+        return at_xy(c, p, width());
     }
 
-    template <typename Vector>
-    auto data_at_(Vector&& v, point2i32 const p) const noexcept -> decltype(v[0]) {
-        return data_at(std::forward<Vector>(v), p, width());
+    template <typename Container, typename T>
+    auto data_at_(Container&& c, point2<T> const p) const noexcept
+      -> std::add_const_t<decltype(c[0])>
+    {
+        return const_cast<level_impl*>(this)->data_at_(c, p);
     }
 
-    template <typename Vector>
-    auto data_at_(Vector&& v, int const x, int const y) noexcept -> decltype(v[0]) {
-        return data_at(std::forward<Vector>(v), x, y, width());
-    }
-
-    template <typename Vector>
-    auto data_at_(Vector&& v, point2i32 const p) noexcept -> decltype(v[0]) {
-        return data_at(std::forward<Vector>(v), p, width());
-    }
-
-
-    bool check_bounds_(int const x, int const y) const noexcept {
-       return (x >= 0)                   && (y >= 0)
-           && (x <  value_cast(width())) && (y <  value_cast(height()));
-    }
-
-    bool check_bounds_(point2i32 const p) const noexcept {
-        return check_bounds_(value_cast(p.x), value_cast(p.y));
+    template <typename T>
+    bool check_bounds_(point2<T> const p) const noexcept {
+        return intersects(bounds(), p);
     }
 
     struct get_entity_instance_id_t {
@@ -778,7 +720,7 @@ std::unique_ptr<level> make_level(
 
 void level_impl::merge_walls_at(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
-    transform_area(area, bounds_, make_bounds_checker_()
+    transform_xy(area, bounds_, make_bounds_checker_()
       , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             auto& type = this->data_at_(data_.types, p);
@@ -794,7 +736,7 @@ void level_impl::merge_walls_at(random_state& rng, recti32 const area) {
 
 void level_impl::update_tile_ids(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
-    transform_area(area, bounds_, make_bounds_checker_()
+    transform_xy(area, bounds_, make_bounds_checker_()
       , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
             auto const id = tile_type_to_id_at(p, read, check);
@@ -807,7 +749,7 @@ void level_impl::update_tile_ids(random_state& rng, recti32 const area) {
 
 void level_impl::place_doors(random_state& rng, recti32 const area) {
     auto const read = make_data_reader_(data_.types);
-    transform_area(area, bounds_, make_bounds_checker_()
+    transform_xy(area, bounds_, make_bounds_checker_()
       , [&](point2i32 const p, auto check) noexcept {
             auto const id = can_place_door_at(p, read, check);
             if (id == tile_id::invalid || random_coin_flip(rng)) {
@@ -936,14 +878,6 @@ void level_impl::generate_make_connections(random_state& rng) {
         return false;
     };
 
-    auto const get_random_dir = [](random_state& rng) noexcept {
-        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
-
-        auto const i = static_cast<size_t>(random_uniform_int(rng, 0, 3));
-        return vec2i32 {dir_x[i], dir_y[i]};
-    };
-
     for (auto const& region : regions_) {
         if (!region_has_room(region)) {
             continue;
@@ -953,7 +887,7 @@ void level_impl::generate_make_connections(random_state& rng) {
         auto const segments = random_uniform_int(rng, 0, 10);
 
         for (int s = 0; s < segments; ++s) {
-            auto const dir = get_random_dir(rng);
+            auto const dir = random_dir4(rng);
             auto const len = random_uniform_int(rng, 3, 10);
 
             for (int i = 0; i < len; ++i) {

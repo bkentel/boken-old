@@ -5,6 +5,10 @@
 #include "math.hpp"
 #include "random.hpp"
 
+#include <array>
+#include <cstdint>
+#include <cstddef>
+
 namespace boken {
 
 //! Type trait for the number of parameters a function (object) takes.
@@ -36,6 +40,17 @@ struct arity_of {
     static_assert(std::is_class<std::decay_t<F>>::value, "");
     static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
 };
+
+template <typename T, typename U>
+constexpr bool contains(
+    axis_aligned_rect<T> const outer
+  , axis_aligned_rect<U> const inner
+) noexcept {
+    return (outer.x0 <= inner.x0)
+        && (outer.y0 <= inner.y0)
+        && (inner.x1 <= outer.x1)
+        && (inner.y1 <= outer.y1);
+}
 
 //! @return a rectangle that has been shrunk symmetrically by @p size on all
 //! sides.
@@ -485,6 +500,89 @@ find_if(axis_aligned_rect<T> const r, Predicate pred) {
     }
 
     return {r.top_left(), false};
+}
+
+namespace detail {
+
+template <size_t N, typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors_impl(
+    std::array<int, N> const& xi
+  , std::array<int, N> const& yi
+  , point2<T> const p
+  , Check check
+  , Predicate pred
+) noexcept {
+    static_assert(noexcept(check(p)), "");
+    static_assert(noexcept(pred(p)), "");
+    static_assert(N <= 32, "");
+
+    uint32_t result {};
+
+    T const x = value_cast(p.x);
+    T const y = value_cast(p.y);
+
+    for (size_t i = 0; i < N; ++i) {
+        auto const q = point2<T> {static_cast<T>(x + xi[i])
+                                , static_cast<T>(y + yi[i])};
+
+        uint32_t const bit = (check(q) && pred(q)) ? 1u : 0u;
+        result |= bit << (N - 1u - i);
+    }
+
+    return result;
+}
+
+} //namespace detail
+
+//     N[3]
+// W[2]    E[1]
+//     S[0]
+template <typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors4(point2<T> const p, Check check, Predicate pred) noexcept {
+    constexpr std::array<int, 4> yi {-1,  0, 0, 1};
+    constexpr std::array<int, 4> xi { 0, -1, 1, 0};
+    return detail::fold_neighbors_impl(xi, yi, p, check, pred);
+}
+
+// NW[7] N[6] NE[5]
+//  W[4]       E[3]
+// SW[2] S[1] SE[0]
+template <typename T, typename Check, typename Predicate>
+uint32_t fold_neighbors8(point2<T> const p, Check check, Predicate pred) noexcept {
+    constexpr std::array<int, 8> yi {-1, -1, -1,  0, 0,  1, 1, 1};
+    constexpr std::array<int, 8> xi {-1,  0,  1, -1, 1, -1, 0, 1};
+    return detail::fold_neighbors_impl(xi, yi, p, check, pred);
+}
+
+//! @param check A predicate bool check(point<T> const&) noexcept
+//! @param transform A transform function void (point<T> const&, Check) noexcept
+template <typename T, typename Check, typename Transform>
+void transform_xy(
+    axis_aligned_rect<T> const area
+  , axis_aligned_rect<T> const bounds
+  , Check                      check
+  , Transform                  transform
+) {
+    BK_ASSERT(contains(bounds, area));
+
+    auto const transform_checked = [&](point2<T> const p) noexcept {
+        transform(p, check);
+    };
+
+    auto const transform_unchecked = [&](point2<T> const p) noexcept {
+        transform(p, [](auto) noexcept { return true; });
+    };
+
+    bool const must_check = area.x0 == bounds.x0
+                         || area.y0 == bounds.y0
+                         || value_cast(bounds.x1 - area.x1) <= T {1}
+                         || value_cast(bounds.y1 - area.y1) <= T {1};
+
+    if (must_check) {
+        for_each_xy_center_first(area, transform_unchecked, transform_checked);
+    } else {
+        for_each_xy_center_first(area, transform_unchecked, transform_unchecked);
+    }
 }
 
 } //namespace boken

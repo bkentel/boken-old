@@ -103,6 +103,7 @@
     <ClInclude Include="src\serialize.hpp" />
     <ClInclude Include="src\rect.hpp" />
     <ClInclude Include="src\random_algorithm.hpp" />
+    <ClInclude Include="src\algorithm.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

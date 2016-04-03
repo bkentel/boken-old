@@ -131,6 +131,7 @@
     <ClCompile Include="src\world.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\algorithm.hpp" />
     <ClInclude Include="src\bsp_generator.hpp" />
     <ClInclude Include="src\catch.hpp" />
     <ClInclude Include="src\circular_buffer.hpp" />
