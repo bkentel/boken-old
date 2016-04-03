@@ -927,55 +927,95 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
 }
 
 void level_impl::generate_make_connections(random_state& rng) {
-    constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-    constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
-
     auto const region_has_room = [](region_info const& info) noexcept {
         return info.tile_count > 0;
     };
 
-    //auto const find_path_start = [&](region_info const& info) noexcept {
-    //    info.bounds
-    //};
+    auto const find_path_start = [&](region_info const& info) noexcept {
+        auto const is_valid_start_point = [&](point2i32 const p) noexcept {
+            return data_at_(data_.types, p) == tile_type::floor;
+        };
+
+        auto const p = find_if_random(rng, info.bounds, is_valid_start_point);
+        BK_ASSERT(p.second);
+        return p.first;
+    };
+
+    auto reader  = make_data_reader_(data_.types);
+    auto checker = make_bounds_checker_();
+
+    auto const can_tunnel_through_wall = [&](auto const p) noexcept {
+        auto const wall_type =
+            fold_neighbors4(p, checker, [&](auto const q) noexcept {
+                return reader(q) == tile_type::wall;
+            });
+
+        auto const other_type =
+            fold_neighbors4(p, checker, [&](auto const q) noexcept {
+                return reader(q) != tile_type::wall;
+            });
+
+        return (wall_type == 0b1001 && other_type == 0b0110)
+            || (wall_type == 0b0110 && other_type == 0b1001);
+    };
+
+    auto const can_tunnel_at = [&](auto const p) noexcept {
+        if (!check_bounds_(p)) {
+            return false;
+        }
+
+        switch (data_at_(data_.types, p)) {
+        case tile_type::empty  :
+        case tile_type::floor  :
+        case tile_type::tunnel :
+        case tile_type::door   :
+        case tile_type::stair  :
+            return true;
+        case tile_type::wall :
+            return can_tunnel_through_wall(p);
+        default :
+            break;
+        }
+
+        return false;
+    };
+
+    auto const get_random_dir = [](random_state& rng) noexcept {
+        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+        auto const i = static_cast<size_t>(random_uniform_int(rng, 0, 3));
+        return vec2i32 {dir_x[i], dir_y[i]};
+    };
 
     for (auto const& region : regions_) {
-        if (region.tile_count <= 0) {
+        if (!region_has_room(region)) {
             continue;
         }
 
-        auto const& bounds = region.bounds;
-        auto p = point2i32 {bounds.x0 + bounds.width()  / 2
-                        , bounds.y0 + bounds.height() / 2};
-
+        auto p = find_path_start(region);
         auto const segments = random_uniform_int(rng, 0, 10);
-        for (int i = 0; i < segments; ++i) {
-            auto const dir = static_cast<size_t>(random_uniform_int(rng, 0, 3));
-            auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
 
-            for (auto len = random_uniform_int(rng, 3, 10); len > 0; --len) {
-                auto const p0 = p + d;
-                if (!check_bounds_(p0)) {
-                    break;
-                }
+        for (int s = 0; s < segments; ++s) {
+            auto const dir = get_random_dir(rng);
+            auto const len = random_uniform_int(rng, 3, 10);
 
-                auto& type = data_at_(data_.types, p0);
-                switch (type) {
-                case tile_type::empty:
-                    type = tile_type::tunnel;
-                    data_at_(data_.flags, p0) = tile_flags {0};
+            for (int i = 0; i < len; ++i) {
+                auto const p0 = p + dir;
+                if (!can_tunnel_at(p0)) {
                     break;
-                case tile_type::wall:
-                    type = tile_type::floor;
-                    data_at_(data_.flags, p0) = tile_flags {0};
-                    break;
-                case tile_type::floor  : break;
-                case tile_type::tunnel : break;
-                case tile_type::door   : break;
-                case tile_type::stair  : break;
-                default                : break;
                 }
 
                 p = p0;
+
+                auto& type = data_at_(data_.types, p0);
+                if (type == tile_type::empty) {
+                    type = tile_type::tunnel;
+                    data_at_(data_.flags, p0) = tile_flags {0};
+                } else if (type == tile_type::wall) {
+                    type = tile_type::floor;
+                    data_at_(data_.flags, p0) = tile_flags {0};
+                }
             }
         }
     }

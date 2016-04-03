@@ -463,4 +463,28 @@ void points_around(point2<T> const p, T const distance, UnaryF f) {
     for_each_xy_edge(r, f);
 }
 
+template <typename T, typename Predicate>
+std::pair<point2<T>, bool>
+find_if(axis_aligned_rect<T> const r, Predicate pred) {
+    auto const x0 = value_cast(r.x0);
+    auto const x1 = value_cast(r.x1);
+    auto const y0 = value_cast(r.y0);
+    auto const y1 = value_cast(r.y1);
+
+    if (x1 - x0 <= T {0} || y1 - y0 <= T {0}) {
+        return {r.top_left(), false};
+    }
+
+    for (auto y = y0; y < y1; ++y) {
+        for (auto x = x0; x < x1; ++x) {
+            auto const p = point2<T> {x, y};
+            if (pred(p)) {
+                return {p, true};
+            }
+        }
+    }
+
+    return {r.top_left(), false};
+}
+
 } //namespace boken

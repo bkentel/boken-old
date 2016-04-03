@@ -14,6 +14,32 @@
 
 namespace boken {
 
+template <typename T, typename FwdIt>
+FwdIt fill_with_points_in(axis_aligned_rect<T> const r, FwdIt const first, FwdIt const last) {
+    auto it = first;
+
+    for_each_xy(r, [&](point2i32 const p) noexcept {
+        if (it != last) {
+            *it++ = p;
+        }
+    });
+
+    return it;
+}
+
+template <typename T, typename FwdIt>
+FwdIt fill_with_points_around(point2<T> const p, T const d, FwdIt const first, FwdIt const last) {
+    auto it = first;
+
+    points_around(p, d, [&](point2<T> const p) noexcept {
+        if (it != last) {
+            *it++ = p;
+        }
+    });
+
+    return it;
+}
+
 template <typename T, typename Predicate>
 std::pair<point2<T>, bool>
 find_random_nearest(
@@ -27,20 +53,17 @@ find_random_nearest(
     BK_ASSERT(max_distance >= 0
            && static_cast<size_t>(max_distance) <= buffer_size / 8);
 
-    std::array<point2i32, buffer_size> points;
+    std::array<point2<T>, buffer_size> points;
+
+    auto const p_first = begin(points);
+    auto const p_last  = end(points);
 
     for (T d = 0; d <= max_distance; ++d) {
-        size_t last_index = 0;
+        auto const last = fill_with_points_around(origin, d, p_first, p_last);
 
-        points_around(origin, d
-          , [&](point2i32 const p) noexcept { points[last_index++] = p; });
+        std::shuffle(p_first, last, rng);
+        auto const it = std::find_if(p_first, last, pred);
 
-        auto const first = begin(points);
-        auto const last  = first + static_cast<ptrdiff_t>(last_index);
-
-        std::shuffle(first, last, rng);
-
-        auto const it = std::find_if(first, last, pred);
         if (it != last) {
             return {*it, true};
         }
@@ -58,18 +81,41 @@ void for_each_xy_random(random_state& rng, axis_aligned_rect<T> const r, UnaryF 
         BK_ASSERT(area >= 0 && static_cast<size_t>(area) <= 128);
     }
 
-    std::array<point2i32, buffer_size> points;
-
-    size_t i = 0;
-    for_each_xy(r, [&](point2i32 const p) noexcept {
-        points[i++] = p;
-    });
+    std::array<point2<T>, buffer_size> points;
 
     auto const first = begin(points);
-    auto const last  = first + static_cast<ptrdiff_t>(i);
+    auto const last  = end(points);
+    auto const it    = fill_with_points_in(r, first, last);
 
-    std::shuffle(first, last, rng);
-    std::for_each(first, last, f);
+    std::shuffle(first, it, rng);
+    std::for_each(first, it, f);
+}
+
+template <typename T, typename Predicate>
+std::pair<point2<T>, bool>
+find_if_random(random_state& rng, axis_aligned_rect<T> const r, Predicate pred) {
+    constexpr size_t buffer_size = 128;
+
+    {
+        auto const area = value_cast(r.area());
+        BK_ASSERT(area >= 0 && static_cast<size_t>(area) <= 512);
+    }
+
+    std::array<point2<T>, buffer_size> points;
+
+    auto const p_first = begin(points);
+    auto const p_last  = end(points);
+    auto const last    = fill_with_points_in(r, p_first, p_last);
+
+    std::shuffle(p_first, last, rng);
+
+    auto const it = std::find_if(p_first, last, [&](auto const p) noexcept {
+        return pred(p);
+    });
+
+    return (it == last)
+      ? std::make_pair(r.top_left(), false)
+      : std::make_pair(*it, true);
 }
 
 } //namespace boken
