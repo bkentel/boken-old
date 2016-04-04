@@ -618,7 +618,7 @@ struct game_state {
           .add_entity_nearest_random(rng, std::move(e), p, distance);
 
         if (result.second == placement_result::ok) {
-            entity_updates_.push_back({p, p, def});
+            entity_updates_.push_back({result.first, result.first, def});
         }
 
         return result;
