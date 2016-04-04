@@ -29,6 +29,7 @@ enum class command_type : uint32_t {
   , get_all_items = djb2_hash_32c("get_all_items")
   , reset_zoom    = djb2_hash_32c("reset_zoom")
   , reset_view    = djb2_hash_32c("reset_view")
+  , cancel        = djb2_hash_32c("cancel")
 
   , debug_toggle_regions = djb2_hash_32c("debug_toggle_regions")
   , debug_teleport_self  = djb2_hash_32c("debug_teleport_self")
