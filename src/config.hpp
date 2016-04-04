@@ -26,3 +26,15 @@
 #else
 #   error Please define a string_view implementation to use.
 #endif
+
+#if defined(_MSC_VER) && (_MSC_FULL_VER > 190023918)
+#   define BK_ATTRIBUTE_FALLTHROUGH [[fallthrough]]
+#elif defined(__clang__)
+#   if __has_cpp_attribute(fallthrough)
+#       define BK_ATTRIBUTE_FALLTHROUGH [[fallthrough]]
+#   elif __has_cpp_attribute(clang::fallthrough)
+#       define BK_ATTRIBUTE_FALLTHROUGH [[clang::fallthrough]]
+#   endif
+#else
+#   define BK_ATTRIBUTE_FALLTHROUGH
+#endif

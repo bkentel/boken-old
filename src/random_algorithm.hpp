@@ -31,9 +31,9 @@ template <typename T, typename FwdIt>
 FwdIt fill_with_points_around(point2<T> const p, T const d, FwdIt const first, FwdIt const last) {
     auto it = first;
 
-    points_around(p, d, [&](point2<T> const p) noexcept {
+    points_around(p, d, [&](point2<T> const q) noexcept {
         if (it != last) {
-            *it++ = p;
+            *it++ = q;
         }
     });
 
@@ -94,11 +94,11 @@ void for_each_xy_random(random_state& rng, axis_aligned_rect<T> const r, UnaryF 
 template <typename T, typename Predicate>
 std::pair<point2<T>, bool>
 find_if_random(random_state& rng, axis_aligned_rect<T> const r, Predicate pred) {
-    constexpr size_t buffer_size = 128;
+    constexpr size_t buffer_size = 512;
 
     {
         auto const area = value_cast(r.area());
-        BK_ASSERT(area >= 0 && static_cast<size_t>(area) <= 512);
+        BK_ASSERT(area >= 0 && static_cast<size_t>(area) <= buffer_size);
     }
 
     std::array<point2<T>, buffer_size> points;

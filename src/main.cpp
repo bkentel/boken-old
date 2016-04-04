@@ -76,6 +76,59 @@ inline constexpr T make_id(char const (&s)[N]) noexcept {
     return T {djb2_hash_32c(s)};
 }
 
+class input_context {
+public:
+    enum event_result {
+        filter              //!< filter the event
+      , filter_detach       //!< detach and filter the event
+      , pass_through        //!< pass through to the next handler
+      , pass_through_detach //!< detach and pass through to the next handler
+    };
+
+    event_result on_key(kb_event const event, kb_modifiers const kmods) {
+        return on_key_handler
+          ? on_key_handler(event, kmods)
+          : event_result::pass_through;
+    }
+
+    event_result on_text_input(text_input_event const event) {
+        return on_text_input_handler
+          ? on_text_input_handler(event)
+          : event_result::pass_through;
+    }
+
+    event_result on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        return on_mouse_button_handler
+          ? on_mouse_button_handler(event, kmods)
+          : event_result::pass_through;
+    }
+
+    event_result on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        return on_mouse_move_handler
+          ? on_mouse_move_handler(event, kmods)
+          : event_result::pass_through;
+    }
+
+    event_result on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        return on_mouse_wheel_handler
+          ? on_mouse_wheel_handler(wy, wx, kmods)
+          : event_result::pass_through;
+    }
+
+    event_result on_command(command_type const type, uintptr_t const data) {
+        return on_command_handler
+          ? on_command_handler(type, data)
+          : event_result::pass_through;
+    }
+
+    std::function<event_result (kb_event, kb_modifiers)>    on_key_handler;
+    std::function<event_result (text_input_event)>          on_text_input_handler;
+    std::function<event_result (mouse_event, kb_modifiers)> on_mouse_button_handler;
+    std::function<event_result (mouse_event, kb_modifiers)> on_mouse_move_handler;
+    std::function<event_result (int, int, kb_modifiers)>    on_mouse_wheel_handler;
+    std::function<event_result (command_type, uintptr_t)>   on_command_handler;
+};
+
 struct game_state {
     enum class placement_type {
         at, near
@@ -382,7 +435,50 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    //! @return true if events were not filtered, false otherwise.
+    template <typename... Args0, typename... Args1>
+    bool process_context_stack(
+        input_context::event_result (input_context::* handler)(Args0...)
+      , Args1&&... args
+    ) {
+        using result = input_context::event_result;
+
+        // as a stack: back to front
+        for (auto i = context_stack.size(); i > 0; --i) {
+            // size == 1 ~> index == 0
+            auto const where = i - 1u;
+            auto const r =
+                (context_stack[where].*handler)(std::forward<Args1>(args)...);
+
+            switch (r) {
+            case result::filter_detach :
+                context_stack.erase(
+                    begin(context_stack) + static_cast<ptrdiff_t>(where));
+                BK_ATTRIBUTE_FALLTHROUGH;
+            case result::filter :
+                return false;
+            case result::pass_through_detach :
+                context_stack.erase(
+                    begin(context_stack) + static_cast<ptrdiff_t>(where));
+                BK_ATTRIBUTE_FALLTHROUGH;
+            case result::pass_through :
+                break;
+            default:
+                BK_ASSERT(false);
+                break;
+            }
+        }
+
+        return true;
+    }
+
     void on_key(kb_event const event, kb_modifiers const kmods) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_key, event, kmods)) {
+            return;
+        }
+
         if (event.went_down) {
             cmd_translator.translate(event);
 
@@ -400,10 +496,20 @@ struct game_state {
     }
 
     void on_text_input(text_input_event const event) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_text_input, event)) {
+            return;
+        }
+
         cmd_translator.translate(event);
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_mouse_button, event, kmods)) {
+            return;
+        }
+
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
@@ -442,6 +548,11 @@ struct game_state {
     }
 
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_mouse_move, event, kmods)) {
+            return;
+        }
+
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
@@ -480,7 +591,12 @@ struct game_state {
         last_mouse_y = event.y;
     }
 
-    void on_mouse_wheel(int const wy, int, kb_modifiers const kmods) {
+    void on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_mouse_wheel, wy, wx, kmods)) {
+            return;
+        }
+
         auto const p_window = point2i32 {last_mouse_x, last_mouse_y};
         auto const p_world  = current_view.window_to_world(p_window);
 
@@ -494,6 +610,11 @@ struct game_state {
     }
 
     void on_command(command_type const type, uintptr_t const data) {
+        // first, pass events to listeners
+        if (!process_context_stack(&input_context::on_command, type, data)) {
+            return;
+        }
+
         using ct = command_type;
         switch (type) {
         case ct::none:
@@ -521,10 +642,58 @@ struct game_state {
             renderer.update_map_data();
             break;
         case ct::debug_teleport_self :
+            debug_teleport_self();
             break;
         default:
             break;
         }
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Commands
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    void debug_teleport_self() {
+        input_context c;
+
+        c.on_mouse_button_handler =
+            [&](mouse_event const event, kb_modifiers const kmods) {
+                if (event.button_state_bits() != 1u) {
+                    return input_context::event_result::filter;
+                }
+
+                auto const p = window_to_world({event.x, event.y});
+
+                auto& lvl = the_world.current_level();
+                if (lvl.can_place_entity_at(p) != placement_result::ok) {
+                    message_window.println("Invalid destination. Choose another.");
+                    return input_context::event_result::filter;
+                }
+
+                auto const player = get_player();
+                auto const result =
+                    lvl.move_by(player.first.instance(), p - player.second);
+
+                BK_ASSERT(result == placement_result::ok);
+
+                entity_updates_.push_back({player.second, p, player.first.definition()});
+
+                return input_context::event_result::filter_detach;
+            };
+
+        c.on_command_handler =
+            [&](command_type const type, uint64_t) {
+                if (type == command_type::debug_teleport_self) {
+                    message_window.println("Already teleporting.");
+                    return input_context::event_result::filter;
+                } else if (type == command_type::cancel) {
+                    message_window.println("Canceled teleporting.");
+                    return input_context::event_result::filter_detach;
+                }
+
+                return input_context::event_result::pass_through;
+            };
+
+        context_stack.push_back(std::move(c));
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -873,6 +1042,8 @@ struct game_state {
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
     inventory_list&     inventory       = *state.inventory_ptr;
+
+    std::vector<input_context> context_stack;
 
     view current_view;
 
