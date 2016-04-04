@@ -617,21 +617,24 @@ struct game_state {
 
         using ct = command_type;
         switch (type) {
-        case ct::none:
-            break;
-        case ct::move_here:
-            break;
-        case ct::move_n  : player_move(vec2i32 { 0, -1}); break;
-        case ct::move_ne : player_move(vec2i32 { 1, -1}); break;
-        case ct::move_e  : player_move(vec2i32 { 1,  0}); break;
-        case ct::move_se : player_move(vec2i32 { 1,  1}); break;
-        case ct::move_s  : player_move(vec2i32 { 0,  1}); break;
-        case ct::move_sw : player_move(vec2i32 {-1,  1}); break;
-        case ct::move_w  : player_move(vec2i32 {-1,  0}); break;
-        case ct::move_nw : player_move(vec2i32 {-1, -1}); break;
-        case ct::get_all_items : get_all_items(); break;
+        case ct::none : break;
+
+        case ct::move_here : advance(1); break;
+
+        case ct::move_n    : do_player_move_by({ 0, -1}); break;
+        case ct::move_ne   : do_player_move_by({ 1, -1}); break;
+        case ct::move_e    : do_player_move_by({ 1,  0}); break;
+        case ct::move_se   : do_player_move_by({ 1,  1}); break;
+        case ct::move_s    : do_player_move_by({ 0,  1}); break;
+        case ct::move_sw   : do_player_move_by({-1,  1}); break;
+        case ct::move_w    : do_player_move_by({-1,  0}); break;
+        case ct::move_nw   : do_player_move_by({-1, -1}); break;
+
         case ct::move_down : do_change_level(ct::move_down); break;
-        case ct::move_up   : do_change_level(ct::move_up); break;
+        case ct::move_up   : do_change_level(ct::move_up);   break;
+
+        case ct::get_all_items : do_get_all_items(); break;
+
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
@@ -642,7 +645,7 @@ struct game_state {
             renderer.update_map_data();
             break;
         case ct::debug_teleport_self :
-            debug_teleport_self();
+            do_debug_teleport_self();
             break;
         default:
             break;
@@ -652,7 +655,7 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void debug_teleport_self() {
+    void do_debug_teleport_self() {
         input_context c;
 
         c.on_mouse_button_handler =
@@ -696,20 +699,7 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Simulation
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    std::pair<entity const&, point2i32> get_player() const {
-        return const_cast<game_state*>(this)->get_player();
-    }
-
-    std::pair<entity&, point2i32> get_player() {
-        auto const result = the_world.current_level().find(entity_instance_id {1u});
-        BK_ASSERT(result.first);
-        return {*result.first, result.second};
-    }
-
-    void get_all_items() {
+    void do_get_all_items() {
         auto& lvl = the_world.current_level();
         auto const player = get_player();
 
@@ -748,60 +738,6 @@ struct game_state {
             BK_ASSERT(false);
             break;
         }
-    }
-
-    unique_entity create_entity(entity_definition const& def) {
-        return the_world.create_entity([&](entity_instance_id const instance) {
-            return entity {instance, def.id};
-        });
-    }
-
-    unique_item create_item(item_definition const& def) {
-        return the_world.create_item([&](item_instance_id const instance) {
-            return item {instance, def.id};
-        });
-    }
-
-    using placement_pair = std::pair<point2i32, placement_result>;
-
-    placement_pair add_item_near(unique_item&& i, point2i32 const p, int32_t const distance, random_state& rng) {
-        auto const itm = the_world.find(i.get());
-        BK_ASSERT(!!itm);
-
-        item_id const def = itm->definition();
-
-        auto const result = the_world.current_level()
-          .add_item_nearest_random(rng, std::move(i), p, distance);
-
-        if (result.second == placement_result::ok) {
-            item_updates_.push_back({p, p, def});
-        }
-
-        return result;
-    }
-
-    placement_pair add_entity_near(unique_entity&& e, point2i32 const p, int32_t const distance, random_state& rng) {
-        auto const ent = the_world.find(e.get());
-        BK_ASSERT(!!ent);
-
-        entity_id const def = ent->definition();
-
-        auto const result = the_world.current_level()
-          .add_entity_nearest_random(rng, std::move(e), p, distance);
-
-        if (result.second == placement_result::ok) {
-            entity_updates_.push_back({result.first, result.first, def});
-        }
-
-        return result;
-    }
-
-    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
-        return add_item_near(std::move(i), p, 0, rng_superficial);
-    }
-
-    placement_pair add_entity_at(unique_entity&& e, point2i32 const p) {
-        return {p, the_world.current_level().add_entity_at(std::move(e), p)};
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
@@ -898,28 +834,11 @@ struct game_state {
         reset_view_to_player();
     }
 
-    void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
-        auto& lvl = the_world.current_level();
+    void do_player_move_to(point2i32 const p) {
 
-        auto const tile = lvl.at(obstacle_pos);
-        if (tile.type == tile_type::door) {
-            auto const id = (tile.id == tile_id::door_ns_closed)
-                ? tile_id::door_ns_open
-                : tile_id::door_ew_open;
-
-            tile_data_set const data {
-                tile_data {}
-                , tile_flags {0}
-                , id
-                , tile.type
-                , region_id {}
-            };
-
-            renderer.update_map_data(lvl.update_tile_at(rng_superficial, obstacle_pos, data));
-        }
     }
 
-    void player_move(vec2i32 const v) {
+    void do_player_move_by(vec2i32 const v) {
         auto& lvl = the_world.current_level();
 
         auto const player = get_player();
@@ -940,6 +859,94 @@ struct game_state {
         case placement_result::failed_bounds: break;
         case placement_result::failed_bad_id: break;
         default: break;
+        }
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Simulation
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    std::pair<entity const&, point2i32> get_player() const {
+        return const_cast<game_state*>(this)->get_player();
+    }
+
+    std::pair<entity&, point2i32> get_player() {
+        auto const result = the_world.current_level().find(entity_instance_id {1u});
+        BK_ASSERT(result.first);
+        return {*result.first, result.second};
+    }
+
+    unique_entity create_entity(entity_definition const& def) {
+        return the_world.create_entity([&](entity_instance_id const instance) {
+            return entity {instance, def.id};
+        });
+    }
+
+    unique_item create_item(item_definition const& def) {
+        return the_world.create_item([&](item_instance_id const instance) {
+            return item {instance, def.id};
+        });
+    }
+
+    using placement_pair = std::pair<point2i32, placement_result>;
+
+    placement_pair add_item_near(unique_item&& i, point2i32 const p, int32_t const distance, random_state& rng) {
+        auto const itm = the_world.find(i.get());
+        BK_ASSERT(!!itm);
+
+        item_id const def = itm->definition();
+
+        auto const result = the_world.current_level()
+          .add_item_nearest_random(rng, std::move(i), p, distance);
+
+        if (result.second == placement_result::ok) {
+            item_updates_.push_back({p, p, def});
+        }
+
+        return result;
+    }
+
+    placement_pair add_entity_near(unique_entity&& e, point2i32 const p, int32_t const distance, random_state& rng) {
+        auto const ent = the_world.find(e.get());
+        BK_ASSERT(!!ent);
+
+        entity_id const def = ent->definition();
+
+        auto const result = the_world.current_level()
+          .add_entity_nearest_random(rng, std::move(e), p, distance);
+
+        if (result.second == placement_result::ok) {
+            entity_updates_.push_back({result.first, result.first, def});
+        }
+
+        return result;
+    }
+
+    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
+        return add_item_near(std::move(i), p, 0, rng_superficial);
+    }
+
+    placement_pair add_entity_at(unique_entity&& e, point2i32 const p) {
+        return {p, the_world.current_level().add_entity_at(std::move(e), p)};
+    }
+
+    void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
+        auto& lvl = the_world.current_level();
+
+        auto const tile = lvl.at(obstacle_pos);
+        if (tile.type == tile_type::door) {
+            auto const id = (tile.id == tile_id::door_ns_closed)
+                ? tile_id::door_ns_open
+                : tile_id::door_ew_open;
+
+            tile_data_set const data {
+                tile_data {}
+                , tile_flags {0}
+                , id
+                , tile.type
+                , region_id {}
+            };
+
+            renderer.update_map_data(lvl.update_tile_at(rng_superficial, obstacle_pos, data));
         }
     }
 
