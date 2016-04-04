@@ -83,19 +83,33 @@ bool can_omit_wall_at(point2<T> const p, Read read, Check check) noexcept {
 
 template <typename T, typename Read, typename Check>
 tile_id try_place_door_at(point2<T> const p, Read read, Check check) noexcept {
+    BK_ASSERT(check(p));
+
+    switch (read(p)) {
+    case tile_type::floor:
+    case tile_type::tunnel:
+    case tile_type::wall:
+        break;
+    case tile_type::stair:
+    case tile_type::empty:
+    case tile_type::door:
+    default:
+        return tile_id::invalid;
+    }
+
     auto const is_wall = [&](point2<T> const q) noexcept {
         return read(q) == tile_type::wall;
     };
 
     auto const is_connectable = [&](point2<T> const q) noexcept {
         switch (read(q)) {
-        case boken::tile_type::floor:
-        case boken::tile_type::tunnel:
-        case boken::tile_type::stair:
+        case tile_type::floor:
+        case tile_type::tunnel:
+        case tile_type::stair:
             return true;
-        case boken::tile_type::empty:
-        case boken::tile_type::wall:
-        case boken::tile_type::door:
+        case tile_type::empty:
+        case tile_type::wall:
+        case tile_type::door:
         default:
             break;
         }
