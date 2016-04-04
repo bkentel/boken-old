@@ -655,6 +655,10 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    void update_renderer(entity const& e, point2i32 const p_old, point2i32 const p_new) {
+        entity_updates_.push_back({p_old, p_new, e.definition()});
+    }
+
     void do_debug_teleport_self() {
         input_context c;
 
@@ -664,21 +668,13 @@ struct game_state {
                     return input_context::event_result::filter;
                 }
 
-                auto const p = window_to_world({event.x, event.y});
+                auto const result =
+                    do_player_move_to(window_to_world({event.x, event.y}));
 
-                auto& lvl = the_world.current_level();
-                if (lvl.can_place_entity_at(p) != placement_result::ok) {
+                if (result != placement_result::ok) {
                     message_window.println("Invalid destination. Choose another.");
                     return input_context::event_result::filter;
                 }
-
-                auto const player = get_player();
-                auto const result =
-                    lvl.move_by(player.first.instance(), p - player.second);
-
-                BK_ASSERT(result == placement_result::ok);
-
-                entity_updates_.push_back({player.second, p, player.first.definition()});
 
                 return input_context::event_result::filter_detach;
             };
@@ -834,32 +830,61 @@ struct game_state {
         reset_view_to_player();
     }
 
-    void do_player_move_to(point2i32 const p) {
-
-    }
-
-    void do_player_move_by(vec2i32 const v) {
+    placement_result do_player_move_to(point2i32 const p) {
         auto& lvl = the_world.current_level();
 
-        auto const player = get_player();
-        auto const p0 = player.second;
-        auto const p1 = p0 + v;
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
 
-        switch (lvl.move_by(player.first.instance(), v)) {
+        auto const p_cur = player_info.second;
+        auto const p_dst = p;
+
+        auto const result = lvl.move_by(player.instance(), p_dst - p_cur);
+
+        switch (result) {
         case placement_result::ok:
-            entity_updates_.push_back({p0, p1, player.first.definition()});
+            update_renderer(player, p_cur, p_dst);
+            break;
+        case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bounds:   BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bad_id:   BK_ATTRIBUTE_FALLTHROUGH;
+        default:
+            break;
+        }
+
+        return result;
+    }
+
+    placement_result do_player_move_by(vec2i32 const v) {
+        auto& lvl = the_world.current_level();
+
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+
+        auto const p_cur = player_info.second;
+        auto const p_dst = p_cur + v;
+
+        auto const result = lvl.move_by(player.instance(), v);
+
+        switch (result) {
+        case placement_result::ok:
+            update_renderer(player, p_cur, p_dst);
             advance(1);
             break;
         case placement_result::failed_entity:
-            do_combat(p0, p1);
+            do_combat(p_cur, p_dst);
             break;
         case placement_result::failed_obstacle:
-            interact_obstacle(player.first, p0, p1);
+            interact_obstacle(player, p_cur, p_dst);
             break;
-        case placement_result::failed_bounds: break;
-        case placement_result::failed_bad_id: break;
-        default: break;
+        case placement_result::failed_bounds: BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bad_id: BK_ATTRIBUTE_FALLTHROUGH;
+        default :
+            break;
         }
+
+        return result;
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
