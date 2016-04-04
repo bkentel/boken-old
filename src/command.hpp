@@ -31,6 +31,7 @@ enum class command_type : uint32_t {
   , reset_view    = djb2_hash_32c("reset_view")
 
   , debug_toggle_regions = djb2_hash_32c("debug_toggle_regions")
+  , debug_teleport_self  = djb2_hash_32c("debug_teleport_self")
 };
 
 template <typename Enum>

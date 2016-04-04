@@ -141,6 +141,7 @@ struct game_state {
                 auto const def = database.find(itm.definition());
                 return def ? def->id_string : "{unknown}";
             });
+
         inventory.layout();
     }
 
@@ -518,6 +519,8 @@ struct game_state {
         case ct::debug_toggle_regions :
             renderer.debug_toggle_show_regions();
             renderer.update_map_data();
+            break;
+        case ct::debug_teleport_self :
             break;
         default:
             break;

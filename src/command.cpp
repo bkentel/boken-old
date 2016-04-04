@@ -45,6 +45,17 @@ void command_translator_impl::translate(text_input_event const& event) const {
 }
 
 void command_translator_impl::translate(kb_event const& event) const {
+    switch (event.keycode) {
+    case kb_keycode::k_t :
+        if (kb_modifiers {event.mods}.test(kb_modifiers::m_ctrl)) {
+            handler_(command_type::debug_teleport_self, 0);
+            return;
+        }
+        break;
+    default:
+        break;
+    }
+
     switch (event.scancode) {
     case kb_scancode::k_right :
         handler_(command_type::move_e, 0);
@@ -122,6 +133,7 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(debug_toggle_regions);
+        BK_ENUM_MAPPING(debug_teleport_self);
         default:
             break;
     }
@@ -149,6 +161,7 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(debug_toggle_regions);
+        BK_ENUM_MAPPING(debug_teleport_self);
         default:
             break;
     }
