@@ -520,15 +520,15 @@ struct kb_modifiers {
 
     static constexpr flag_t<1>  m_left_shift  = flag_t<1>  {};
     static constexpr flag_t<2>  m_right_shift = flag_t<2>  {};
-    static constexpr flag_t<6>  m_left_ctrl   = flag_t<6>  {};
-    static constexpr flag_t<7>  m_right_ctrl  = flag_t<7>  {};
-    static constexpr flag_t<8>  m_left_alt    = flag_t<8>  {};
-    static constexpr flag_t<9>  m_right_alt   = flag_t<9>  {};
-    static constexpr flag_t<10> m_left_gui    = flag_t<10> {};
-    static constexpr flag_t<11> m_right_gui   = flag_t<11> {};
-    static constexpr flag_t<12> m_num         = flag_t<12> {};
-    static constexpr flag_t<13> m_caps        = flag_t<13> {};
-    static constexpr flag_t<14> m_mode        = flag_t<14> {};
+    static constexpr flag_t<7>  m_left_ctrl   = flag_t<7>  {};
+    static constexpr flag_t<8>  m_right_ctrl  = flag_t<8>  {};
+    static constexpr flag_t<9>  m_left_alt    = flag_t<9>  {};
+    static constexpr flag_t<10>  m_right_alt   = flag_t<10>  {};
+    static constexpr flag_t<11> m_left_gui    = flag_t<11> {};
+    static constexpr flag_t<12> m_right_gui   = flag_t<12> {};
+    static constexpr flag_t<13> m_num         = flag_t<13> {};
+    static constexpr flag_t<14> m_caps        = flag_t<14> {};
+    static constexpr flag_t<15> m_mode        = flag_t<15> {};
 
     static constexpr flags_t<m_left_shift, m_right_shift> m_shift = flags_t<m_left_shift, m_right_shift> {};
     static constexpr flags_t<m_left_ctrl,  m_right_ctrl>  m_ctrl  = flags_t<m_left_ctrl,  m_right_ctrl>  {};

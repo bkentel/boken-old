@@ -322,17 +322,19 @@ struct game_state {
     void generate_player() {
         auto& lvl = the_world.current_level();
 
-        auto const def = database.find(make_id<entity_id>("player"));
+        auto const id  = make_id<entity_id>("player");
+        auto const def = database.find(id);
         BK_ASSERT(!!def);
 
-        auto const result = add_entity_at(create_entity(*def), lvl.stair_up(0));
+        auto const result = add_entity_at(create_entity(*def), id, lvl.stair_up(0));
         BK_ASSERT(result.second == placement_result::ok);
     }
 
     void generate_entities() {
         auto& lvl = the_world.current_level();
 
-        auto const def = database.find(make_id<entity_id>("rat_small"));
+        auto const id  = make_id<entity_id>("rat_small");
+        auto const def = database.find(id);
         BK_ASSERT(!!def);
 
         auto ent = create_entity(*def);
@@ -344,9 +346,9 @@ struct game_state {
             }
 
             point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
-                           , region.bounds.y0 + region.bounds.height() / 2};
+                             , region.bounds.y0 + region.bounds.height() / 2};
 
-            auto const result = add_entity_near(std::move(ent), p, 3, rng_substantive);
+            auto const result = add_entity_near(std::move(ent), id, p, 3, rng_substantive);
             if (result.second == placement_result::ok) {
                 ent.reset(create_entity(*def).release());
             }
@@ -356,7 +358,8 @@ struct game_state {
     void generate_items() {
         auto& lvl = the_world.current_level();
 
-        auto const def = database.find(make_id<item_id>("weapon_dagger"));
+        auto const id  = make_id<item_id>("weapon_dagger");
+        auto const def = database.find(id);
         BK_ASSERT(!!def);
 
         auto itm = create_item(*def);
@@ -368,9 +371,9 @@ struct game_state {
             }
 
             point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
-                           , region.bounds.y0 + region.bounds.height() / 2};
+                             , region.bounds.y0 + region.bounds.height() / 2};
 
-            auto const result = add_item_near(std::move(itm), p, 3, rng_substantive);
+            auto const result = add_item_near(std::move(itm), id, p, 3, rng_substantive);
             if (result.second == placement_result::ok) {
                 itm.reset(create_item(*def).release());
             }
@@ -648,6 +651,7 @@ struct game_state {
             do_debug_teleport_self();
             break;
         default:
+            BK_ASSERT(false);
             break;
         }
     }
@@ -655,11 +659,41 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void update_renderer(entity const& e, point2i32 const p_old, point2i32 const p_new) {
-        entity_updates_.push_back({p_old, p_new, e.definition()});
+    void renderer_update(entity_id const id, point2i32 const p_old, point2i32 const p_new) {
+        entity_updates_.push_back({p_old, p_new, id});
+    }
+
+    void renderer_update(item_id const id, point2i32 const p_old, point2i32 const p_new) {
+        item_updates_.push_back({p_old, p_new, id});
+    }
+
+    void renderer_update(entity const& e, point2i32 const p_old, point2i32 const p_new) {
+        renderer_update(e.definition(), p_old, p_new);
+    }
+
+    void renderer_update(item const& i, point2i32 const p_old, point2i32 const p_new) {
+        renderer_update(i.definition(), p_old, p_new);
+    }
+
+    void renderer_add(entity_id const id, point2i32 const p) {
+        renderer_update(id, p, p);
+    }
+
+    void renderer_add(item_id const id, point2i32 const p) {
+        renderer_update(id, p, p);
+    }
+
+    void renderer_remove_item(point2i32 const p) {
+        item_updates_.push_back({p, p, item_id {}});
+    }
+
+    void renderer_remove_entity(point2i32 const p) {
+        entity_updates_.push_back({p, p, entity_id {}});
     }
 
     void do_debug_teleport_self() {
+        message_window.println("Teleport where?");
+
         input_context c;
 
         c.on_mouse_button_handler =
@@ -696,34 +730,49 @@ struct game_state {
     }
 
     void do_get_all_items() {
-        auto& lvl = the_world.current_level();
-        auto const player = get_player();
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+        auto const p           = player_info.second;
+        auto&      lvl         = the_world.current_level();
+
+        // lookup an item from its instance id
+        auto const get_item = [&](item_instance_id const id) noexcept -> item const& {
+            auto* const itm = the_world.find(id);
+            BK_ASSERT(!!itm);
+            return *itm;
+        };
+
+        // get the (possibly undefined) name for an item
+        auto const get_item_name = [&](item const& itm) noexcept {
+            auto* const def = database.find(itm.definition());
+            return def
+              ? def->name.c_str()
+              : "{undefined}";
+        };
 
         static_string_buffer<128> buffer;
 
-        auto const result = lvl.move_items(player.second, player.first
-          , [&](item_instance_id const id) noexcept {
-                auto* const itm = the_world.find(id);
-                BK_ASSERT(!!itm);
+        auto const pickup_item = [&](item_instance_id const id) noexcept {
+            auto const& itm  = get_item(id);
 
-                auto* const idef = database.find(itm->definition());
+            buffer.clear();
+            buffer.append("Picked up %s.", get_item_name(itm));
 
-                buffer.clear();
-                buffer.append("Picked up %s.", idef ? idef->name.c_str() : "{unknown}");
+            message_window.println(buffer.to_string());
 
-                message_window.println(buffer.to_string());
+            inventory.add_row(id); // TODO temp
 
-                inventory.add_row(id); // TODO temp
+            return item_merge_result::ok;
+        };
 
-                return item_merge_result::ok;
-            });
+        auto const result = lvl.move_items(p, player, pickup_item);
 
         switch (result) {
         case merge_item_result::ok_merged_none:
             break;
         case merge_item_result::ok_merged_some:
         case merge_item_result::ok_merged_all:
-            item_updates_.push_back({player.second, player.second, item_id {}});
+            renderer_remove_item(p);
             inventory.layout(); // TODO temp
             break;
         case merge_item_result::failed_bad_source:
@@ -748,12 +797,13 @@ struct game_state {
         def->modify_health(-1);
 
         if (!def->is_alive()) {
-            auto const idef = database.find(make_id<item_id>("potion_health_small"));
+            auto const id   = make_id<item_id>("potion_health_small");
+            auto const idef = database.find(id);
             BK_ASSERT(!!idef);
 
-            add_item_at(create_item(*idef), def_pos);
+            add_item_at(create_item(*idef), id, def_pos);
             lvl.remove_entity(def->instance());
-            entity_updates_.push_back({def_pos, def_pos, entity_id {}});
+            renderer_remove_entity(def_pos);
         }
 
         advance(1);
@@ -766,10 +816,15 @@ struct game_state {
         BK_ASSERT(type == command_type::move_down
                || type == command_type::move_up);
 
-        auto const player = get_player();
+        auto& cur_lvl = the_world.current_level();
+
+        auto const player          = get_player();
+        auto const player_p        = player.second;
+        auto const player_instance = player.first.instance();
+        auto const player_id       = player.first.definition();
 
         auto const delta = [&]() noexcept {
-            auto const tile   = the_world.current_level().at(player.second);
+            auto const tile = cur_lvl.at(player_p);
 
             auto const tile_code = (tile.id == tile_id::stair_down)  ? 1
                                  : (tile.id == tile_id::stair_up)    ? 2
@@ -804,7 +859,7 @@ struct game_state {
             return;
         }
 
-        auto const id = static_cast<ptrdiff_t>(the_world.current_level().id());
+        auto const id = static_cast<ptrdiff_t>(cur_lvl.id());
         if (id + delta < 0) {
             message_window.println("You can't leave.");
             return;
@@ -812,8 +867,7 @@ struct game_state {
 
         auto const next_id = static_cast<size_t>(id + delta);
 
-        auto player_ent = the_world.current_level()
-          .remove_entity(player.first.instance());
+        auto player_ent = cur_lvl.remove_entity(player_instance);
 
         if (!the_world.has_level(next_id)) {
             generate(next_id);
@@ -821,11 +875,13 @@ struct game_state {
             set_current_level(next_id);
         }
 
+        // the level has been changed at this point
+
         auto const p = (delta > 0)
           ? the_world.current_level().stair_up(0)
           : the_world.current_level().stair_down(0);
 
-        add_entity_near(std::move(player_ent), p, 5, rng_substantive);
+        add_entity_near(std::move(player_ent), player_id, p, 5, rng_substantive);
 
         reset_view_to_player();
     }
@@ -843,13 +899,15 @@ struct game_state {
 
         switch (result) {
         case placement_result::ok:
-            update_renderer(player, p_cur, p_dst);
+            renderer_update(player, p_cur, p_dst);
             break;
         case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
         case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
         case placement_result::failed_bounds:   BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_bad_id:   BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bad_id:
+            break;
         default:
+            BK_ASSERT(false);
             break;
         }
 
@@ -869,7 +927,7 @@ struct game_state {
 
         switch (result) {
         case placement_result::ok:
-            update_renderer(player, p_cur, p_dst);
+            renderer_update(player, p_cur, p_dst);
             advance(1);
             break;
         case placement_result::failed_entity:
@@ -879,8 +937,10 @@ struct game_state {
             interact_obstacle(player, p_cur, p_dst);
             break;
         case placement_result::failed_bounds: BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_bad_id: BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bad_id:
+            break;
         default :
+            BK_ASSERT(false);
             break;
         }
 
@@ -914,44 +974,48 @@ struct game_state {
 
     using placement_pair = std::pair<point2i32, placement_result>;
 
-    placement_pair add_item_near(unique_item&& i, point2i32 const p, int32_t const distance, random_state& rng) {
-        auto const itm = the_world.find(i.get());
-        BK_ASSERT(!!itm);
-
-        item_id const def = itm->definition();
-
+    placement_pair add_item_near(unique_item&& i, item_id const id, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const result = the_world.current_level()
           .add_item_nearest_random(rng, std::move(i), p, distance);
 
         if (result.second == placement_result::ok) {
-            item_updates_.push_back({p, p, def});
+            renderer_add(id, p);
         }
 
         return result;
     }
 
-    placement_pair add_entity_near(unique_entity&& e, point2i32 const p, int32_t const distance, random_state& rng) {
-        auto const ent = the_world.find(e.get());
-        BK_ASSERT(!!ent);
-
-        entity_id const def = ent->definition();
-
+    placement_pair add_entity_near(unique_entity&& e, entity_id const id, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const result = the_world.current_level()
           .add_entity_nearest_random(rng, std::move(e), p, distance);
 
         if (result.second == placement_result::ok) {
-            entity_updates_.push_back({result.first, result.first, def});
+            renderer_add(id, p);
         }
 
         return result;
     }
 
-    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
-        return add_item_near(std::move(i), p, 0, rng_superficial);
+    placement_pair add_item_at(unique_item&& i, item_id const id, point2i32 const p) {
+        auto const result =
+            the_world.current_level().add_item_at(std::move(i), p);
+
+        if (result == placement_result::ok) {
+            renderer_add(id, p);
+        }
+
+        return {p, result};
     }
 
-    placement_pair add_entity_at(unique_entity&& e, point2i32 const p) {
-        return {p, the_world.current_level().add_entity_at(std::move(e), p)};
+    placement_pair add_entity_at(unique_entity&& e, entity_id const id, point2i32 const p) {
+        auto const result =
+            the_world.current_level().add_entity_at(std::move(e), p);
+
+        if (result == placement_result::ok) {
+            renderer_add(id, p);
+        }
+
+        return {p, result};
     }
 
     void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
