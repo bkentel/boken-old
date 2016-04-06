@@ -72,6 +72,29 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    bool show() noexcept final override {
+        bool const result = is_visible_;
+        is_visible_ = true;
+        return result;
+    }
+
+    bool hide() noexcept final override {
+        bool const result = is_visible_;
+        is_visible_ = false;
+        return result;
+    }
+
+    bool is_visible() const noexcept final override {
+        return is_visible_;
+    }
+
+    bool toggle_visible() noexcept final override {
+        bool const result = is_visible_;
+        is_visible_ = !is_visible_;
+        return result;
+    }
+
+    //--------------------------------------------------------------------------
     size_t size() const noexcept final override {
         return rows();
     }
@@ -169,18 +192,30 @@ public:
         indicated_ = n;
     }
 
-    void indicate_next(int const n) final override {
-        BK_ASSERT(n >= 0 && indicated_ >= 0);
+    void indicate_change_(int const n) noexcept {
+        auto const n_rows = rows();
 
-        indicated_ = static_cast<int>(
-            static_cast<size_t>(indicated_ + n) % rows());
+        BK_ASSERT(indicated_ >= 0);
+        auto const i = static_cast<size_t>(indicated_);
+        BK_ASSERT(i <= n_rows);
+
+        if (n_rows <= 0) {
+            indicated_ = 0;
+            return;
+        }
+
+        auto const m = (n < 0 ? static_cast<size_t>(-n)
+                              : static_cast<size_t>(n)) % n_rows;
+
+        indicated_ = static_cast<int>((i + m) % n_rows);
+    }
+
+    void indicate_next(int const n) final override {
+        indicate_change_(n);
     }
 
     void indicate_prev(int const n) final override {
-        BK_ASSERT(n >= 0 && indicated_ >= 0);
-
-        indicated_ = static_cast<int>(rows())
-            - static_cast<int>(static_cast<size_t>(n) % rows());
+        indicate_change_(-n);
     }
 
     //--------------------------------------------------------------------------
@@ -250,6 +285,11 @@ public:
               , selected_.data() + selected_.size()};
     }
 
+    bool is_selected(int const row) const noexcept final override {
+        return std::any_of(begin(selected_), end(selected_)
+          , [row](int const r) noexcept { return row == r; });
+    }
+
     column_info col(int const index) const noexcept final override {
         BK_ASSERT(index >= 0);
         auto const i = static_cast<size_t>(index);
@@ -304,6 +344,8 @@ private:
 
     std::vector<col_data> cols_;
     std::vector<row_data> rows_;
+
+    bool is_visible_ = true;
 };
 
 std::unique_ptr<inventory_list> make_inventory_list(
@@ -416,10 +458,6 @@ inventory_list_impl::hit_test(point2i32 const p0) const noexcept {
         , [p](col_data const& col) noexcept {
             return p.x >= col.left && p.x < col.right;
         }));
-
-    if (rows() <= 0) {
-        return {type::empty, 0, 0};
-    }
 
     auto const row_i = static_cast<int32_t>(distance_to_matching_or(rows_, -1
         , [p](row_data const& row) noexcept {

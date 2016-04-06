@@ -440,12 +440,18 @@ struct game_state {
     // UI Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
+        return true;
     }
 
     bool ui_on_text_input(text_input_event const event) {
+        return true;
     }
 
     bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        if (!inventory.is_visible()) {
+            return true;
+        }
+
         if (event.button_state_bits() != 1
          || event.button_change[0] != mouse_event::button_change_t::went_down
         ) {
@@ -497,6 +503,10 @@ struct game_state {
     }
 
     bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        if (!inventory.is_visible()) {
+            return true;
+        }
+
         auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
         if (!hit_test) {
             return true;
@@ -525,9 +535,30 @@ struct game_state {
     }
 
     bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        return true;
     }
 
     bool ui_on_command(command_type const type, uintptr_t const data) {
+        if (!inventory.is_visible()) {
+            return true;
+        }
+
+        auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
+        if (!hit_test) {
+            return true;
+        }
+
+        if (type == command_type::move_n) {
+            inventory.indicate_prev();
+        } else if (type == command_type::move_s) {
+            inventory.indicate_next();
+        } else if (type == command_type::cancel) {
+            inventory.hide();
+        } else {
+            return true;
+        }
+
+        return false;
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -693,9 +724,11 @@ struct game_state {
         current_view.y_off += value_cast_unsafe<float>(p_window.y) - value_cast(p_window_new.y);
     }
 
-    void on_command(command_type const type, uintptr_t const data) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_command, type, data)) {
+    void on_command(command_type const type, uint64_t const data) {
+        // first, allow ui a chance to filter events, then event listeners
+        if (!ui_on_command(type, data)
+         || !process_context_stack(&input_context::on_command, type, data)
+        ) {
             return;
         }
 
@@ -719,6 +752,8 @@ struct game_state {
 
         case ct::get_all_items : do_get_all_items(); break;
 
+        case ct::toggle_show_inventory : inventory.toggle_visible(); break;
+
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
@@ -730,6 +765,8 @@ struct game_state {
             break;
         case ct::debug_teleport_self :
             do_debug_teleport_self();
+            break;
+        case ct::cancel :
             break;
         default:
             BK_ASSERT(false);

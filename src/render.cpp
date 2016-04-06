@@ -425,7 +425,7 @@ void game_renderer_impl::render_message_log_() const noexcept {
 }
 
 void game_renderer_impl::render_inventory_list_() const noexcept {
-    if (!inventory_list_) {
+    if (!inventory_list_ || !inventory_list_->is_visible()) {
         return;
     }
 

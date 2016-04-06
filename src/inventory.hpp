@@ -74,6 +74,13 @@ public:
     virtual text_layout const& title() const noexcept = 0;
     virtual layout_metrics metrics() const noexcept = 0;
     virtual vec2i32 scroll_offset() const noexcept = 0;
+
+    //--------------------------------------------------------------------------
+    virtual bool show() noexcept = 0;
+    virtual bool hide() noexcept = 0;
+    virtual bool is_visible() const noexcept = 0;
+    virtual bool toggle_visible() noexcept = 0;
+
     //--------------------------------------------------------------------------
     virtual size_t size()  const noexcept = 0;
     virtual bool   empty() const noexcept = 0;
@@ -114,6 +121,7 @@ public:
     virtual void selection_union(std::initializer_list<int> rows) = 0;
     virtual void selection_clear() = 0;
     virtual std::pair<int const*, int const*> get_selection() const = 0;
+    virtual bool is_selected(int row) const noexcept = 0;
 
     //--------------------------------------------------------------------------
     virtual column_info col(int index) const noexcept = 0;
