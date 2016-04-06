@@ -483,9 +483,19 @@ struct game_state {
         case type::header:
             buffer.append("Header (%d, %d)", hit_test.x, hit_test.y);
             break;
-        case type::cell:
-            buffer.append("Cell (%d, %d)", hit_test.x, hit_test.y);
+        case type::cell: {
+            auto* const itm = the_world.find(inventory.row_data(hit_test.y));
+            BK_ASSERT(!!itm);
+            auto* const def = database.find(itm->definition());
+
+            buffer.append("Cell (%d, %d) = %s"
+              , hit_test.x
+              , hit_test.y
+              , def ? def->name.c_str() : "{undefined}"
+            );
+
             break;
+        }
         case type::title:
             buffer.append("Title (%d, %d)", hit_test.x, hit_test.y);
             break;
@@ -525,21 +535,43 @@ struct game_state {
 
         using type = inventory_list::hit_test_result::type;
 
-        if (hit_test.what == type::title
-         && event.button_state_bits() == 1
-        ) {
+        switch (hit_test.what) {
+        case type::empty: break;
+        case type::header:
+            break;
+        case type::cell:
+            inventory.indicate(hit_test.y);
+            break;
+        case type::title:
+            if (event.button_state_bits() != 1) {
+                break;
+            }
+
             inventory.move_by(point2i32 {event.x, event.y}
                             - point2i32 {last_mouse_x, last_mouse_y});
-        }
+            break;
+        case type::frame:
+            if (event.button_state_bits() != 1) {
+                break;
+            }
 
-        if (hit_test.what == type::frame
-         && event.button_state_bits() == 1
-        ) {
             inventory.resize_by(
                 event.x - last_mouse_x
               , event.y - last_mouse_y
               , hit_test.x
               , hit_test.y);
+
+            break;
+        case type::button_close:
+            break;
+        case type::scroll_bar_v:
+            break;
+        case type::scroll_bar_h:
+            break;
+        case type::none: BK_ATTRIBUTE_FALLTHROUGH;
+        default:
+            BK_ASSERT(false);
+            break;
         }
 
         return false;

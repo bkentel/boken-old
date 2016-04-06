@@ -122,6 +122,7 @@
     <ClCompile Include="src\test\rect.t.cpp" />
     <ClCompile Include="src\test\serialize.t.cpp" />
     <ClCompile Include="src\test\spatial_map.t.cpp" />
+    <ClCompile Include="src\test\types.t.cpp" />
     <ClCompile Include="src\test\unicode.t.cpp" />
     <ClCompile Include="src\test\utility.t.cpp" />
     <ClCompile Include="src\text.cpp" />

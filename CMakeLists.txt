@@ -80,6 +80,7 @@ set(SOURCES_TEST
     src/test/rect.t.cpp
     src/test/serialize.t.cpp
     src/test/spatial_map.t.cpp
+    src/test/types.t.cpp
     src/test/unicode.t.cpp
     src/test/utility.t.cpp)
 

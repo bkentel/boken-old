@@ -187,7 +187,7 @@ public:
         return indicated_;
     }
 
-    void indicate(int const n) final override {
+    void indicate(int const n) noexcept final override {
         BK_ASSERT(n >= 0 && static_cast<size_t>(n) <= rows());
         indicated_ = n;
     }
@@ -211,11 +211,11 @@ public:
         indicated_ = static_cast<int>((i + m) % n_rows);
     }
 
-    void indicate_next(int const n) final override {
+    void indicate_next(int const n) noexcept final override {
         indicate_change_(n);
     }
 
-    void indicate_prev(int const n) final override {
+    void indicate_prev(int const n) noexcept final override {
         indicate_change_(-n);
     }
 
@@ -234,16 +234,18 @@ public:
     ) final override;
 
     void add_row(item_instance_id const id) final override {
-        row_data row;
+        row_t row;
         row.reserve(cols());
 
         auto const& itm = lookup_(id);
 
-        for (size_t i = 0; i < cols(); ++i) {
-            row.push_back({trender_, cols_[i].getter(itm), cols_[i].max_width, sizei16y {}});
-        }
+        std::transform(begin(cols_), end(cols_), back_inserter(row)
+          , [&](col_data const& col) {
+                return text_layout {trender_, col.getter(itm), col.max_width, sizei16y {}};
+            });
 
         rows_.push_back(std::move(row));
+        row_data_.push_back(id);
     }
 
     //--------------------------------------------------------------------------
@@ -306,6 +308,7 @@ public:
               , col.id};
     }
 
+    //--------------------------------------------------------------------------
     std::pair<text_layout const*, text_layout const*>
     row(int const index) const noexcept final override {
         BK_ASSERT(index >= 0);
@@ -317,6 +320,15 @@ public:
               , row.data() + row.size()};
     }
 
+    item_instance_id row_data(int index) const noexcept final override {
+        BK_ASSERT(index >= 0);
+        auto const i = static_cast<size_t>(index);
+        BK_ASSERT(i < rows());
+
+        return row_data_[i];
+    }
+
+    //--------------------------------------------------------------------------
     void layout() noexcept final override;
 private:
 
@@ -331,7 +343,7 @@ private:
         uint8_t     id;
     };
 
-    using row_data = std::vector<text_layout>;
+    using row_t = std::vector<text_layout>;
 
     text_renderer& trender_;
     lookup_f       lookup_;
@@ -344,8 +356,9 @@ private:
     int indicated_ {0};
     std::vector<int> selected_;
 
-    std::vector<col_data> cols_;
-    std::vector<row_data> rows_;
+    std::vector<col_data>         cols_;
+    std::vector<row_t>            rows_;
+    std::vector<item_instance_id> row_data_;
 
     bool is_visible_ = true;
 };
@@ -462,7 +475,7 @@ inventory_list_impl::hit_test(point2i32 const p0) const noexcept {
         }));
 
     auto const row_i = static_cast<int32_t>(distance_to_matching_or(rows_, -1
-        , [p](row_data const& row) noexcept {
+        , [p](row_t const& row) noexcept {
             if (row.empty()) {
                 return false;
             }
@@ -495,7 +508,7 @@ void inventory_list_impl::layout() noexcept {
         }
 
         auto const& row = *std::max_element(first, last
-            , [i](row_data const& lhs, row_data const& rhs) noexcept {
+            , [i](row_t const& lhs, row_t const& rhs) noexcept {
                 return lhs[i].extent().width() < rhs[i].extent().width();
             });
 

@@ -64,6 +64,9 @@
     <ClCompile Include="src\test\rect.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="src\test\types.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />

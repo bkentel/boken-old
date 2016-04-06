@@ -101,9 +101,9 @@ public:
 
     //--------------------------------------------------------------------------
     virtual int  indicated() const noexcept = 0;
-    virtual void indicate(int n) = 0;
-    virtual void indicate_next(int n = 1) = 0;
-    virtual void indicate_prev(int n = 1) = 0;
+    virtual void indicate(int n) noexcept = 0;
+    virtual void indicate_next(int n = 1) noexcept = 0;
+    virtual void indicate_prev(int n = 1) noexcept = 0;
 
     //--------------------------------------------------------------------------
     virtual void reserve(size_t cols, size_t rows) = 0;
@@ -130,6 +130,8 @@ public:
     //--------------------------------------------------------------------------
     virtual std::pair<text_layout const*, text_layout const*>
         row(int index) const noexcept = 0;
+
+    virtual item_instance_id row_data(int index) const noexcept = 0;
 
     //--------------------------------------------------------------------------
     virtual void layout() noexcept = 0;
