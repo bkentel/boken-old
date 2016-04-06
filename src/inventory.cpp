@@ -302,6 +302,7 @@ public:
         return {col.text
               , col.min_width
               , col.max_width
+              , col.right - col.left
               , col.id};
     }
 

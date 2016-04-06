@@ -190,7 +190,18 @@ struct game_state {
                 return def ? def->name : "{unknown}";
             });
 
-        inventory.add_column(2, "Id"
+        inventory.add_column(2, "Weight"
+          , [&](item const& itm) {
+                auto const weight = property_value_or(
+                    database
+                  , itm.definition()
+                  , make_id<item_property_id>("weight")
+                  , item_property_value {0});
+
+                return std::to_string(weight);
+            });
+
+        inventory.add_column(3, "Id"
           , [&](item const& itm) {
                 auto const def = database.find(itm.definition());
                 return def ? def->id_string : "{unknown}";
@@ -915,11 +926,30 @@ struct game_state {
         def->modify_health(-1);
 
         if (!def->is_alive()) {
-            auto const id   = make_id<item_id>("potion_health_small");
-            auto const idef = database.find(id);
-            BK_ASSERT(!!idef);
+            auto const id = [&] {
+                auto const n = random_weighted(rng_superficial, weight_list<int, int> {
+                    {5,  0} // 0~5 -> 6/10
+                  , {9,  1} // 6-9 -> 3/10
+                  , {10, 2} // 10  -> 1/10
+                });
 
-            add_item_at(create_item(*idef), id, def_pos);
+                if (n == 0) {
+                    return item_id {};
+                } else if (n == 1) {
+                    return make_id<item_id>("coin");
+                }
+
+                BK_ASSERT(n == 2);
+
+                return make_id<item_id>("potion_health_small");
+            }();
+
+            if (value_cast(id)) {
+                auto const idef = database.find(id);
+                BK_ASSERT(!!idef);
+                add_item_at(create_item(*idef), id, def_pos);
+            }
+
             lvl.remove_entity(def->instance());
             renderer_remove_entity(def_pos);
         }

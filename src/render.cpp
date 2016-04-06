@@ -479,6 +479,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         return; // TODO
     }
 
+    // fill in any gap between the title and the client area
     auto const gap = m.client_frame.y0 - m.title.y1;
     if (gap > sizei32y {0}) {
         auto const r = recti32 {
@@ -537,6 +538,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         }
     }
 
+    // fill unused background
     if (last_y < value_cast(m.client_frame.y1)) {
         auto const r = recti32 {
             m.client_frame.x0
@@ -546,6 +548,18 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         };
 
         os_.render_fill_rect(r, color_row_even);
+    }
+
+    for (size_t i = 0; i < inv_window.cols(); ++i) {
+        auto const info = inv_window.col(static_cast<int>(i));
+        auto const r = recti32 {
+            info.text.position().x + info.width + v.x
+          , m.client_frame.y0
+          , sizei32x {2}
+          , m.client_frame.height()
+        };
+
+        os_.render_fill_rect(r, color_border);
     }
 }
 

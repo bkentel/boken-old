@@ -64,6 +64,7 @@ public:
         text_layout const& text;
         sizei16x min_width;
         sizei16x max_width;
+        sizei16x width;
         uint8_t  id;
     };
 

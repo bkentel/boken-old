@@ -1,11 +1,22 @@
 {
   "type": "items",
   "data": {
+    "coin": {
+      "name": "coin",
+      "properties": {
+        "type": "currency",
+        "sub_type": "coin",
+        "weight": 10,
+        "stack_size": -1,
+        "tile_index": 15
+      }
+    },
     "weapon_dagger": {
       "name": "dagger",
       "properties": {
         "type": "weapon",
         "sub_type": "dagger",
+        "weight": 1200,
         "tile_index": 3,
         "damage_max": 3,
         "damage_var": 0.1,
@@ -17,6 +28,8 @@
       "properties": {
         "type": "consumable",
         "sub_type": "potion",
+        "weight": 800,
+        "stack_size": 5,
         "tile_index": 4,
         "effect": "heal_hp",
         "effect_max": 10,
