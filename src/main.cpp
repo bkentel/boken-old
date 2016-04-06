@@ -18,6 +18,7 @@
 #include "utility.hpp"      // for BK_OFFSETOF
 #include "world.hpp"        // for world, make_world
 #include "inventory.hpp"
+#include "scope_guard.hpp"
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
@@ -76,15 +77,15 @@ inline constexpr T make_id(char const (&s)[N]) noexcept {
     return T {djb2_hash_32c(s)};
 }
 
+enum event_result {
+    filter              //!< filter the event
+  , filter_detach       //!< detach and filter the event
+  , pass_through        //!< pass through to the next handler
+  , pass_through_detach //!< detach and pass through to the next handler
+};
+
 class input_context {
 public:
-    enum event_result {
-        filter              //!< filter the event
-      , filter_detach       //!< detach and filter the event
-      , pass_through        //!< pass through to the next handler
-      , pass_through_detach //!< detach and pass through to the next handler
-    };
-
     event_result on_key(kb_event const event, kb_modifiers const kmods) {
         return on_key_handler
           ? on_key_handler(event, kmods)
@@ -436,17 +437,109 @@ struct game_state {
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // UI Events
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
+    }
+
+    bool ui_on_text_input(text_input_event const event) {
+    }
+
+    bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        if (event.button_state_bits() != 1
+         || event.button_change[0] != mouse_event::button_change_t::went_down
+        ) {
+            return true;
+        }
+
+        auto const hit_test = inventory.hit_test({event.x, event.y});
+        if (!hit_test) {
+            return true;
+        }
+
+        using type = inventory_list::hit_test_result::type;
+        static_string_buffer<128> buffer;
+
+        switch (hit_test.what) {
+        case type::none:  break;
+        case type::empty: break;
+        case type::header:
+            buffer.append("Header (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::cell:
+            buffer.append("Cell (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::title:
+            buffer.append("Title (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::frame:
+            buffer.append("Frame (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::button_close:
+            buffer.append("Button (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::scroll_bar_v:
+            buffer.append("Scroll V (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        case type::scroll_bar_h:
+            buffer.append("Scroll H (%d, %d)", hit_test.x, hit_test.y);
+            break;
+        default:
+            BK_ASSERT(false);
+            break;
+        }
+
+        if (!buffer.empty()) {
+            message_window.println(buffer.to_string());
+        }
+
+        return false;
+    }
+
+    bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
+        if (!hit_test) {
+            return true;
+        }
+
+        using type = inventory_list::hit_test_result::type;
+
+        if (hit_test.what == type::title
+         && event.button_state_bits() == 1
+        ) {
+            inventory.move_by(point2i32 {event.x, event.y}
+                            - point2i32 {last_mouse_x, last_mouse_y});
+        }
+
+        if (hit_test.what == type::frame
+         && event.button_state_bits() == 1
+        ) {
+            inventory.resize_by(
+                event.x - last_mouse_x
+              , event.y - last_mouse_y
+              , hit_test.x
+              , hit_test.y);
+        }
+
+        return false;
+    }
+
+    bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+    }
+
+    bool ui_on_command(command_type const type, uintptr_t const data) {
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     //! @return true if events were not filtered, false otherwise.
     template <typename... Args0, typename... Args1>
     bool process_context_stack(
-        input_context::event_result (input_context::* handler)(Args0...)
+        event_result (input_context::* handler)(Args0...)
       , Args1&&... args
     ) {
-        using result = input_context::event_result;
-
         // as a stack: back to front
         for (auto i = context_stack.size(); i > 0; --i) {
             // size == 1 ~> index == 0
@@ -455,17 +548,17 @@ struct game_state {
                 (context_stack[where].*handler)(std::forward<Args1>(args)...);
 
             switch (r) {
-            case result::filter_detach :
+            case event_result::filter_detach :
                 context_stack.erase(
                     begin(context_stack) + static_cast<ptrdiff_t>(where));
                 BK_ATTRIBUTE_FALLTHROUGH;
-            case result::filter :
+            case event_result::filter :
                 return false;
-            case result::pass_through_detach :
+            case event_result::pass_through_detach :
                 context_stack.erase(
                     begin(context_stack) + static_cast<ptrdiff_t>(where));
                 BK_ATTRIBUTE_FALLTHROUGH;
-            case result::pass_through :
+            case event_result::pass_through :
                 break;
             default:
                 BK_ASSERT(false);
@@ -508,8 +601,10 @@ struct game_state {
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_mouse_button, event, kmods)) {
+        // first, allow ui a chance to filter events, then event listeners
+        if (!ui_on_mouse_button(event, kmods)
+         || !process_context_stack(&input_context::on_mouse_button, event, kmods)
+        ) {
             return;
         }
 
@@ -517,25 +612,13 @@ struct game_state {
         case 0b0000 :
             // no buttons down
             break;
-        case 0b0001 : {
+        case 0b0001 :
             // left mouse button only
             if (event.button_change[0] == mouse_event::button_change_t::went_down) {
                 update_tile_at(window_to_world({event.x, event.y}));
             }
 
-            auto const hit_test = inventory.cell_at({event.x, event.y});
-            if (hit_test.what == inventory_list::hit_test_result::type::cell) {
-                static_string_buffer<128> buffer;
-                buffer.append("Cell (%d, %d)", hit_test.x, hit_test.y);
-                message_window.println(buffer.to_string());
-            } else if (hit_test.what == inventory_list::hit_test_result::type::header) {
-                static_string_buffer<128> buffer;
-                buffer.append("Header (%d, %d)", hit_test.x, hit_test.y);
-                message_window.println(buffer.to_string());
-            }
-
             break;
-        }
         case 0b0010 :
             // middle mouse button only
             break;
@@ -551,8 +634,16 @@ struct game_state {
     }
 
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_mouse_move, event, kmods)) {
+        // always update the mouse position
+        auto on_exit = BK_SCOPE_EXIT {
+            last_mouse_x = event.x;
+            last_mouse_y = event.y;
+        };
+
+        // first, allow ui a chance to filter events, then event listeners
+        if (!ui_on_mouse_move(event, kmods)
+         || !process_context_stack(&input_context::on_mouse_move, event, kmods)
+        ) {
             return;
         }
 
@@ -563,16 +654,9 @@ struct game_state {
                 show_tool_tip({event.x, event.y});
             }
             break;
-        case 0b0001 : {
+        case 0b0001 :
             // left mouse button only
-
-            if (inventory.cell_at({last_mouse_x, last_mouse_y})) {
-                inventory.move_by(point2i32 {event.x, event.y}
-                                - point2i32 {last_mouse_x, last_mouse_y});
-            }
-
             break;
-        }
         case 0b0010 :
             // middle mouse button only
             break;
@@ -589,9 +673,6 @@ struct game_state {
         default :
             break;
         }
-
-        last_mouse_x = event.x;
-        last_mouse_y = event.y;
     }
 
     void on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
@@ -699,7 +780,7 @@ struct game_state {
         c.on_mouse_button_handler =
             [&](mouse_event const event, kb_modifiers const kmods) {
                 if (event.button_state_bits() != 1u) {
-                    return input_context::event_result::filter;
+                    return event_result::filter;
                 }
 
                 auto const result =
@@ -707,23 +788,23 @@ struct game_state {
 
                 if (result != placement_result::ok) {
                     message_window.println("Invalid destination. Choose another.");
-                    return input_context::event_result::filter;
+                    return event_result::filter;
                 }
 
-                return input_context::event_result::filter_detach;
+                return event_result::filter_detach;
             };
 
         c.on_command_handler =
             [&](command_type const type, uint64_t) {
                 if (type == command_type::debug_teleport_self) {
                     message_window.println("Already teleporting.");
-                    return input_context::event_result::filter;
+                    return event_result::filter;
                 } else if (type == command_type::cancel) {
                     message_window.println("Canceled teleporting.");
-                    return input_context::event_result::filter_detach;
+                    return event_result::filter_detach;
                 }
 
-                return input_context::event_result::pass_through;
+                return event_result::pass_through;
             };
 
         context_stack.push_back(std::move(c));

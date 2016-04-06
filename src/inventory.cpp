@@ -1,11 +1,33 @@
 #include "inventory.hpp"
 #include "text.hpp"
 #include "math.hpp"
+#include "rect.hpp"
 
 #include "bkassert/assert.hpp"
 
 #include <algorithm>
 #include <vector>
+
+namespace {
+
+template <typename It, typename Predicate>
+static ptrdiff_t distance_to_matching_or(
+    It const first, It const last, ptrdiff_t const fallback, Predicate pred
+) noexcept {
+    auto const it = std::find_if(first, last, pred);
+    return (it == last) ? fallback : std::distance(first, it);
+}
+
+template <typename Container, typename Predicate>
+static ptrdiff_t distance_to_matching_or(
+    Container&& c, ptrdiff_t const fallback, Predicate pred
+) noexcept {
+    using std::begin;
+    using std::end;
+    return distance_to_matching_or(begin(c), end(c), fallback, pred);
+}
+
+} // namespace
 
 namespace boken {
 
@@ -13,55 +35,49 @@ inventory_list::~inventory_list() = default;
 
 class inventory_list_impl final : public inventory_list {
 public:
-    static constexpr sizei16x col_padding_ = int16_t {2};
-    static constexpr sizei16y row_padding_ = int16_t {2};
+    struct layout_config {
+        sizei16x frame_w = int16_t {4};
+        sizei16y frame_h = int16_t {4};
 
-    static constexpr sizei16x frame_w_ = int16_t {2};
-    static constexpr sizei16y frame_h_ = int16_t {2};
+        sizei16y client_off_y = int16_t {4};
 
+        sizei16x scroll_bar_w = int16_t {16};
+        sizei16y scroll_bar_h = int16_t {16};
+
+        sizei16x col_padding = int16_t {3};
+        sizei16y row_padding = int16_t {3};
+    };
+
+    //--------------------------------------------------------------------------
     explicit inventory_list_impl(text_renderer& trender, lookup_f lookup)
       : trender_ {trender}
       , lookup_ {std::move(lookup)}
+      , title_ {trender, "Inventory"}
     {
+        move_to({100, 100});
+        resize_to(500, 300);
     }
 
-    sizei32y header_height() const noexcept final override {
-        return trender_.line_gap();
+    //--------------------------------------------------------------------------
+    text_layout const& title() const noexcept final override {
+        return title_;
     }
 
-    sizei32y row_height(int const i) const noexcept final override {
-        BK_ASSERT(i > 0 && static_cast<size_t>(i) < rows());
-        return header_height();
+    layout_metrics metrics() const noexcept final override {
+        return metrics_;
     }
 
-    sizei32x col_width(int const i) const noexcept final override {
-        auto const info = col(i);
-        return info.right - info.left;
+    vec2i32 scroll_offset() const noexcept final override {
+        return {0, 0};
     }
 
-    point2i32 position() const noexcept final override {
-        return position_;
-    }
-
-    void move_to(point2i32 const p) noexcept final override {
-        move_by(p - position_);
-    }
-
-    void move_by(vec2i32 const v) noexcept final override {
-        position_ += v;
-    }
-
-    recti32 bounds() const noexcept final override {
-        return {position_, width_, height_};
-    }
-
-    void resize_to(sizei32x const w, sizei32y const h) noexcept final override {
-        width_  = w;
-        height_ = h;
-    }
-
+    //--------------------------------------------------------------------------
     size_t size() const noexcept final override {
         return rows();
+    }
+
+    bool empty() const noexcept final override {
+        return rows_.empty();
     }
 
     size_t rows() const noexcept final override {
@@ -72,10 +88,102 @@ public:
         return cols_.size();
     }
 
-    bool empty() const noexcept final override {
-        return rows_.empty();
+    //--------------------------------------------------------------------------
+    void resize_to(sizei32x const w, sizei32y const h) noexcept final override {
+        auto&       m = metrics_;
+        auto const& c = config_;
+
+        auto const title_w = title_.extent().width();
+        auto const title_h = title_.extent().height();
+
+        auto const min_w = title_w + c.frame_w * 2;
+        auto const min_h = title_h + c.client_off_y + c.frame_h * 2 + sizei32y {1};
+
+        auto const real_w = (w <= min_w)
+          ? min_w
+          : w;
+
+        auto const real_h = (h <= min_h)
+          ? min_h
+          : h;
+
+        // outer frame
+        m.frame.x1 = m.frame.x0 + real_w;
+        m.frame.y1 = m.frame.y0 + real_h;
+
+        // title bar
+        m.title.x0 = m.frame.x0 + c.frame_w;
+        m.title.x1 = m.frame.x1 - c.frame_w;
+        m.title.y0 = m.frame.y0 + c.frame_h;
+        m.title.y1 = m.title.y0 + title_.extent().height();
+
+        // client frame
+        m.client_frame.x0 = m.frame.x0 + c.frame_w;
+        m.client_frame.x1 = m.frame.x1 - c.frame_w;
+        m.client_frame.y0 = m.title.y1 + c.client_off_y;
+        m.client_frame.y1 = m.frame.y1 - c.frame_h;
     }
 
+    void resize_by(sizei32x const dw, sizei32y const dh, int const side_x, int const side_y) noexcept final override {
+        auto const real_dw = dw * (side_x < 0 ? -1 : side_x > 0 ? 1 : 0);
+        auto const real_dh = dh * (side_y < 0 ? -1 : side_y > 0 ? 1 : 0);
+
+        auto const w = metrics_.frame.width();
+        auto const h = metrics_.frame.height();
+
+        resize_to(w + real_dw, h + real_dh);
+
+        auto const v = vec2i32 {
+            (side_x < 0) ? -value_cast(real_dw) : 0
+          , (side_y < 0) ? -value_cast(real_dh) : 0
+        };
+
+        move_by(v);
+    }
+
+    void move_to(point2i32 const p) noexcept final override {
+        move_by(p - metrics_.frame.top_left());
+    }
+
+    void move_by(vec2i32 const v) noexcept final override {
+        auto& m = metrics_;
+
+        m.frame        += v;
+        m.client_frame += v;
+        m.title        += v;
+        m.close_button += v;
+        m.scroll_bar_v += v;
+        m.scroll_bar_h += v;
+    }
+
+    //--------------------------------------------------------------------------
+    hit_test_result hit_test(point2i32 const p0) const noexcept final override;
+
+    //--------------------------------------------------------------------------
+    int indicated() const noexcept final override {
+        return indicated_;
+    }
+
+    void indicate(int const n) final override {
+        BK_ASSERT(n >= 0 && static_cast<size_t>(n) <= rows());
+        indicated_ = n;
+    }
+
+    void indicate_next(int const n) final override {
+        BK_ASSERT(n >= 0 && indicated_ >= 0);
+
+        indicated_ = static_cast<int>(
+            static_cast<size_t>(indicated_ + n) % rows());
+    }
+
+    void indicate_prev(int const n) final override {
+        BK_ASSERT(n >= 0 && indicated_ >= 0);
+
+        indicated_ = static_cast<int>(rows())
+            - static_cast<int>(static_cast<size_t>(n) % rows());
+    }
+
+    //--------------------------------------------------------------------------
     void reserve(size_t const cols, size_t const rows) final override {
         cols_.reserve(cols);
         rows_.reserve(rows);
@@ -102,86 +210,7 @@ public:
         rows_.push_back(std::move(row));
     }
 
-    template <typename It, typename Predicate>
-    static ptrdiff_t distance_to_matching_or(
-        It const first, It const last, ptrdiff_t const fallback, Predicate pred
-    ) noexcept {
-        auto const it = std::find_if(first, last, pred);
-        return (it == last) ? fallback : std::distance(first, it);
-    }
-
-    template <typename Container, typename Predicate>
-    static ptrdiff_t distance_to_matching_or(
-        Container&& c, ptrdiff_t const fallback, Predicate pred
-    ) noexcept {
-        using std::begin;
-        using std::end;
-        return distance_to_matching_or(begin(c), end(c), fallback, pred);
-    }
-
-    int32_t col_at_(point2i32 const p) const noexcept {
-        return static_cast<int32_t>(distance_to_matching_or(cols_, -1
-          , [p](col_data const& col) noexcept {
-                return p.x >= col.left && p.x < col.right;
-            }));
-    }
-
-    int32_t row_at_(point2i32 const p) const noexcept {
-        return static_cast<int32_t>(distance_to_matching_or(rows_, -1
-          , [p](row_data const& row) noexcept {
-                if (row.empty()) {
-                    return false;
-                }
-
-                auto const extent = row[0].extent();
-                return p.y >= extent.y0 && p.y < extent.y1;
-            }));
-    }
-
-    hit_test_result cell_at(point2i32 const p0) const noexcept final override {
-        if (!intersects(bounds(), p0)) {
-            return {hit_test_result::type::none, -1, -1};
-        }
-
-        auto const p = p0 - (position() - point2i32 {});
-
-        auto const x = col_at_(p);
-        {
-            auto const top    = offi32y {};
-            auto const bottom = top + header_height();
-
-            if (p.y >= top && p.y < bottom) {
-                return {hit_test_result::type::header, x, 0};
-            }
-        }
-
-        auto const y = row_at_(p);
-
-        if (x < 0 || y < 0) {
-            return {hit_test_result::type::frame, x, y};
-        }
-
-        return {hit_test_result::type::cell, x, y};
-    }
-
-    int indicated() const noexcept final override {
-        return indicated_;
-    }
-
-    void indicate_next(int const n) final override {
-        BK_ASSERT(n >= 0 && indicated_ >= 0);
-
-        indicated_ = static_cast<int>(
-            static_cast<size_t>(indicated_ + n) % rows());
-    }
-
-    void indicate_prev(int const n) final override {
-        BK_ASSERT(n >= 0 && indicated_ >= 0);
-
-        indicated_ = static_cast<int>(rows())
-            - static_cast<int>(static_cast<size_t>(n) % rows());
-    }
-
+    //--------------------------------------------------------------------------
     void selection_set(std::initializer_list<int> const rows) final override {
         selection_clear();
         std::copy_if(begin(rows), end(rows), back_inserter(selected_)
@@ -230,8 +259,6 @@ public:
         auto const r = col.text.extent();
 
         return {col.text
-              , underlying_cast_unsafe<int16_t>(r.x0)
-              , underlying_cast_unsafe<int16_t>(r.x1)
               , col.min_width
               , col.max_width
               , col.id};
@@ -250,6 +277,8 @@ public:
 
     void layout() noexcept final override;
 private:
+
+private:
     struct col_data {
         text_layout text;
         get_f       getter;
@@ -265,9 +294,10 @@ private:
     text_renderer& trender_;
     lookup_f       lookup_;
 
-    point2i32 position_ {100, 100};
-    sizei32x  width_    {400};
-    sizei32y  height_   {200};
+    layout_config  config_;
+    layout_metrics metrics_;
+
+    text_layout title_;
 
     int indicated_ {0};
     std::vector<int> selected_;
@@ -332,13 +362,87 @@ void inventory_list_impl::add_column(
           , id});
 }
 
+inventory_list::hit_test_result
+inventory_list_impl::hit_test(point2i32 const p0) const noexcept {
+    auto const& m = metrics_;
+    auto const& c = config_;
+
+    using type = hit_test_result::type;
+
+    // no hit at all
+    if (!intersects(m.frame, p0)) {
+        return {type::none, -1, -1};
+    }
+
+    // check the frame border
+    if (!intersects(shrink_rect(m.frame, value_cast(c.frame_w)), p0)) {
+        int32_t const x = (abs(m.frame.x0 - p0.x) <= c.frame_w) ? -1
+                        : (abs(m.frame.x1 - p0.x) <= c.frame_w) ?  1
+                                                                :  0;
+
+        int32_t const y = (abs(m.frame.y0 - p0.y) <= c.frame_h) ? -1
+                        : (abs(m.frame.y1 - p0.y) <= c.frame_h) ?  1
+                                                                :  0;
+        return {type::frame, x, y};
+    }
+
+    // a hit, but not inside the client area
+    if (!intersects(m.client_frame, p0)) {
+        if (intersects(m.title, p0)) {
+            return {type::title, 0, 0};
+        } else if (intersects(m.close_button, p0)) {
+            return {type::button_close, 0, 0};
+        } else if (intersects(m.scroll_bar_v, p0)) {
+            return {type::scroll_bar_v, 0, 0};
+        } else if (intersects(m.scroll_bar_h, p0)) {
+            return {type::scroll_bar_h, 0, 0};
+        } else {
+            return {type::empty, 0, 0};
+        }
+    }
+
+    //
+    // a hit inside the client area
+    //
+
+    if (cols() <= 0) {
+        return {type::empty, 0, 0};
+    }
+
+    // a point relative to the client area
+    auto const p = point2i32 {} + (p0 - m.client_frame.top_left()) + scroll_offset();
+
+    auto const col_i = static_cast<int32_t>(distance_to_matching_or(cols_, -1
+        , [p](col_data const& col) noexcept {
+            return p.x >= col.left && p.x < col.right;
+        }));
+
+    if (rows() <= 0) {
+        return {type::empty, 0, 0};
+    }
+
+    auto const row_i = static_cast<int32_t>(distance_to_matching_or(rows_, -1
+        , [p](row_data const& row) noexcept {
+            if (row.empty()) {
+                return false;
+            }
+
+            auto const extent = row[0].extent();
+            return p.y >= extent.y0 && p.y < extent.y1;
+        }));
+
+    // a hit in the column header
+    if (row_i < 0) {
+        return {type::header, col_i, 0};
+    }
+
+    // a hit in a cell
+    return {type::cell, col_i, row_i};
+}
+
 void inventory_list_impl::layout() noexcept {
-    constexpr sizei16x col_padding = int16_t {4};
-
-    auto const header_h = value_cast_unsafe<int16_t>(header_height());
-
-    int32_t x = 0;
-    int32_t y = 0;
+    auto const& c = config_;
+    auto const& m = metrics_;
 
     auto const get_max_col_w = [&](size_t const i) noexcept {
         auto const header_w = cols_[i].text.extent().width();
@@ -358,27 +462,32 @@ void inventory_list_impl::layout() noexcept {
         return std::max(header_w, row[i].extent().width());
     };
 
+    int32_t x = 0;
+    int32_t header_h = 0;
+
     // layout column headers
     for (size_t i = 0; i < cols(); ++i) {
         auto& col = cols_[i];
 
         auto const w = clamp(get_max_col_w(i), col.min_width, col.max_width);
+        auto const h = col.text.extent().height();
 
         col.left  = static_cast<int16_t>(x);
-        col.right = col.left + underlying_cast_unsafe<int16_t>(w) + col_padding;
+        col.right = col.left + underlying_cast_unsafe<int16_t>(w) + c.col_padding;
 
-        col.text.move_to(value_cast(col.left), y);
+        col.text.move_to(value_cast(col.left), 0);
 
         x = value_cast(col.right);
+        header_h = std::max(header_h, value_cast(h));
     }
 
-    x = 0;
-    y = 0;
+    metrics_.header_h = header_h;
+    int32_t y = header_h;
 
     // resize cells
     for (size_t yi = 0; yi < rows(); ++yi) {
-        x =  0;
-        y += header_h;
+        int32_t max_h = 0;
+        x = 0;
 
         auto& row = rows_[yi];
 
@@ -386,8 +495,12 @@ void inventory_list_impl::layout() noexcept {
             auto const& col  = cols_[xi];
             auto&       cell = row[xi];
 
+            auto const h = cell.extent().height();
+            max_h = std::max(max_h, value_cast(h));
             cell.move_to(value_cast(col.left), y);
         }
+
+        y += max_h;
     }
 }
 

@@ -144,6 +144,12 @@ axis_aligned_rect<T> clamp(
           , offset_type_y<T> {clamp(r.y1, bounds.y0, bounds.y1)}};
 }
 
+template <typename T, typename TagAxis, typename TagType>
+constexpr basic_1_tuple<T, TagAxis, TagType>
+abs(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {
+    return {value_cast(n) < T {0} ? -value_cast(n) : value_cast(n)};
+}
+
 //! type-casted ceil
 template <typename R, typename T>
 inline constexpr R ceil_as(T const n) noexcept {

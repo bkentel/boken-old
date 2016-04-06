@@ -7,6 +7,7 @@
 #include "tile.hpp"
 #include "utility.hpp"
 #include "inventory.hpp"
+#include "scope_guard.hpp"
 
 #include <bkassert/assert.hpp>
 
@@ -429,13 +430,56 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     }
 
     auto const& inv_window = *inventory_list_;
+    auto const  m = inv_window.metrics();
 
-    auto const r = inv_window.bounds();
-    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-    os_.render_fill_rect(r, 0xDF666666u);
-    os_.render_set_clip_rect(r);
+    //TODO: move to renderer
+    auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h) {
+        auto const rw = value_cast(r.width());
+        auto const rh = value_cast(r.height());
 
-    auto const v = inv_window.position() - point2i32 {};
+        auto const x0 = value_cast(r.x0);
+        auto const y0 = value_cast(r.y0);
+        auto const x1 = value_cast(r.x1);
+        auto const y1 = value_cast(r.y1);
+
+        auto const color = 0xDF666666u;
+
+        auto const r_left   = recti32 {point2i32 {x0,     y0}, sizei32x {w}, sizei32y {rh}};
+        auto const r_right  = recti32 {point2i32 {x1 - w, y0}, sizei32x {w}, sizei32y {rh}};
+        auto const r_top    = recti32 {point2i32 {x0 + w, y0}, sizei32x {rw - 2*w}, sizei32y {h}};
+        auto const r_bottom = recti32 {point2i32 {x0 + w, y1 - h}, sizei32x {rw - 2*w}, sizei32y {h}};
+
+        os_.render_fill_rect(r_left, color);
+        os_.render_fill_rect(r_right, color);
+        os_.render_fill_rect(r_top, color);
+        os_.render_fill_rect(r_bottom, color);
+    };
+
+    // draw the frame
+    {
+        auto const frame_size = (m.frame.width() - m.client_frame.width()) / 2;
+        os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+        draw_hollow_rect(m.frame, value_cast(frame_size), value_cast(frame_size));
+    }
+
+    // draw the title
+    {
+        os_.render_fill_rect(m.title, 0xEF886666u);
+        render_text_(inv_window.title(), m.title.top_left() - point2i32 {});
+    }
+
+    // draw the client area
+    if (inv_window.cols() <= 0) {
+        return;
+    }
+
+    os_.render_set_clip_rect(m.client_frame);
+    auto on_exit = BK_SCOPE_EXIT {
+        os_.render_clear_clip_rect();
+    };
+
+    auto const v = m.client_frame.top_left() - point2i32 {};
+    os_.render_fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, 0xDF66AA66u);
 
     for (size_t i = 0; i < inv_window.cols(); ++i) {
         auto const info = inv_window.col(static_cast<int>(i));
@@ -445,12 +489,17 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     for (size_t i = 0; i < inv_window.rows(); ++i) {
         auto const range = inv_window.row(static_cast<int>(i));
 
+        auto const p = range.first->position() + v;
+        auto const w = m.client_frame.width();
+        auto const h = range.first->extent().height();
+
+        os_.render_fill_rect({p, w, h}, 0xDF666666u);
+
         std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {
             render_text_(txt, v);
         });
     }
 
-    os_.render_clear_clip_rect();
 }
 
 } //namespace boken
