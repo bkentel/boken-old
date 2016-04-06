@@ -204,8 +204,9 @@ public:
             return;
         }
 
-        auto const m = (n < 0 ? static_cast<size_t>(-n)
-                              : static_cast<size_t>(n)) % n_rows;
+        auto const m = n < 0
+            ? (n_rows - static_cast<size_t>(-n) % n_rows)
+            : (static_cast<size_t>(n) % n_rows);
 
         indicated_ = static_cast<int>((i + m) % n_rows);
     }

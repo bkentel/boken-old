@@ -432,6 +432,14 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     auto const& inv_window = *inventory_list_;
     auto const  m = inv_window.metrics();
 
+    uint32_t const color_border   = 0xEF555555u;
+    uint32_t const color_title    = 0xEF886666u;
+    uint32_t const color_header   = 0xDF66AA66u;
+    uint32_t const color_row_even = 0xDF666666u;
+    uint32_t const color_row_odd  = 0xDF888888u;
+    uint32_t const color_row_sel  = 0xDFAA8888u;
+    uint32_t const color_row_ind  = 0xDF88AAAAu;
+
     //TODO: move to renderer
     auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h) {
         auto const rw = value_cast(r.width());
@@ -442,17 +450,15 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         auto const x1 = value_cast(r.x1);
         auto const y1 = value_cast(r.y1);
 
-        auto const color = 0xDF666666u;
-
         auto const r_left   = recti32 {point2i32 {x0,     y0}, sizei32x {w}, sizei32y {rh}};
         auto const r_right  = recti32 {point2i32 {x1 - w, y0}, sizei32x {w}, sizei32y {rh}};
         auto const r_top    = recti32 {point2i32 {x0 + w, y0}, sizei32x {rw - 2*w}, sizei32y {h}};
         auto const r_bottom = recti32 {point2i32 {x0 + w, y1 - h}, sizei32x {rw - 2*w}, sizei32y {h}};
 
-        os_.render_fill_rect(r_left, color);
-        os_.render_fill_rect(r_right, color);
-        os_.render_fill_rect(r_top, color);
-        os_.render_fill_rect(r_bottom, color);
+        os_.render_fill_rect(r_left, color_border);
+        os_.render_fill_rect(r_right, color_border);
+        os_.render_fill_rect(r_top, color_border);
+        os_.render_fill_rect(r_bottom, color_border);
     };
 
     // draw the frame
@@ -464,13 +470,25 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
 
     // draw the title
     {
-        os_.render_fill_rect(m.title, 0xEF886666u);
+        os_.render_fill_rect(m.title, color_title);
         render_text_(inv_window.title(), m.title.top_left() - point2i32 {});
     }
 
     // draw the client area
     if (inv_window.cols() <= 0) {
-        return;
+        return; // TODO
+    }
+
+    auto const gap = m.client_frame.y0 - m.title.y1;
+    if (gap > sizei32y {0}) {
+        auto const r = recti32 {
+            m.client_frame.x0
+          , m.title.y1
+          , m.client_frame.width()
+          , gap
+        };
+
+        os_.render_fill_rect(r, color_row_even);
     }
 
     os_.render_set_clip_rect(m.client_frame);
@@ -479,12 +497,19 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     };
 
     auto const v = m.client_frame.top_left() - point2i32 {};
-    os_.render_fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, 0xDF66AA66u);
+
+    // header background
+    os_.render_fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, color_header);
+
+    int32_t last_y = value_cast(m.client_frame.y0);
 
     for (size_t i = 0; i < inv_window.cols(); ++i) {
         auto const info = inv_window.col(static_cast<int>(i));
         render_text_(info.text, v);
+        last_y = std::max(last_y, value_cast(info.text.extent().y1 + v.y));
     }
+
+    auto const indicated = static_cast<size_t>(inv_window.indicated());
 
     for (size_t i = 0; i < inv_window.rows(); ++i) {
         auto const range = inv_window.row(static_cast<int>(i));
@@ -493,13 +518,35 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         auto const w = m.client_frame.width();
         auto const h = range.first->extent().height();
 
-        os_.render_fill_rect({p, w, h}, 0xDF666666u);
+        auto const color =
+            (i == indicated)                              ? color_row_ind
+          : (inv_window.is_selected(static_cast<int>(i))) ? color_row_sel
+          : (i % 2u)                                      ? color_row_even
+                                                          : color_row_odd;
+
+        // row background
+        os_.render_fill_rect({p, w, h}, color);
 
         std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {
             render_text_(txt, v);
         });
+
+        last_y = std::max(last_y, value_cast(p.y + h));
+        if (last_y >= value_cast(m.client_frame.y1)) {
+            break;
+        }
     }
 
+    if (last_y < value_cast(m.client_frame.y1)) {
+        auto const r = recti32 {
+            m.client_frame.x0
+          , offi32y {last_y}
+          , m.client_frame.width()
+          , m.client_frame.y1 - offi32y {last_y}
+        };
+
+        os_.render_fill_rect(r, color_row_even);
+    }
 }
 
 } //namespace boken
