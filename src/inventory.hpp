@@ -118,6 +118,9 @@ public:
     virtual void add_row(item_instance_id id) = 0;
     virtual void add_rows(item_instance_id const* first, item_instance_id const* last) = 0;
 
+    virtual void remove_row(int i) noexcept = 0;
+    virtual void remove_rows(int const* first, int const* last) noexcept = 0;
+
     virtual void clear_rows() noexcept = 0;
     virtual void clear() noexcept = 0;
 

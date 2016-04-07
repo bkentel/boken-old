@@ -237,7 +237,7 @@ public:
         add_rows(&id, &id + 1);
     }
 
-    void add_rows(item_instance_id const* first, item_instance_id const* last) final override {
+    void add_rows(item_instance_id const* const first, item_instance_id const* const last) final override {
         BK_ASSERT(!!first && !!last);
 
         auto const first_col = begin(cols_);
@@ -260,6 +260,31 @@ public:
 
         std::transform(first, last, back_inserter(rows_), make_row);
         std::copy(first, last, back_inserter(row_data_));
+    }
+
+    void remove_row(int const i) noexcept final override {
+        remove_rows(&i, &i + 1);
+    }
+
+    void remove_rows(int const* const first, int const* const last) noexcept final override {
+        BK_ASSERT(!!first && !!last);
+
+        auto const n_rows = rows();
+
+        std::for_each(first, last, [&](int const i) noexcept {
+            BK_ASSERT(i >= 0);
+            auto const j = static_cast<size_t>(i);
+            BK_ASSERT(j < n_rows);
+
+            rows_[j].clear();
+            row_data_[j] = item_instance_id {0};
+        });
+
+        rows_.erase(std::remove_if(begin(rows_), end(rows_)
+          , [](auto const& row) noexcept { return row.empty(); }));
+
+        row_data_.erase(std::remove_if(begin(row_data_), end(row_data_)
+          , [](auto const id) noexcept { return value_cast(id) == 0; }));
     }
 
     void clear_rows() noexcept final override {

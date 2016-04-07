@@ -130,6 +130,8 @@ public:
     std::function<event_result (command_type, uintptr_t)>   on_command_handler;
 };
 
+
+
 struct game_state {
     enum class placement_type {
         at, near
@@ -812,8 +814,10 @@ struct game_state {
         case ct::cancel :
             break;
         case ct::drop_one :
+            do_drop_one();
             break;
         case ct::drop_some :
+            do_drop_some();
             break;
         default:
             BK_ASSERT(false);
@@ -854,6 +858,13 @@ struct game_state {
 
     void renderer_remove_entity(point2i32 const p) {
         entity_updates_.push_back({p, p, entity_id {}});
+    }
+
+    void do_drop_one() {
+        inventory.show();
+    }
+
+    void do_drop_some() {
     }
 
     void do_debug_teleport_self() {
