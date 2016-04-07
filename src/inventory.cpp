@@ -277,7 +277,7 @@ public:
             BK_ASSERT(j < n_rows);
 
             rows_[j].clear();
-            row_data_[j] = item_instance_id {0};
+            row_data_[j] = item_instance_id {};
         });
 
         rows_.erase(std::remove_if(begin(rows_), end(rows_)
