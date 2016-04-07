@@ -130,7 +130,181 @@ public:
     std::function<event_result (command_type, uintptr_t)>   on_command_handler;
 };
 
+class item_list_controller {
+public:
+    explicit item_list_controller(std::unique_ptr<inventory_list> list, game_database const& database)
+      : list_ {std::move(list)}
+    {
+        auto& il = *list_;
 
+        il.add_column(0, ""
+          , [&](item const& itm) {
+                auto const& tmap = database.get_tile_map(tile_map_type::item);
+                auto const index = tmap.find(itm.definition());
+
+                BK_ASSERT(index < 0x7Fu); //TODO
+
+                std::array<char, 7> as_string {};
+                as_string[0] =
+                    static_cast<char>(static_cast<uint8_t>(index & 0x7Fu));
+
+                return std::string {as_string.data()};
+            });
+
+        il.add_column(1, "Name"
+          , [&](item const& itm) {
+                auto const def = database.find(itm.definition());
+                return def ? def->name : "{unknown}";
+            });
+
+        il.add_column(2, "Weight"
+          , [&](item const& itm) {
+                auto const weight = property_value_or(
+                    database
+                  , itm.definition()
+                  , make_id<item_property_id>("weight")
+                  , item_property_value {0});
+
+                return std::to_string(weight);
+            });
+
+        il.add_column(3, "Id"
+          , [&](item const& itm) {
+                auto const def = database.find(itm.definition());
+                return def ? def->id_string : "{unknown}";
+            });
+
+        il.layout();
+    }
+
+    //--------------------------------------------------------------------------
+    bool on_key(kb_event const event, kb_modifiers const kmods) {
+    }
+
+    bool on_text_input(text_input_event const event) {
+    }
+
+    bool on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        using type  = inventory_list::hit_test_result::type;
+        using btype = mouse_event::button_change_t;
+
+        auto& il = *list_;
+
+        // passthrough events if not visible, otherwise filter events
+        if (!il.is_visible()) {
+            return true;
+        }
+
+        // reset and size / move state
+        is_moving_ = false;
+        is_sizing_ = false;
+
+        // next, do a hit test, and passthrough if it fails. Otherwise, filter.
+        auto const hit_test = il.hit_test({event.x, event.y});
+        if (!hit_test) {
+            return true;
+        }
+
+        // only interested in the first (left) mouse button
+        if (event.button_change[0] == btype::none) {
+            return false;
+        }
+
+        auto on_exit = BK_SCOPE_EXIT {
+            last_hit_ = hit_test;
+        };
+
+        if (event.button_change[0] == btype::went_down) {
+            if (hit_test.what == type::title) {
+                is_moving_ = true;
+            } else if (hit_test.what == type::frame) {
+                is_sizing_   = true;
+            }
+        } else if (event.button_change[0] == btype::went_up) {
+        }
+
+        return false;
+    }
+
+    bool on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        using type  = inventory_list::hit_test_result::type;
+        using btype = mouse_event::button_change_t;
+
+        auto& il = *list_;
+
+        // passthrough events if not visible, otherwise filter events
+        if (!il.is_visible()) {
+            return true;
+        }
+
+        // first, take care of any moving or sizing
+        auto const p = point2i32 {event.x, event.y};
+        auto const v = p - last_mouse_;
+
+        auto on_exit_mouse = BK_SCOPE_EXIT {
+            last_mouse_ = p;
+        };
+
+        if (is_moving_) {
+            il.move_by(v);
+            return false;
+        } else if (is_sizing_) {
+            il.resize_by(v.x - sizei32x {}, v.y - sizei32y {}
+                       , last_hit_.x, last_hit_.y);
+            return false;
+        }
+
+        // next, do a hit test, and passthrough if it fails. Otherwise, filter.
+        auto const hit_test = il.hit_test(p);
+        if (!hit_test) {
+            on_exit_mouse.dismiss();
+            return true;
+        }
+
+        if (hit_test.what == type::cell
+         && event.button_state_bits() == 0
+        ) {
+            il.indicate(hit_test.y);
+        }
+
+        return false;
+    }
+
+    bool on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+    }
+
+    bool on_command(command_type const type, uintptr_t const data) {
+    }
+
+    //--------------------------------------------------------------------------
+    void show() {
+        set_visible_(true);
+    }
+
+    void hide() {
+        set_visible_(false);
+    }
+
+    void toogle_visible() {
+        set_visible_(!list_->is_visible());
+    }
+
+    //--------------------------------------------------------------------------
+    inventory_list const& get() const { return *list_; }
+private:
+    void set_visible_(bool const state) noexcept {
+        is_moving_ = false;
+        is_sizing_ = false;
+        state ? list_->show() : list_->hide();
+    }
+private:
+    std::unique_ptr<inventory_list> list_;
+
+    point2i32    last_mouse_  {};
+    inventory_list::hit_test_result last_hit_ {};
+    bool         is_moving_   {false};
+    bool         is_sizing_   {false};
+};
 
 struct game_state {
     enum class placement_type {
@@ -146,7 +320,18 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    game_state() {
+    std::unique_ptr<inventory_list> make_item_list_() {
+        return make_inventory_list(trender
+            , [&](item_instance_id const id) noexcept -> item const& {
+                auto const ptr = the_world.find(id);
+                BK_ASSERT(!!ptr);
+                return *ptr;
+            });
+    }
+
+    game_state()
+      : item_list {make_item_list_(), database}
+    {
         os.on_key([&](kb_event a, kb_modifiers b) { on_key(a, b); });
         os.on_mouse_move([&](mouse_event a, kb_modifiers b) { on_mouse_move(a, b); });
         os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
@@ -163,53 +348,11 @@ struct game_state {
           , {tile_map_type::item,   database.get_tile_map(tile_map_type::item)}
         });
 
-        make_inventory();
-        renderer.set_inventory_window(&inventory);
+        renderer.set_inventory_window(&item_list.get());
 
         generate();
 
         reset_view_to_player();
-    }
-
-    void make_inventory() {
-        inventory.add_column(0, ""
-          , [&](item const& itm) {
-                auto const& tmap = database.get_tile_map(tile_map_type::item);
-                auto const index = tmap.find(itm.definition());
-
-                BK_ASSERT(index < 0x7Fu); //TODO
-
-                std::array<char, 7> as_string {};
-                as_string[0] =
-                    static_cast<char>(static_cast<uint8_t>(index & 0x7Fu));
-
-                return std::string {as_string.data()};
-            });
-
-        inventory.add_column(1, "Name"
-          , [&](item const& itm) {
-                auto const def = database.find(itm.definition());
-                return def ? def->name : "{unknown}";
-            });
-
-        inventory.add_column(2, "Weight"
-          , [&](item const& itm) {
-                auto const weight = property_value_or(
-                    database
-                  , itm.definition()
-                  , make_id<item_property_id>("weight")
-                  , item_property_value {0});
-
-                return std::to_string(weight);
-            });
-
-        inventory.add_column(3, "Id"
-          , [&](item const& itm) {
-                auto const def = database.find(itm.definition());
-                return def ? def->id_string : "{unknown}";
-            });
-
-        inventory.layout();
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -461,122 +604,11 @@ struct game_state {
     }
 
     bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        if (!inventory.is_visible()) {
-            return true;
-        }
-
-        if (event.button_state_bits() != 1
-         || event.button_change[0] != mouse_event::button_change_t::went_down
-        ) {
-            return true;
-        }
-
-        auto const hit_test = inventory.hit_test({event.x, event.y});
-        if (!hit_test) {
-            return true;
-        }
-
-        using type = inventory_list::hit_test_result::type;
-        static_string_buffer<128> buffer;
-
-        switch (hit_test.what) {
-        case type::none:  break;
-        case type::empty: break;
-        case type::header:
-            buffer.append("Header (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        case type::cell: {
-            auto* const itm = the_world.find(inventory.row_data(hit_test.y));
-            BK_ASSERT(!!itm);
-            auto* const def = database.find(itm->definition());
-
-            buffer.append("Cell (%d, %d) = %s"
-              , hit_test.x
-              , hit_test.y
-              , def ? def->name.c_str() : "{undefined}"
-            );
-
-            break;
-        }
-        case type::title:
-            buffer.append("Title (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        case type::frame:
-            buffer.append("Frame (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        case type::button_close:
-            buffer.append("Button (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        case type::scroll_bar_v:
-            buffer.append("Scroll V (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        case type::scroll_bar_h:
-            buffer.append("Scroll H (%d, %d)", hit_test.x, hit_test.y);
-            break;
-        default:
-            BK_ASSERT(false);
-            break;
-        }
-
-        if (!buffer.empty()) {
-            message_window.println(buffer.to_string());
-        }
-
-        return false;
+        return item_list.on_mouse_button(event, kmods);
     }
 
     bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        if (!inventory.is_visible()) {
-            return true;
-        }
-
-        auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
-        if (!hit_test) {
-            return true;
-        }
-
-        using type = inventory_list::hit_test_result::type;
-
-        switch (hit_test.what) {
-        case type::empty: break;
-        case type::header:
-            break;
-        case type::cell:
-            inventory.indicate(hit_test.y);
-            break;
-        case type::title:
-            if (event.button_state_bits() != 1) {
-                break;
-            }
-
-            inventory.move_by(point2i32 {event.x, event.y}
-                            - point2i32 {last_mouse_x, last_mouse_y});
-            break;
-        case type::frame:
-            if (event.button_state_bits() != 1) {
-                break;
-            }
-
-            inventory.resize_by(
-                event.x - last_mouse_x
-              , event.y - last_mouse_y
-              , hit_test.x
-              , hit_test.y);
-
-            break;
-        case type::button_close:
-            break;
-        case type::scroll_bar_v:
-            break;
-        case type::scroll_bar_h:
-            break;
-        case type::none: BK_ATTRIBUTE_FALLTHROUGH;
-        default:
-            BK_ASSERT(false);
-            break;
-        }
-
-        return false;
+        return item_list.on_mouse_move(event, kmods);
     }
 
     bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
@@ -584,26 +616,27 @@ struct game_state {
     }
 
     bool ui_on_command(command_type const type, uintptr_t const data) {
-        if (!inventory.is_visible()) {
-            return true;
-        }
+        //if (!inventory.is_visible()) {
+        //    return true;
+        //}
 
-        auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
-        if (!hit_test) {
-            return true;
-        }
+        //auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
+        //if (!hit_test) {
+        //    return true;
+        //}
 
-        if (type == command_type::move_n) {
-            inventory.indicate_prev();
-        } else if (type == command_type::move_s) {
-            inventory.indicate_next();
-        } else if (type == command_type::cancel) {
-            inventory.hide();
-        } else {
-            return true;
-        }
+        //if (type == command_type::move_n) {
+        //    inventory.indicate_prev();
+        //} else if (type == command_type::move_s) {
+        //    inventory.indicate_next();
+        //} else if (type == command_type::cancel) {
+        //    inventory.hide();
+        //} else {
+        //    return true;
+        //}
 
-        return false;
+        //return false;
+        return true;
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -797,7 +830,9 @@ struct game_state {
 
         case ct::get_all_items : do_get_all_items(); break;
 
-        case ct::toggle_show_inventory : inventory.toggle_visible(); break;
+        case ct::toggle_show_inventory :
+            //inventory.toggle_visible();
+            break;
 
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
@@ -861,7 +896,6 @@ struct game_state {
     }
 
     void do_drop_one() {
-        inventory.show();
     }
 
     void do_drop_some() {
@@ -936,7 +970,7 @@ struct game_state {
 
             message_window.println(buffer.to_string());
 
-            inventory.add_row(id); // TODO temp
+//            inventory.add_row(id); // TODO temp
 
             return item_merge_result::ok;
         };
@@ -949,7 +983,7 @@ struct game_state {
         case merge_item_result::ok_merged_some:
         case merge_item_result::ok_merged_all:
             renderer_remove_item(p);
-            inventory.layout(); // TODO temp
+//            inventory.layout(); // TODO temp
             break;
         case merge_item_result::failed_bad_source:
             message_window.println("There is nothing here to get.");
@@ -1312,16 +1346,6 @@ struct game_state {
         up<text_renderer>      trender_ptr         = make_text_renderer();
         up<game_renderer>      renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
         up<command_translator> cmd_translator_ptr  = make_command_translator();
-
-        inventory_list::lookup_f inventory_lookup() const noexcept {
-            return [&](item_instance_id const id) noexcept -> item const& {
-                auto const ptr = world_ptr->find(id);
-                BK_ASSERT(!!ptr);
-                return *ptr;
-            };
-        }
-
-        up<inventory_list> inventory_ptr = make_inventory_list(*trender_ptr, inventory_lookup());
     } state {};
 
     system&             os              = *state.system_ptr;
@@ -1332,7 +1356,8 @@ struct game_state {
     game_renderer&      renderer        = *state.renderer_ptr;
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
-    inventory_list&     inventory       = *state.inventory_ptr;
+
+    item_list_controller item_list;
 
     std::vector<input_context> context_stack;
 
