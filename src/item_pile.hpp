@@ -36,6 +36,9 @@ private:
     std::vector<item_instance_id> items_;
 };
 
+inline auto begin(item_pile const& pile) noexcept { return pile.begin(); }
+inline auto end(item_pile const& pile)   noexcept { return pile.end(); }
+
 //! check(item_instance_id) = 0 ~> ok
 //! check(item_instance_id) = 1 ~> skip
 //! check(item_instance_id) = 2 ~> terminate

@@ -179,9 +179,11 @@ public:
 
     //--------------------------------------------------------------------------
     bool on_key(kb_event const event, kb_modifiers const kmods) {
+        return true;
     }
 
     bool on_text_input(text_input_event const event) {
+        return true;
     }
 
     bool on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
@@ -249,8 +251,7 @@ public:
             il.move_by(v);
             return false;
         } else if (is_sizing_) {
-            il.resize_by(v.x - sizei32x {}, v.y - sizei32y {}
-                       , last_hit_.x, last_hit_.y);
+            resize_(p, v);
             return false;
         }
 
@@ -261,9 +262,8 @@ public:
             return true;
         }
 
-        if (hit_test.what == type::cell
-         && event.button_state_bits() == 0
-        ) {
+        // indicate the row the mouse is over
+        if (hit_test.what == type::cell && event.button_state_bits() == 0) {
             il.indicate(hit_test.y);
         }
 
@@ -271,9 +271,52 @@ public:
     }
 
     bool on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        return true;
     }
 
     bool on_command(command_type const type, uintptr_t const data) {
+        //if (!inventory.is_visible()) {
+        //    return true;
+        //}
+
+        //auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
+        //if (!hit_test) {
+        //    return true;
+        //}
+
+        //if (type == command_type::move_n) {
+        //    inventory.indicate_prev();
+        //} else if (type == command_type::move_s) {
+        //    inventory.indicate_next();
+        //} else if (type == command_type::cancel) {
+        //    inventory.hide();
+        //} else {
+        //    return true;
+        //}
+
+        return true;
+    }
+
+    //--------------------------------------------------------------------------
+    void assign(item_pile const& items) {
+        auto& il = *list_;
+
+        il.clear_rows();
+        il.reserve(il.cols(), items.size());
+
+        std::for_each(begin(items), end(items), [&](item_instance_id const id) {
+            il.add_row(id);
+        });
+
+        il.layout();
+    }
+
+    void append(item_instance_id const id) {
+        list_->add_row(id);
+    }
+
+    void layout() {
+        list_->layout();
     }
 
     //--------------------------------------------------------------------------
@@ -285,10 +328,16 @@ public:
         set_visible_(false);
     }
 
-    void toogle_visible() {
-        set_visible_(!list_->is_visible());
+    //! @returns the visible state of the list after toggling.
+    bool toogle_visible() {
+        bool const is_visible = list_->is_visible();
+        set_visible_(!is_visible);
+        return !is_visible;
     }
 
+    bool is_visible() const noexcept {
+        return list_->is_visible();
+    }
     //--------------------------------------------------------------------------
     inventory_list const& get() const { return *list_; }
 private:
@@ -297,6 +346,38 @@ private:
         is_sizing_ = false;
         state ? list_->show() : list_->hide();
     }
+
+    void resize_(point2i32 const p, vec2i32 const v) {
+        auto const crossed_x = [&](auto const x) noexcept {
+            return (last_mouse_.x <= x) && (p.x >= x)
+                || (last_mouse_.x >= x) && (p.x <= x);
+        };
+
+        auto const crossed_y = [&](auto const y) noexcept {
+            return (last_mouse_.y <= y) && (p.y >= y)
+                || (last_mouse_.y >= y) && (p.y <= y);
+        };
+
+        auto const frame = list_->metrics().frame;
+
+        bool const ok_x =
+           (last_hit_.x < 0) && ((value_cast(v.x) > 0) || crossed_x(frame.x0))
+        || (last_hit_.x > 0) && ((value_cast(v.x) < 0) || crossed_x(frame.x1));
+
+        bool const ok_y =
+           (last_hit_.y < 0) && ((value_cast(v.y) > 0) || crossed_y(frame.y0))
+        || (last_hit_.y > 0) && ((value_cast(v.y) < 0) || crossed_y(frame.y1));
+
+
+        if (!ok_x && !ok_y) {
+            return;
+        }
+
+        auto const dw = ok_x ? v.x - sizei32x {} : sizei32x {};
+        auto const dh = ok_y ? v.y - sizei32y {} : sizei32y {};
+
+        list_->resize_by(dw, dh, last_hit_.x, last_hit_.y);
+    }
 private:
     std::unique_ptr<inventory_list> list_;
 
@@ -304,6 +385,7 @@ private:
     inventory_list::hit_test_result last_hit_ {};
     bool         is_moving_   {false};
     bool         is_sizing_   {false};
+    bool         is_modal_    {false};
 };
 
 struct game_state {
@@ -616,27 +698,7 @@ struct game_state {
     }
 
     bool ui_on_command(command_type const type, uintptr_t const data) {
-        //if (!inventory.is_visible()) {
-        //    return true;
-        //}
-
-        //auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
-        //if (!hit_test) {
-        //    return true;
-        //}
-
-        //if (type == command_type::move_n) {
-        //    inventory.indicate_prev();
-        //} else if (type == command_type::move_s) {
-        //    inventory.indicate_next();
-        //} else if (type == command_type::cancel) {
-        //    inventory.hide();
-        //} else {
-        //    return true;
-        //}
-
-        //return false;
-        return true;
+        return item_list.on_command(type, data);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -831,9 +893,9 @@ struct game_state {
         case ct::get_all_items : do_get_all_items(); break;
 
         case ct::toggle_show_inventory :
-            //inventory.toggle_visible();
+            item_list.toogle_visible();
+            item_list.assign(get_player().first.items());
             break;
-
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
             current_view.scale_x = 1.0f;
@@ -962,6 +1024,8 @@ struct game_state {
 
         static_string_buffer<128> buffer;
 
+        auto const item_list_visible = item_list.is_visible();
+
         auto const pickup_item = [&](item_instance_id const id) noexcept {
             auto const& itm  = get_item(id);
 
@@ -970,7 +1034,9 @@ struct game_state {
 
             message_window.println(buffer.to_string());
 
-//            inventory.add_row(id); // TODO temp
+            if (item_list_visible) {
+                item_list.append(id);
+            }
 
             return item_merge_result::ok;
         };
@@ -983,7 +1049,9 @@ struct game_state {
         case merge_item_result::ok_merged_some:
         case merge_item_result::ok_merged_all:
             renderer_remove_item(p);
-//            inventory.layout(); // TODO temp
+            if (item_list_visible) {
+                item_list.layout();
+            }
             break;
         case merge_item_result::failed_bad_source:
             message_window.println("There is nothing here to get.");

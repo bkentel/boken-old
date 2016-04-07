@@ -156,9 +156,12 @@ public:
 
         resize_to(w + real_dw, h + real_dh);
 
+        auto const w_after = metrics_.frame.width();
+        auto const h_after = metrics_.frame.height();
+
         auto const v = vec2i32 {
-            (side_x < 0) ? -value_cast(real_dw) : 0
-          , (side_y < 0) ? -value_cast(real_dh) : 0
+            (side_x < 0) ? -value_cast(w_after - w) : 0
+          , (side_y < 0) ? -value_cast(h_after - h) : 0
         };
 
         move_by(v);
@@ -290,6 +293,8 @@ public:
     void clear_rows() noexcept final override {
         rows_.clear();
         row_data_.clear();
+        selected_.clear();
+        indicated_ = 0;
     }
 
     void clear() noexcept final override {
