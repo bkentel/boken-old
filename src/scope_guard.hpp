@@ -32,6 +32,10 @@ public:
       : function_ {std::forward<Fn>(fn)}
     {
     }
+
+    void dismiss() noexcept {
+        dismissed_ = true;
+    }
 private:
     F    function_;
     bool dismissed_ {false};
