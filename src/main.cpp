@@ -811,6 +811,10 @@ struct game_state {
             break;
         case ct::cancel :
             break;
+        case ct::drop_one :
+            break;
+        case ct::drop_some :
+            break;
         default:
             BK_ASSERT(false);
             break;

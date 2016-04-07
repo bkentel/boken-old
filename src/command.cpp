@@ -42,6 +42,12 @@ void command_translator_impl::translate(text_input_event const& event) const {
     case 'i':
         handler_(command_type::toggle_show_inventory, 0);
         break;
+    case 'd':
+        handler_(command_type::drop_one, 0);
+        break;
+    case 'D':
+        handler_(command_type::drop_some, 0);
+        break;
     default:
         break;
     }
@@ -139,6 +145,8 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(cancel);
+        BK_ENUM_MAPPING(drop_one);
+        BK_ENUM_MAPPING(drop_some);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);
@@ -169,6 +177,8 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(cancel);
+        BK_ENUM_MAPPING(drop_one);
+        BK_ENUM_MAPPING(drop_some);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);

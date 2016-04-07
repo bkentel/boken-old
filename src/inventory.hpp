@@ -116,6 +116,10 @@ public:
       , sizei16x    width         = adjust_to_fit) = 0;
 
     virtual void add_row(item_instance_id id) = 0;
+    virtual void add_rows(item_instance_id const* first, item_instance_id const* last) = 0;
+
+    virtual void clear_rows() noexcept = 0;
+    virtual void clear() noexcept = 0;
 
     //--------------------------------------------------------------------------
     virtual void selection_set(std::initializer_list<int> rows) = 0;

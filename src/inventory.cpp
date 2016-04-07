@@ -234,18 +234,42 @@ public:
     ) final override;
 
     void add_row(item_instance_id const id) final override {
-        row_t row;
-        row.reserve(cols());
+        add_rows(&id, &id + 1);
+    }
 
-        auto const& itm = lookup_(id);
+    void add_rows(item_instance_id const* first, item_instance_id const* last) final override {
+        BK_ASSERT(!!first && !!last);
 
-        std::transform(begin(cols_), end(cols_), back_inserter(row)
-          , [&](col_data const& col) {
-                return text_layout {trender_, col.getter(itm), col.max_width, sizei16y {}};
-            });
+        auto const first_col = begin(cols_);
+        auto const last_col  = end(cols_);
+        auto const n_cols    = cols();
 
-        rows_.push_back(std::move(row));
-        row_data_.push_back(id);
+        auto const make_row = [&](item_instance_id const id) {
+            row_t row;
+            row.reserve(n_cols);
+
+            auto const& itm = lookup_(id);
+
+            std::transform(first_col, last_col, back_inserter(row)
+              , [&](col_data const& col) -> text_layout {
+                    return {trender_, col.getter(itm), col.max_width, sizei16y {}};
+                });
+
+            return row;
+        };
+
+        std::transform(first, last, back_inserter(rows_), make_row);
+        std::copy(first, last, back_inserter(row_data_));
+    }
+
+    void clear_rows() noexcept final override {
+        rows_.clear();
+        row_data_.clear();
+    }
+
+    void clear() noexcept final override {
+        clear_rows();
+        cols_.clear();
     }
 
     //--------------------------------------------------------------------------
