@@ -23,10 +23,6 @@ item_pile const& get_items(entity const& e) noexcept {
     return e.items();
 }
 
-merge_item_result merge_item_piles(item_pile& from, entity& to, item_merge_f const& f) {
-    return merge_item_piles(from, to.items(), f);
-}
-
 //=====--------------------------------------------------------------------=====
 //                                  entity
 //=====--------------------------------------------------------------------=====

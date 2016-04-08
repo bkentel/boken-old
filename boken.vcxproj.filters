@@ -108,6 +108,7 @@
     <ClInclude Include="src\random_algorithm.hpp" />
     <ClInclude Include="src\algorithm.hpp" />
     <ClInclude Include="src\allocator.hpp" />
+    <ClInclude Include="src\item_properties.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

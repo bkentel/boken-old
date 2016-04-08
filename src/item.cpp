@@ -1,10 +1,17 @@
 #include "item.hpp"
 #include "item_pile.hpp"
-#include "bkassert/assert.hpp"
+#include "item_properties.hpp"
 #include "forward_declarations.hpp"
+
+#include "bkassert/assert.hpp"
+
+#include <tuple>
 
 namespace boken {
 
+//=====--------------------------------------------------------------------=====
+//                               free functions
+//=====--------------------------------------------------------------------=====
 item_instance_id get_instance(item const& i) noexcept {
     return i.instance();
 }
@@ -21,43 +28,117 @@ item_pile const* get_items(item const& i) noexcept {
     return nullptr;
 }
 
-//=====--------------------------------------------------------------------=====
-//                                  item
-//=====--------------------------------------------------------------------=====
-merge_item_result merge_item_piles(item_pile& from, item& to, item_merge_f const& f) {
-    return merge_item_result::ok_merged_all; //TODO
-}
+void merge_into_pile(
+    world& w
+  , game_database const& db
+  , unique_item&& itm
+  , item_pile& pile
+) {
+    BK_ASSERT(!!itm);
+    auto const a_instance = itm.get();
 
-//=====--------------------------------------------------------------------=====
-//                                  item_pile
-//=====--------------------------------------------------------------------=====
-merge_item_result merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f) {
-    using ir = item_merge_result;
+    // {item&, item_id, item_definition*}
+    auto const get_info = [&](item_instance_id const instance_id) {
+        auto const itm_ptr = find(w, instance_id);
+        BK_ASSERT(!!itm_ptr);
 
-    auto result = merge_item_result::ok_merged_none;
-    auto const get_result = [&]() noexcept {
-        return from.empty() ? merge_item_result::ok_merged_all
-                            : result;
+        auto const id = itm_ptr->definition();
+        auto const def_ptr = find(db, id);
+
+        return std::make_tuple(std::ref(*itm_ptr), id, def_ptr);
     };
 
-    for (auto i = from.size(); i > 0; --i) {
-        switch (f(from[i - 1])) {
-        case ir::ok:
-            to.add_item(from.remove_item(i - 1));
-            result = merge_item_result::ok_merged_some;
-            break;
-        case ir::skip:
+    auto const get_current_stack = [&](item const& i) {
+        return i.property_value_or(db, iprop::current_stack_size, 0);
+    };
+
+    auto const set_current_stack = [&](item& i, item_property_value const n) {
+        auto const result =
+            i.add_or_update_property(iprop::current_stack_size, n);
+        BK_ASSERT(!result);
+    };
+
+    auto const a_info    = get_info(a_instance);
+    auto const a_def_ptr = std::get<2>(a_info);
+
+    // if no definition can be found, just add the item to the pile
+    if (!a_def_ptr) {
+        pile.add_item(std::move(itm));
+        return;
+    }
+
+    // if the item can't be stacked, just add the item to the pile
+    auto const max_stack = a_def_ptr->properties.value_or(iprop::stack_size, 0);
+    if (max_stack <= 0) {
+        pile.add_item(std::move(itm));
+        return;
+    }
+
+    auto const a_def       = std::get<1>(a_info);
+    auto&      a_itm       = std::get<0>(a_info);
+    auto       a_cur_stack = item_property_value {0};
+
+    // find any compatible items and merge as much quantity into them as
+    // possible
+    for (item_instance_id const b_instance : pile) {
+        auto const b_info = get_info(b_instance);
+        auto const b_def  = std::get<1>(b_info);
+
+        // reject if definitions don't match
+        if (a_def != b_def) {
             continue;
-        case ir::terminate:
-            return get_result();
-        default:
-            BK_ASSERT(false);
+        }
+
+        auto&      b_itm       = std::get<0>(b_info);
+        auto const b_cur_stack = get_current_stack(b_itm);
+
+        BK_ASSERT(max_stack >= b_cur_stack);
+        auto const b_remaining = max_stack - b_cur_stack;
+
+        // reject if no more room in this stack
+        if (b_remaining <= 0) {
+            continue;
+        }
+
+        // first time -- get the value
+        if (a_cur_stack <= 0) {
+            a_cur_stack = get_current_stack(a_itm);
+        }
+
+        BK_ASSERT(a_cur_stack > 0);
+
+        // move as much quantity from a -> b as possible
+        auto const n = std::min(b_remaining, a_cur_stack);
+        set_current_stack(b_itm, b_cur_stack + n);
+        a_cur_stack -= n;
+
+        // if there is nothing left in a, destroy it; we're done
+        if (a_cur_stack <= 0) {
+            itm.reset();
             break;
         }
     }
 
-    return get_result();
+    // quantity in a was modified, and not all of it could be merged into the
+    // pile; update a's final quantity
+    if (a_cur_stack > 0) {
+        set_current_stack(a_itm, a_cur_stack);
+    }
+
+    // quantity in a either couldn't fully be merged, or was only partially
+    // merged; add the item as a new item in the pile.
+    if (itm) {
+        pile.add_item(std::move(itm));
+    }
 }
+
+//=====--------------------------------------------------------------------=====
+//                                  item
+//=====--------------------------------------------------------------------=====
+
+//=====--------------------------------------------------------------------=====
+//                                  item_pile
+//=====--------------------------------------------------------------------=====
 
 item_pile::~item_pile() {
     BK_ASSERT(items_.empty() || !!deleter_);

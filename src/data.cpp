@@ -191,4 +191,12 @@ item_property_value property_value_or(item_definition const& def, item_property_
     return def.properties.value_or(property, value);
 }
 
+item_definition const* find(game_database const& db, item_id const id) noexcept {
+    return db.find(id);
+}
+
+entity_definition const* find(game_database const& db, entity_id const id) noexcept {
+    return db.find(id);
+}
+
 } //namespace boken

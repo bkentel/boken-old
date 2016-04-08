@@ -4,8 +4,8 @@
 #include <vector>
 #include <functional>
 
-namespace boken { class entity; }
-namespace boken { class item; }
+namespace boken { class world; }
+namespace boken { class game_database; }
 
 namespace boken {
 
@@ -55,10 +55,6 @@ enum class merge_item_result : uint32_t {
   , failed_bad_destination
 };
 
-using item_merge_f = std::function<item_merge_result (item_instance_id)>;
-
-merge_item_result merge_item_piles(item_pile& from, item& to, item_merge_f const& f);
-merge_item_result merge_item_piles(item_pile& from, entity& to, item_merge_f const& f);
-merge_item_result merge_item_piles(item_pile& from, item_pile& to, item_merge_f const& f);
+void merge_into_pile(world& w, game_database const& db, unique_item&& itm, item_pile& pile);
 
 } //namespace boken

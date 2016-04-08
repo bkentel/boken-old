@@ -110,7 +110,6 @@ entity* world_impl::find(entity_instance_id const id) noexcept {
       : &entities_[i];
 }
 
-
 std::unique_ptr<world> make_world() {
     return std::make_unique<world_impl>();
 }
