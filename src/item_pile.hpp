@@ -39,29 +39,10 @@ private:
 inline auto begin(item_pile const& pile) noexcept { return pile.begin(); }
 inline auto end(item_pile const& pile)   noexcept { return pile.end(); }
 
-//! check(item_instance_id) = 0 ~> ok
-//! check(item_instance_id) = 1 ~> skip
-//! check(item_instance_id) = 2 ~> terminate
-//! check(item_instance_id) = X ~> terminate
-template <typename Check>
-int merge_item_piles(item_pile& from, item_pile& to, Check check) {
-    int n {};
-    for (auto i = from.size(); i > 0; --i) {
-        switch (check(from[i - 1])) {
-        case 0:  to.add_item(from.remove_item(i - 1)); ++n; break;
-        case 1:  continue;
-        case 2:  return n;
-        default: return n;
-        }
-    }
-
-    return n;
-}
-
 //! Result of an item_merge_f
 enum class item_merge_result : uint32_t {
     ok        //!< the item should be merged
-  , skip      //!< the item shoudl be skipped
+  , skip      //!< the item should be skipped
   , terminate //!< all subsequent merges should be skipped
 };
 
