@@ -732,7 +732,7 @@ struct game_state {
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // UI Events
+    // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
         return true;
@@ -757,10 +757,6 @@ struct game_state {
     bool ui_on_command(command_type const type, uintptr_t const data) {
         return item_list.on_command(type, data);
     }
-
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Events
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     //! @return true if events were not filtered, false otherwise.
     template <typename... Args0, typename... Args1>
@@ -966,6 +962,7 @@ struct game_state {
             do_debug_teleport_self();
             break;
         case ct::cancel :
+            do_cancel();
             break;
         case ct::drop_one :
             do_drop_one();
@@ -980,38 +977,49 @@ struct game_state {
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Helpers
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    string_view name_of(item_id const id) noexcept {
+        auto const def_ptr = database.find(id);
+        return def_ptr
+          ? string_view {def_ptr->name}
+          : string_view {"{invalid definition}"};
+    }
+
+    string_view name_of(item const& i) noexcept {
+        return name_of(i.definition());
+    }
+
+    string_view name_of(item_instance_id const id) noexcept {
+        auto const ptr = the_world.find(id);
+        BK_ASSERT(!!ptr && "bad id");
+        return name_of(*ptr);
+    }
+
+    string_view name_of(entity_id const id) noexcept {
+        auto const def_ptr = database.find(id);
+        return def_ptr
+          ? string_view {def_ptr->name}
+          : string_view {"{invalid definition}"};
+    }
+
+    string_view name_of(entity const& e) noexcept {
+        return name_of(e.definition());
+    }
+
+    string_view name_of(entity_instance_id const id) noexcept {
+        auto const ptr = the_world.find(id);
+        BK_ASSERT(!!ptr && "bad id");
+        return name_of(*ptr);
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void renderer_update(entity_id const id, point2i32 const p_old, point2i32 const p_new) {
-        entity_updates_.push_back({p_old, p_new, id});
-    }
-
-    void renderer_update(item_id const id, point2i32 const p_old, point2i32 const p_new) {
-        item_updates_.push_back({p_old, p_new, id});
-    }
-
-    void renderer_update(entity const& e, point2i32 const p_old, point2i32 const p_new) {
-        renderer_update(e.definition(), p_old, p_new);
-    }
-
-    void renderer_update(item const& i, point2i32 const p_old, point2i32 const p_new) {
-        renderer_update(i.definition(), p_old, p_new);
-    }
-
-    void renderer_add(entity_id const id, point2i32 const p) {
-        renderer_update(id, p, p);
-    }
-
-    void renderer_add(item_id const id, point2i32 const p) {
-        renderer_update(id, p, p);
-    }
-
-    void renderer_remove_item(point2i32 const p) {
-        item_updates_.push_back({p, p, item_id {}});
-    }
-
-    void renderer_remove_entity(point2i32 const p) {
-        entity_updates_.push_back({p, p, entity_id {}});
+    void do_cancel() {
+        if (item_list.is_visible()) {
+            item_list.hide();
+        }
     }
 
     void do_drop_one() {
@@ -1039,6 +1047,12 @@ struct game_state {
             BK_ASSERT(id == itm.get());
 
             auto const result = add_item_at(std::move(itm), player_p);
+            BK_ASSERT(result.second == placement_result::ok);
+
+            static_string_buffer<128> buffer;
+            buffer.append("You drop the %s."
+              , name_of(id).data());
+            message_window.println(buffer.to_string());
 
             item_list.get().remove_row(*first);
             on_finish();
@@ -1089,65 +1103,89 @@ struct game_state {
     }
 
     void do_get_all_items() {
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const p           = player_info.second;
-        auto&      lvl         = the_world.current_level();
-
-        // lookup an item from its instance id
-        auto const get_item = [&](item_instance_id const id) noexcept -> item const& {
-            auto* const itm = the_world.find(id);
-            BK_ASSERT(!!itm);
-            return *itm;
-        };
-
-        // get the (possibly undefined) name for an item
-        auto const get_item_name = [&](item const& itm) noexcept {
-            auto* const def = database.find(itm.definition());
-            return def
-              ? def->name.c_str()
-              : "{undefined}";
-        };
+        auto const player_info       = get_player();
+        auto&      player            = player_info.first;
+        auto const p                 = player_info.second;
+        auto const item_list_visible = item_list.is_visible();
 
         static_string_buffer<128> buffer;
 
-        auto const item_list_visible = item_list.is_visible();
+        auto const result = the_world.current_level().move_items(p, player
+          , [&](item_instance_id const id) {
+                buffer.clear();
+                buffer.append("Picked up %s.", name_of(id).data());
+                message_window.println(buffer.to_string());
 
-        auto const pickup_item = [&](item_instance_id const id) noexcept {
-            auto const& itm  = get_item(id);
+                if (item_list_visible) {
+                    item_list.append(id);
+                }
 
-            buffer.clear();
-            buffer.append("Picked up %s.", get_item_name(itm));
+                return item_merge_result::ok;
+            });
 
-            message_window.println(buffer.to_string());
 
-            if (item_list_visible) {
-                item_list.append(id);
-            }
-
-            return item_merge_result::ok;
-        };
-
-        auto const result = lvl.move_items(p, player, pickup_item);
+        using mr = merge_item_result;
 
         switch (result) {
-        case merge_item_result::ok_merged_none:
+        case mr::ok_merged_none:
             break;
-        case merge_item_result::ok_merged_some:
-        case merge_item_result::ok_merged_all:
+        case mr::ok_merged_some: BK_ATTRIBUTE_FALLTHROUGH;
+        case mr::ok_merged_all:
             renderer_remove_item(p);
             if (item_list_visible) {
                 item_list.layout();
             }
             break;
-        case merge_item_result::failed_bad_source:
+        case mr::failed_bad_source:
             message_window.println("There is nothing here to get.");
             break;
-        case merge_item_result::failed_bad_destination:
+        case mr::failed_bad_destination: BK_ATTRIBUTE_FALLTHROUGH;
         default:
             BK_ASSERT(false);
             break;
         }
+    }
+
+    void do_kill(entity& e, point2i32 const p) {
+        auto& lvl = the_world.current_level();
+
+        BK_ASSERT(!e.is_alive()
+               && lvl.is_entity_at(p));
+
+        auto const choose_drop_item = [&] {
+            auto const n = random_weighted(rng_superficial, weight_list<int, int> {
+                {5,  0} // 0~5 -> 6/10
+              , {9,  1} // 6-9 -> 3/10
+              , {10, 2} // 10  -> 1/10
+            });
+
+            switch (n) {
+            case 0: return item_id {};
+            case 1: return make_id<item_id>("coin");
+            case 2: return make_id<item_id>("potion_health_small");
+            default:
+                BK_ASSERT(false);
+                break;
+            }
+
+            return item_id {};
+        };
+
+        static_string_buffer<128> buffer;
+        buffer.append("The %s dies.", name_of(e).data());
+        message_window.println(buffer.to_string());
+
+        lvl.remove_entity(e.instance());
+        renderer_remove_entity(p);
+
+        auto const drop_item_id = choose_drop_item();
+        if (!value_cast(drop_item_id)) {
+            return;
+        }
+
+        auto const idef = database.find(drop_item_id);
+        BK_ASSERT(!!idef);
+        add_item_at(create_item(*idef), drop_item_id, p);
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
@@ -1162,32 +1200,7 @@ struct game_state {
         def->modify_health(-1);
 
         if (!def->is_alive()) {
-            auto const id = [&] {
-                auto const n = random_weighted(rng_superficial, weight_list<int, int> {
-                    {5,  0} // 0~5 -> 6/10
-                  , {9,  1} // 6-9 -> 3/10
-                  , {10, 2} // 10  -> 1/10
-                });
-
-                if (n == 0) {
-                    return item_id {};
-                } else if (n == 1) {
-                    return make_id<item_id>("coin");
-                }
-
-                BK_ASSERT(n == 2);
-
-                return make_id<item_id>("potion_health_small");
-            }();
-
-            if (value_cast(id)) {
-                auto const idef = database.find(id);
-                BK_ASSERT(!!idef);
-                add_item_at(create_item(*idef), id, def_pos);
-            }
-
-            lvl.remove_entity(def->instance());
-            renderer_remove_entity(def_pos);
+            do_kill(*def, def_pos);
         }
 
         advance(1);
@@ -1457,6 +1470,41 @@ struct game_state {
                 entity_updates_.push_back({p, q, e.definition()});
             }
         );
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Rendering
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    void renderer_update(entity_id const id, point2i32 const p_old, point2i32 const p_new) {
+        entity_updates_.push_back({p_old, p_new, id});
+    }
+
+    void renderer_update(item_id const id, point2i32 const p_old, point2i32 const p_new) {
+        item_updates_.push_back({p_old, p_new, id});
+    }
+
+    void renderer_update(entity const& e, point2i32 const p_old, point2i32 const p_new) {
+        renderer_update(e.definition(), p_old, p_new);
+    }
+
+    void renderer_update(item const& i, point2i32 const p_old, point2i32 const p_new) {
+        renderer_update(i.definition(), p_old, p_new);
+    }
+
+    void renderer_add(entity_id const id, point2i32 const p) {
+        renderer_update(id, p, p);
+    }
+
+    void renderer_add(item_id const id, point2i32 const p) {
+        renderer_update(id, p, p);
+    }
+
+    void renderer_remove_item(point2i32 const p) {
+        item_updates_.push_back({p, p, item_id {}});
+    }
+
+    void renderer_remove_entity(point2i32 const p) {
+        entity_updates_.push_back({p, p, entity_id {}});
     }
 
     //! Render the game
