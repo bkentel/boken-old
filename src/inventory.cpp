@@ -59,6 +59,11 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    void set_title(std::string title) final override {
+        title_.layout(trender_, std::move(title));
+    }
+
+    //--------------------------------------------------------------------------
     text_layout const& title() const noexcept final override {
         return title_;
     }

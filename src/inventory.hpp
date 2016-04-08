@@ -72,6 +72,9 @@ public:
     virtual ~inventory_list();
 
     //--------------------------------------------------------------------------
+    virtual void set_title(std::string title) = 0;
+
+    //--------------------------------------------------------------------------
     virtual text_layout const& title() const noexcept = 0;
     virtual layout_metrics metrics() const noexcept = 0;
     virtual vec2i32 scroll_offset() const noexcept = 0;

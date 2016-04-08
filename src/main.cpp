@@ -132,6 +132,10 @@ public:
 
 class item_list_controller {
 public:
+    using on_confirm_t = std::function<void (int const* first, int const* last)>;
+    using on_cancel_t  = std::function<void ()>;
+
+    //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list, game_database const& database)
       : list_ {std::move(list)}
     {
@@ -175,14 +179,41 @@ public:
             });
 
         il.layout();
+        //
+        //
+        //
+
+        on_confirm_ = [](auto, auto) noexcept {};
+        on_cancel_  = []() noexcept {};
+    }
+
+    //--------------------------------------------------------------------------
+    void on_confirm(on_confirm_t handler) {
+        on_confirm_ = std::move(handler);
+    }
+
+    void on_cancel(on_cancel_t handler) {
+        on_cancel_ = std::move(handler);
     }
 
     //--------------------------------------------------------------------------
     bool on_key(kb_event const event, kb_modifiers const kmods) {
+        auto& il = *list_;
+
+        if (!is_visible()) {
+            return !is_modal();
+        }
+
         return true;
     }
 
     bool on_text_input(text_input_event const event) {
+        auto& il = *list_;
+
+        if (!is_visible()) {
+            return !is_modal();
+        }
+
         return true;
     }
 
@@ -192,9 +223,8 @@ public:
 
         auto& il = *list_;
 
-        // passthrough events if not visible, otherwise filter events
-        if (!il.is_visible()) {
-            return true;
+        if (!is_visible()) {
+            return !is_modal();
         }
 
         // reset and size / move state
@@ -204,7 +234,7 @@ public:
         // next, do a hit test, and passthrough if it fails. Otherwise, filter.
         auto const hit_test = il.hit_test({event.x, event.y});
         if (!hit_test) {
-            return true;
+            return !is_modal();
         }
 
         // only interested in the first (left) mouse button
@@ -223,6 +253,11 @@ public:
                 is_sizing_   = true;
             }
         } else if (event.button_change[0] == btype::went_up) {
+            if (hit_test.what == type::cell) {
+                il.selection_set({hit_test.y});
+                auto const p = il.get_selection();
+                on_confirm_(p.first, p.second);
+            }
         }
 
         return false;
@@ -234,9 +269,8 @@ public:
 
         auto& il = *list_;
 
-        // passthrough events if not visible, otherwise filter events
-        if (!il.is_visible()) {
-            return true;
+        if (!is_visible()) {
+            return !is_modal();
         }
 
         // first, take care of any moving or sizing
@@ -258,8 +292,7 @@ public:
         // next, do a hit test, and passthrough if it fails. Otherwise, filter.
         auto const hit_test = il.hit_test(p);
         if (!hit_test) {
-            on_exit_mouse.dismiss();
-            return true;
+            return !is_modal();
         }
 
         // indicate the row the mouse is over
@@ -271,30 +304,37 @@ public:
     }
 
     bool on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        auto& il = *list_;
+
+        if (!is_visible()) {
+            return !is_modal();
+        }
+
         return true;
     }
 
     bool on_command(command_type const type, uintptr_t const data) {
-        //if (!inventory.is_visible()) {
-        //    return true;
-        //}
+        auto& il = *list_;
 
-        //auto const hit_test = inventory.hit_test({last_mouse_x, last_mouse_y});
-        //if (!hit_test) {
-        //    return true;
-        //}
+        if (!is_visible()) {
+            return !is_modal();
+        }
 
-        //if (type == command_type::move_n) {
-        //    inventory.indicate_prev();
-        //} else if (type == command_type::move_s) {
-        //    inventory.indicate_next();
-        //} else if (type == command_type::cancel) {
-        //    inventory.hide();
-        //} else {
-        //    return true;
-        //}
+        auto const hit_test = il.hit_test(last_mouse_);
+        if (!hit_test && !is_modal()) {
+            return true;
+        }
 
-        return true;
+        if (type == command_type::move_n) {
+            il.indicate_prev();
+        } else if (type == command_type::move_s) {
+            il.indicate_next();
+        } else if (type == command_type::cancel) {
+            on_cancel_();
+            return !is_visible();
+        }
+
+        return false;
     }
 
     //--------------------------------------------------------------------------
@@ -320,6 +360,18 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    bool set_modal(bool const state) noexcept {
+        BK_ASSERT(!state || state && is_visible());
+        bool const result = is_modal_;
+        is_modal_ = state;
+        return result;
+    }
+
+    bool is_modal() const noexcept {
+        return is_modal_;
+    }
+
+    //--------------------------------------------------------------------------
     void show() {
         set_visible_(true);
     }
@@ -338,8 +390,10 @@ public:
     bool is_visible() const noexcept {
         return list_->is_visible();
     }
+
     //--------------------------------------------------------------------------
-    inventory_list const& get() const { return *list_; }
+    inventory_list const& get() const noexcept { return *list_; }
+    inventory_list&       get()       noexcept { return *list_; }
 private:
     void set_visible_(bool const state) noexcept {
         is_moving_ = false;
@@ -380,6 +434,9 @@ private:
     }
 private:
     std::unique_ptr<inventory_list> list_;
+
+    on_confirm_t on_confirm_;
+    on_cancel_t  on_cancel_;
 
     point2i32    last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};
@@ -958,6 +1015,36 @@ struct game_state {
     }
 
     void do_drop_one() {
+        item_list.assign(get_player().first.items());
+        item_list.show();
+        item_list.set_modal(true);
+
+        auto const on_finish = [&] {
+            item_list.hide();
+            item_list.set_modal(false);
+            item_list.on_confirm([](auto, auto) noexcept {});
+            item_list.on_cancel([]() noexcept {});
+        };
+
+        item_list.on_confirm([&, on_finish](int const* const first, int const* const last) {
+            BK_ASSERT(!!first && !!last);
+
+            auto const player_info = get_player();
+            auto&      player      = player_info.first;
+            auto const player_p    = player_info.second;
+
+            auto const id  = item_list.get().row_data(*first);
+            auto       itm = player.items().remove_item(id);
+
+            BK_ASSERT(id == itm.get());
+
+            auto const result = add_item_at(std::move(itm), player_p);
+
+            item_list.get().remove_row(*first);
+            on_finish();
+        });
+
+        item_list.on_cancel(on_finish);
     }
 
     void do_drop_some() {
@@ -1302,6 +1389,13 @@ struct game_state {
         }
 
         return {p, result};
+    }
+
+    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
+        BK_ASSERT(!!i);
+        auto const itm = the_world.find(i.get());
+        BK_ASSERT(!!itm);
+        return add_item_at(std::move(i), itm->definition(), p);
     }
 
     placement_pair add_entity_at(unique_entity&& e, entity_id const id, point2i32 const p) {
