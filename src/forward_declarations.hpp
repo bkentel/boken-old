@@ -4,6 +4,7 @@
 
 namespace boken { class entity; }
 namespace boken { class item; }
+namespace boken { class item_pile; }
 namespace boken { class world; }
 
 namespace boken {
@@ -19,5 +20,11 @@ entity const* find(world const& w, entity_instance_id id) noexcept;
 
 item* find(world& w, item_instance_id id) noexcept;
 entity* find(world& w, entity_instance_id id) noexcept;
+
+item_pile* get_items(item& i) noexcept;
+item_pile const* get_items(item const& i) noexcept;
+
+item_pile& get_items(entity& e) noexcept;
+item_pile const& get_items(entity const& e) noexcept;
 
 } //namespace boken

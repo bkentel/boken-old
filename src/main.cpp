@@ -38,6 +38,46 @@ namespace bk = boken;
 
 namespace boken {
 
+namespace iprop {
+    constexpr item_property_id weight             {djb2_hash_32c("weight")};
+    constexpr item_property_id stack_size         {djb2_hash_32c("stack_size")};
+    constexpr item_property_id current_stack_size {djb2_hash_32c("current_stack_size")};
+} // namespace iprop
+
+string_view name_of(game_database const& db, item_id const id) noexcept {
+    auto const def_ptr = db.find(id);
+    return def_ptr
+        ? string_view {def_ptr->name}
+        : string_view {"{invalid idef}"};
+}
+
+string_view name_of(game_database const& db, item const& i) noexcept {
+    return name_of(db, i.definition());
+}
+
+string_view name_of(world const& w, game_database const& db, item_instance_id const id) noexcept {
+    auto const ptr = w.find(id);
+    BK_ASSERT(!!ptr && "bad id");
+    return name_of(db, *ptr);
+}
+
+string_view name_of(game_database const& db, entity_id const id) noexcept {
+    auto const def_ptr = db.find(id);
+    return def_ptr
+        ? string_view {def_ptr->name}
+        : string_view {"{invalid edef}"};
+}
+
+string_view name_of(game_database const& db, entity const& e) noexcept {
+    return name_of(db, e.definition());
+}
+
+string_view name_of(world const& w, game_database const& db, entity_instance_id const id) noexcept {
+    auto const ptr = w.find(id);
+    BK_ASSERT(!!ptr && "bad id");
+    return name_of(db, *ptr);
+}
+
 struct keydef_t {
     enum class key_t {
         none, scan_code, virtual_key
@@ -156,23 +196,31 @@ public:
             });
 
         il.add_column(1, "Name"
-          , [&](item const& itm) {
-                auto const def = database.find(itm.definition());
-                return def ? def->name : "{unknown}";
-            });
+          , [&](item const& itm) { return name_of(database, itm).to_string(); });
 
         il.add_column(2, "Weight"
           , [&](item const& itm) {
                 auto const weight = property_value_or(
                     database
                   , itm.definition()
-                  , make_id<item_property_id>("weight")
+                  , iprop::weight
                   , item_property_value {0});
 
-                return std::to_string(weight);
+                auto const stack = itm.property_value_or(
+                    database, iprop::current_stack_size, 1);
+
+                return std::to_string(weight * stack);
             });
 
-        il.add_column(3, "Id"
+        il.add_column(3, "Count"
+          , [&](item const& itm) {
+                auto const stack = itm.property_value_or(
+                    database, iprop::current_stack_size, 1);
+
+                return std::to_string(stack);
+            });
+
+        il.add_column(4, "Id"
           , [&](item const& itm) {
                 auto const def = database.find(itm.definition());
                 return def ? def->id_string : "{unknown}";
@@ -254,7 +302,12 @@ public:
             }
         } else if (event.button_change[0] == btype::went_up) {
             if (hit_test.what == type::cell) {
-                il.selection_set({hit_test.y});
+                if (kmods.test(kb_modifiers::m_shift)) {
+                    il.selection_union({hit_test.y});
+                } else {
+                    il.selection_set({hit_test.y});
+                }
+
                 auto const p = il.get_selection();
                 on_confirm_(p.first, p.second);
             }
@@ -980,42 +1033,102 @@ struct game_state {
     // Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     string_view name_of(item_id const id) noexcept {
-        auto const def_ptr = database.find(id);
-        return def_ptr
-          ? string_view {def_ptr->name}
-          : string_view {"{invalid definition}"};
+        return boken::name_of(database, id);
     }
 
     string_view name_of(item const& i) noexcept {
-        return name_of(i.definition());
+        return boken::name_of(database, i.definition());
     }
 
     string_view name_of(item_instance_id const id) noexcept {
-        auto const ptr = the_world.find(id);
-        BK_ASSERT(!!ptr && "bad id");
-        return name_of(*ptr);
+        return boken::name_of(the_world, database, id);
     }
 
     string_view name_of(entity_id const id) noexcept {
-        auto const def_ptr = database.find(id);
-        return def_ptr
-          ? string_view {def_ptr->name}
-          : string_view {"{invalid definition}"};
+        return boken::name_of(database, id);
     }
 
     string_view name_of(entity const& e) noexcept {
-        return name_of(e.definition());
+        return boken::name_of(database, e.definition());
     }
 
     string_view name_of(entity_instance_id const id) noexcept {
-        auto const ptr = the_world.find(id);
-        BK_ASSERT(!!ptr && "bad id");
-        return name_of(*ptr);
+        return boken::name_of(the_world, database, id);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    void merge_into_pile(unique_item&& itm, item_pile& pile) {
+        auto const itm_ptr_a = the_world.find(itm.get());
+        BK_ASSERT(!!itm_ptr_a);
+
+        // if no definition can be found, just add the item to the pile
+        auto const def_a = database.find(itm_ptr_a->definition());
+        if (!def_a) {
+            pile.add_item(std::move(itm));
+            return;
+        }
+
+        // if the item can't be stacked, just add the item to the pile
+        auto const max_stack = def_a->properties.value_or(iprop::stack_size, 0);
+        if (max_stack <= 0) {
+            pile.add_item(std::move(itm));
+            return;
+        }
+
+        item_property_value cur_stack_a = 0;
+
+        for (item_instance_id const id_b : pile) {
+            auto const itm_ptr_b = the_world.find(id_b);
+            BK_ASSERT(!!itm_ptr_b);
+
+            // reject if definitions don't match
+            if (itm_ptr_a->definition() != itm_ptr_b->definition()) {
+                continue;
+            }
+
+            auto const cur_stack_b = itm_ptr_b->property_value_or(
+                database, iprop::current_stack_size, 0);
+
+            BK_ASSERT(max_stack >= cur_stack_b);
+            auto const remaining_b = max_stack - cur_stack_b;
+
+            // reject if no more room in this stack
+            if (remaining_b <= 0) {
+                continue;
+            }
+
+            // first time -- get the value
+            if (cur_stack_a <= 0) {
+                cur_stack_a = itm_ptr_a->property_value_or(
+                    database, iprop::current_stack_size, 0);
+            }
+
+            BK_ASSERT(cur_stack_a > 0);
+
+            auto const n = std::min(remaining_b, cur_stack_a);
+            itm_ptr_b->add_or_update_property(iprop::current_stack_size, cur_stack_b + n);
+            cur_stack_a -= n;
+
+            if (cur_stack_a <= 0) {
+                itm.reset();
+                break;
+            }
+        }
+
+        // quantity was modified
+        if (cur_stack_a > 0) {
+            itm_ptr_a->add_or_update_property(iprop::current_stack_size, cur_stack_a);
+        }
+
+        // if the item wasn't completely merged, add the remainder
+        if (itm) {
+            pile.add_item(std::move(itm));
+        }
+    }
+
     void do_cancel() {
         if (item_list.is_visible()) {
             item_list.hide();
@@ -1111,14 +1224,14 @@ struct game_state {
         static_string_buffer<128> buffer;
 
         auto const result = the_world.current_level().move_items(p, player
-          , [&](item_instance_id const id) {
-                buffer.clear();
-                buffer.append("Picked up %s.", name_of(id).data());
-                message_window.println(buffer.to_string());
+          , [&](unique_item&& itm, item_pile& pile) {
+                auto const name = name_of(itm.get());
 
-                if (item_list_visible) {
-                    item_list.append(id);
-                }
+                merge_into_pile(std::move(itm), pile);
+
+                buffer.clear();
+                buffer.append("Picked up %s.", name.data());
+                message_window.println(buffer.to_string());
 
                 return item_merge_result::ok;
             });
@@ -1133,6 +1246,7 @@ struct game_state {
         case mr::ok_merged_all:
             renderer_remove_item(p);
             if (item_list_visible) {
+                item_list.assign(player.items());
                 item_list.layout();
             }
             break;
@@ -1365,7 +1479,14 @@ struct game_state {
 
     unique_item create_item(item_definition const& def) {
         return the_world.create_item([&](item_instance_id const instance) {
-            return item {instance, def.id};
+            item result {instance, def.id};
+
+            auto const stack_size = def.properties.value_or(iprop::stack_size, 0);
+            if (stack_size > 0) {
+                result.add_or_update_property(iprop::current_stack_size, 1);
+            }
+
+            return result;
         });
     }
 

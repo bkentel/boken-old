@@ -437,8 +437,8 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     uint32_t const color_header   = 0xDF66AA66u;
     uint32_t const color_row_even = 0xDF666666u;
     uint32_t const color_row_odd  = 0xDF888888u;
-    uint32_t const color_row_sel  = 0xDFAA8888u;
-    uint32_t const color_row_ind  = 0xDF88AAAAu;
+    uint32_t const color_row_sel  = 0xDFBB2222u;
+    uint32_t const color_row_ind  = 0xDF22BBBBu;
 
     //TODO: move to renderer
     auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h) {

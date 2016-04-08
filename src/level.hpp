@@ -148,7 +148,7 @@ public:
     virtual const_sub_region_range<tile_id>
         update_tile_at(random_state& rng, point2i32 p, tile_data_set const& data) noexcept = 0;
 
-    using item_merge_f = std::function<item_merge_result (item_instance_id)>;
+    using item_merge_f = std::function<item_merge_result (unique_item&&, item_pile&)>;
     virtual merge_item_result move_items(point2i32 from, entity& to, item_merge_f const& f) = 0;
     virtual merge_item_result move_items(point2i32 from, item& to, item_merge_f const& f) = 0;
     virtual merge_item_result move_items(point2i32 from, item_pile& to, item_merge_f const& f) = 0;

@@ -328,7 +328,7 @@ public:
         };
 
         std::copy_if(begin(rows), end(rows), back_inserter(selected_)
-          , [&](int const i) noexcept { return find(i); });
+          , [&](int const i) noexcept { return !find(i); });
 
         std::sort(begin(selected_), end(selected_));
     }

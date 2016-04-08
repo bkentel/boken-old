@@ -13,6 +13,14 @@ item_id get_id(item const& i) noexcept {
     return i.definition();
 }
 
+item_pile* get_items(item& i) noexcept {
+    return nullptr;
+}
+
+item_pile const* get_items(item const& i) noexcept {
+    return nullptr;
+}
+
 //=====--------------------------------------------------------------------=====
 //                                  item
 //=====--------------------------------------------------------------------=====
