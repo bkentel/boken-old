@@ -1,4 +1,5 @@
 #include "catch.hpp"        // for run_unit_tests
+#include "allocator.hpp"
 #include "command.hpp"
 #include "data.hpp"
 #include "entity.hpp"       // for entity
@@ -135,6 +136,78 @@ public:
     std::function<event_result (mouse_event, kb_modifiers)> on_mouse_move_handler;
     std::function<event_result (int, int, kb_modifiers)>    on_mouse_wheel_handler;
     std::function<event_result (command_type, uintptr_t)>   on_command_handler;
+};
+
+class timer {
+public:
+    using clock_t    = std::chrono::high_resolution_clock;
+    using time_point = clock_t::time_point;
+    using duration   = clock_t::duration;
+    using timer_data = uint64_t;
+
+    using callback_t = std::function<duration (duration, timer_data&)>;
+
+    size_t add(duration const period, callback_t callback) {
+        return add(period, 0, std::move(callback));
+    }
+
+    size_t add(duration const period, timer_data const data, callback_t callback) {
+        auto const result = callbacks_.allocate(std::move(callback));
+        push_({clock_t::now() + period, result.second, data});
+        return result.second;
+    }
+
+    void update() {
+        if (timers_.empty()) {
+            return;
+        }
+
+        auto const now = clock_t::now();
+
+        while (!timers_.empty()) {
+            auto const t  = timers_.front();
+            auto const dt = now - t.deadline;
+            if (dt.count() < 0) {
+                break;
+            }
+
+            pop_();
+
+            auto       data   = t.data;
+            auto const period = callbacks_[t.index](dt, data);
+            if (period.count() <= 0) {
+                callbacks_.deallocate(t.index);
+                continue;
+            }
+
+            push_({now + period, t.index, data});
+        }
+    }
+private:
+    struct data_t {
+        time_point deadline;
+        size_t     index;
+        timer_data data;
+    };
+
+    void push_(data_t const data) {
+        timers_.push_back(data);
+        std::push_heap(begin(timers_), end(timers_)
+            , [](data_t const& a, data_t const& b) noexcept {
+                return a.deadline > b.deadline;
+            });
+    }
+
+    void pop_() noexcept {
+        std::pop_heap(begin(timers_), end(timers_)
+            , [](data_t const& a, data_t const& b) noexcept {
+                return a.deadline > b.deadline;
+            });
+        timers_.pop_back();
+    }
+
+    std::vector<data_t> timers_;
+    contiguous_fixed_size_block_storage<callback_t> callbacks_;
 };
 
 class item_list_controller {
@@ -512,6 +585,14 @@ struct game_state {
         generate();
 
         reset_view_to_player();
+
+        timers.add(std::chrono::seconds {1}
+          , [&](timer::duration const d, timer::timer_data& data) -> timer::duration {
+                static_string_buffer<128> buffer;
+                buffer.append("Timer %d", static_cast<int>(data++));
+                message_window.println(buffer.to_string());
+                return std::chrono::seconds {1};
+            });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1554,6 +1635,7 @@ struct game_state {
     //! The main game loop
     void run() {
         while (os.is_running()) {
+            timers.update();
             os.do_events();
             render(last_frame_time);
         }
@@ -1584,6 +1666,8 @@ struct game_state {
     game_renderer&      renderer        = *state.renderer_ptr;
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
+
+    timer timers;
 
     item_list_controller item_list;
 
