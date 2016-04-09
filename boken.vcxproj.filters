@@ -109,6 +109,7 @@
     <ClInclude Include="src\algorithm.hpp" />
     <ClInclude Include="src\allocator.hpp" />
     <ClInclude Include="src\item_properties.hpp" />
+    <ClInclude Include="src\timer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

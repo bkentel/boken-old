@@ -537,7 +537,7 @@ public:
     merge_item_result move_items_(point2i32 const from_, item_pile& to, item_merge_f const& f) {
         auto const from = underlying_cast_unsafe<int16_t>(from_);
 
-        auto* const from_pile = items_.find(underlying_cast_unsafe<int16_t>(from));
+        auto* const from_pile = items_.find(from);
         if (!from_pile) {
             return merge_item_result::failed_bad_source;
         }
@@ -564,6 +564,7 @@ public:
         }
 
         if (from_pile->empty()) {
+            items_.erase(from);
             return merge_item_result::ok_merged_all;
         } else if (n == 0) {
             return merge_item_result::ok_merged_none;

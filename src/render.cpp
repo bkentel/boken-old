@@ -441,7 +441,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     uint32_t const color_row_ind  = 0xDF22BBBBu;
 
     //TODO: move to renderer
-    auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h) {
+    auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h, uint32_t const color) {
         auto const rw = value_cast(r.width());
         auto const rh = value_cast(r.height());
 
@@ -455,17 +455,17 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         auto const r_top    = recti32 {point2i32 {x0 + w, y0}, sizei32x {rw - 2*w}, sizei32y {h}};
         auto const r_bottom = recti32 {point2i32 {x0 + w, y1 - h}, sizei32x {rw - 2*w}, sizei32y {h}};
 
-        os_.render_fill_rect(r_left, color_border);
-        os_.render_fill_rect(r_right, color_border);
-        os_.render_fill_rect(r_top, color_border);
-        os_.render_fill_rect(r_bottom, color_border);
+        os_.render_fill_rect(r_left, color);
+        os_.render_fill_rect(r_right, color);
+        os_.render_fill_rect(r_top, color);
+        os_.render_fill_rect(r_bottom, color);
     };
 
     // draw the frame
     {
         auto const frame_size = (m.frame.width() - m.client_frame.width()) / 2;
         os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-        draw_hollow_rect(m.frame, value_cast(frame_size), value_cast(frame_size));
+        draw_hollow_rect(m.frame, value_cast(frame_size), value_cast(frame_size), color_border);
     }
 
     // draw the title
@@ -499,6 +499,18 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
 
     auto const v = m.client_frame.top_left() - point2i32 {};
 
+    for (size_t i = 0; i < inv_window.cols(); ++i) {
+        auto const info = inv_window.col(static_cast<int>(i));
+        auto const r = recti32 {
+            info.text.position().x + info.width + v.x
+          , m.client_frame.y0
+          , sizei32x {2}
+          , m.client_frame.height()
+        };
+
+        os_.render_fill_rect(r, 0xEFFFFFFF);
+    }
+
     // header background
     os_.render_fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, color_header);
 
@@ -520,13 +532,17 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         auto const h = range.first->extent().height();
 
         auto const color =
-            (i == indicated)                              ? color_row_ind
-          : (inv_window.is_selected(static_cast<int>(i))) ? color_row_sel
+            (inv_window.is_selected(static_cast<int>(i))) ? color_row_sel
           : (i % 2u)                                      ? color_row_even
                                                           : color_row_odd;
 
         // row background
-        os_.render_fill_rect({p, w, h}, color);
+        auto const r = recti32 {p, w, h};
+        os_.render_fill_rect(r, color);
+
+        if (i == indicated) {
+            draw_hollow_rect(r, 2, 2, color_row_ind);
+        }
 
         std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {
             render_text_(txt, v);
@@ -548,18 +564,6 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         };
 
         os_.render_fill_rect(r, color_row_even);
-    }
-
-    for (size_t i = 0; i < inv_window.cols(); ++i) {
-        auto const info = inv_window.col(static_cast<int>(i));
-        auto const r = recti32 {
-            info.text.position().x + info.width + v.x
-          , m.client_frame.y0
-          , sizei32x {2}
-          , m.client_frame.height()
-        };
-
-        os_.render_fill_rect(r, color_border);
     }
 }
 

@@ -166,6 +166,7 @@
     <ClInclude Include="src\system.hpp" />
     <ClInclude Include="src\text.hpp" />
     <ClInclude Include="src\tile.hpp" />
+    <ClInclude Include="src\timer.hpp" />
     <ClInclude Include="src\types.hpp" />
     <ClInclude Include="src\unicode.hpp" />
     <ClInclude Include="src\utility.hpp" />
