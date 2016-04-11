@@ -52,37 +52,45 @@ class game_renderer_impl final : public game_renderer {
     template <typename Data, typename Updates>
     void update_data_(Data& data, Updates const& updates, tile_map const& tmap) {
         auto const tranform_point = position_to_pixel_(tmap);
+
         auto const get_texture_coord = [&](auto const& id) noexcept {
             return underlying_cast_unsafe<int16_t>(
                 tmap.index_to_rect(id_to_index(tmap, id)).top_left());
         };
 
-        auto first = begin(data);
-        auto last  = end(data);
+        auto const get_color = [&](auto const& id) noexcept {
+            return 0xFF00FF00u;
+        };
 
         for (auto const& update : updates) {
+            auto const first = begin(data);
+            auto const last  = end(data);
+
             auto const p = tranform_point(update.prev_pos);
             auto const it = std::find_if(first, last
               , [p](data_t const& d) noexcept { return d.position == p; });
 
-            // new data
-            if (it == last) {
-                data.push_back({
-                    p, get_texture_coord(update.id), 0xFF00FF00u});
-                continue;
-            }
 
             // data to remove
             if (update.id == nullptr) {
+                BK_ASSERT(it != last);
                 data.erase(it);
-                first = begin(data);
-                last  = end(data);
+                continue;
+            }
+
+            auto const tex_coord = get_texture_coord(update.id);
+            auto const color     = get_color(update.id);
+
+            // new data
+            if (it == last) {
+                data.push_back({p, tex_coord, color});
                 continue;
             }
 
             // data to update
             it->position  = tranform_point(update.next_pos);
-            it->tex_coord = get_texture_coord(update.id);
+            it->tex_coord = tex_coord;
+            it->color     = color;
         }
     }
 public:

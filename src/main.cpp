@@ -1095,46 +1095,80 @@ struct game_state {
     }
 
     void do_drop_one() {
-        item_list.set_title("Drop which one?");
+        do_drop_some(1);
+    }
+
+    void do_drop_some(int const n = 2) {
+        BK_ASSERT(n >= 1);
+
+        auto const is_multi_drop    = n > 1;
+        auto const was_multi_select = item_list.is_multiselect();
+
         item_list.assign(get_player().first.items());
         item_list.show();
         item_list.set_modal(true);
-        item_list.set_multiselect(false);
 
-        auto const on_finish = [&] {
+        if (is_multi_drop) {
+            item_list.set_title("Drop which ones?");
+            item_list.set_multiselect(true);
+        } else {
+            item_list.set_title("Drop which one?");
+            item_list.set_multiselect(false);
+        }
+
+        auto const on_finish = [&, was_multi_select] {
             item_list.hide();
             item_list.set_modal(false);
-            item_list.set_multiselect(true);
+            item_list.set_multiselect(was_multi_select);
             item_list.reset_callbacks();
         };
 
-        item_list.on_confirm([&, on_finish](int const* const first, int const* const last) {
-            BK_ASSERT(!!first && !!last);
+        item_list.on_confirm([=](int const* const first, int const* const last) {
+            auto on_exit = BK_SCOPE_EXIT {
+                on_finish();
+            };
+
+            if (!first || !last || first == last) {
+                message_window.println("Nevermind.");
+                return;
+            }
+
+            BK_ASSERT((is_multi_drop)
+                   || (!is_multi_drop && std::distance(first, last) == 1));
 
             auto const player_info = get_player();
             auto&      player      = player_info.first;
             auto const player_p    = player_info.second;
-
-            auto const  id  = item_list.get().row_data(*first);
-            unique_item itm = player.items().remove_item(id);
-
-            BK_ASSERT(id == itm.get());
-
-            auto const result = add_item_at(std::move(itm), player_p);
-            BK_ASSERT(result.second == placement_result::ok);
+            auto&      player_i    = player.items();
+            auto&      il          = item_list.get();
 
             static_string_buffer<128> buffer;
-            buffer.append("You drop the %s.", name_of(id).data());
-            message_window.println(buffer.to_string());
 
-            item_list.get().remove_row(*first);
-            on_finish();
+            for (auto it = first; it != last; ++it) {
+                auto const  id  = il.row_data(*it);
+                unique_item itm = player_i.remove_item(id);
+
+                BK_ASSERT(id == itm.get());
+
+                auto const result = add_item_at(std::move(itm), player_p);
+                BK_ASSERT(result.second == placement_result::ok);
+
+                buffer.clear();
+                buffer.append("You drop the %s.", name_of(id).data());
+                message_window.println(buffer.to_string());
+
+                if (!is_multi_drop) {
+                    break;
+                }
+            }
+
+            il.remove_rows(first, last);
         });
 
-        item_list.on_cancel(on_finish);
-    }
-
-    void do_drop_some() {
+        item_list.on_cancel([&, on_finish] {
+            message_window.println("Nevermind.");
+            on_finish();
+        });
     }
 
     void do_debug_teleport_self() {
@@ -1398,7 +1432,7 @@ struct game_state {
         auto       player_p    = player_info.second;
 
         using namespace std::chrono;
-        constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 60;
+        constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 100;
         constexpr auto timer_name = djb2_hash_32c("run timer");
 
         auto const timer_id = timers.add(timer_name, timer::duration {0}
