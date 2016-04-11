@@ -69,41 +69,44 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
     }
 
     switch (event.scancode) {
-    case kb_scancode::k_right :
+    case kb_scancode::k_space:
+        if (kmods.none()) {
+            handler_(ct::toggle, 0);
+        }
+        break;
+    case kb_scancode::k_return   : BK_ATTRIBUTE_FALLTHROUGH;
+    case kb_scancode::k_kp_enter :
+        if (kmods.none()) {
+            handler_(ct::confirm, 0);
+        }
+        break;
+    case kb_scancode::k_right : BK_ATTRIBUTE_FALLTHROUGH;
+    case kb_scancode::k_kp_6  :
         handler_(kmods.test(km::m_shift) ? ct::run_e : ct::move_e, 0);
         break;
-    case kb_scancode::k_left :
+    case kb_scancode::k_left : BK_ATTRIBUTE_FALLTHROUGH;
+    case kb_scancode::k_kp_4 :
         handler_(kmods.test(km::m_shift) ? ct::run_w : ct::move_w, 0);
         break;
-    case kb_scancode::k_down :
+    case kb_scancode::k_down : BK_ATTRIBUTE_FALLTHROUGH;
+    case kb_scancode::k_kp_2 :
         handler_(kmods.test(km::m_shift) ? ct::run_s : ct::move_s, 0);
         break;
-    case kb_scancode::k_up :
+    case kb_scancode::k_up   : BK_ATTRIBUTE_FALLTHROUGH;
+    case kb_scancode::k_kp_8 :
         handler_(kmods.test(km::m_shift) ? ct::run_n : ct::move_n, 0);
         break;
     case kb_scancode::k_kp_1 :
         handler_(kmods.test(km::m_shift) ? ct::run_sw : ct::move_sw, 0);
         break;
-    case kb_scancode::k_kp_2 :
-        handler_(kmods.test(km::m_shift) ? ct::run_s : ct::move_s, 0);
-        break;
     case kb_scancode::k_kp_3 :
         handler_(kmods.test(km::m_shift) ? ct::run_se : ct::move_se, 0);
-        break;
-    case kb_scancode::k_kp_4 :
-        handler_(kmods.test(km::m_shift) ? ct::run_w : ct::move_w, 0);
         break;
     case kb_scancode::k_kp_5 :
         handler_(command_type::move_here, 0);
         break;
-    case kb_scancode::k_kp_6 :
-        handler_(kmods.test(km::m_shift) ? ct::run_e : ct::move_e, 0);
-        break;
     case kb_scancode::k_kp_7 :
         handler_(kmods.test(km::m_shift) ? ct::run_nw : ct::move_nw, 0);
-        break;
-    case kb_scancode::k_kp_8 :
-        handler_(kmods.test(km::m_shift) ? ct::run_n : ct::move_n, 0);
         break;
     case kb_scancode::k_kp_9 :
         handler_(kmods.test(km::m_shift) ? ct::run_ne : ct::move_ne, 0);
@@ -156,6 +159,8 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(cancel);
+        BK_ENUM_MAPPING(confirm);
+        BK_ENUM_MAPPING(toggle);
         BK_ENUM_MAPPING(drop_one);
         BK_ENUM_MAPPING(drop_some);
         BK_ENUM_MAPPING(toggle_show_inventory);
@@ -196,6 +201,8 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(reset_zoom);
         BK_ENUM_MAPPING(reset_view);
         BK_ENUM_MAPPING(cancel);
+        BK_ENUM_MAPPING(confirm);
+        BK_ENUM_MAPPING(toggle);
         BK_ENUM_MAPPING(drop_one);
         BK_ENUM_MAPPING(drop_some);
         BK_ENUM_MAPPING(toggle_show_inventory);

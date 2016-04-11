@@ -41,6 +41,8 @@ enum class command_type : uint32_t {
   , reset_zoom    = djb2_hash_32c("reset_zoom")
   , reset_view    = djb2_hash_32c("reset_view")
   , cancel        = djb2_hash_32c("cancel")
+  , confirm       = djb2_hash_32c("confirm")
+  , toggle        = djb2_hash_32c("toggle")
   , drop_one      = djb2_hash_32c("drop_one")
   , drop_some     = djb2_hash_32c("drop_some")
 
