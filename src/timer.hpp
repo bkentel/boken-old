@@ -18,13 +18,17 @@ public:
     using duration   = clock_t::duration;
     using timer_data = uint64_t;
 
-    //! a return value of 0 indicates the timer should be removed
+    //! @param 0 The delta between the actual timer deadline and the time the
+    //!          callback was executed.
+    //! @param 1 A reference to the timer specific data.
+    //! @returns The new period of the timer. A period of 0 indicated that the
+    //!          timer should be removed after the callback completes.
     using callback_t = std::function<duration (duration, timer_data&)>;
 
     //! a cookie used to uniquely identify a timer
     struct key_t {
-        size_t   index;
-        uint32_t hash;
+        uint32_t index; //!< the index of the associated callback
+        uint32_t hash;  //!< a unique identifier for the timer (string hash).
 
         constexpr bool operator==(key_t const k) const noexcept {
             return (k.index == index) && (k.hash == hash);
@@ -41,7 +45,7 @@ public:
 
     //! @pre new timers cannot be added as a result of calling update().
     key_t add(
-        uint32_t   const hash     //!< a 32-bit identifier (string hash)
+        uint32_t   const hash     //!< the 32-bit identifier (string hash)
       , duration   const period   //!< the period of the timer
       , timer_data const data     //!< timer specific, user-defined data
       , callback_t       callback //!< the timer action
@@ -49,7 +53,7 @@ public:
         BK_ASSERT(!updating_ && period.count() >= 0 && !!callback);
 
         auto const result = callbacks_.allocate(std::move(callback));
-        auto const key    = key_t {result.second, hash};
+        auto const key    = key_t {static_cast<uint32_t>(result.second), hash};
 
         timers_.push_back({data, clock_t::now() + period, key});
         std::push_heap(begin(timers_), end(timers_), predicate_);
