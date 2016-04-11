@@ -427,24 +427,24 @@ private:
 
     void resize_(point2i32 const p, vec2i32 const v) {
         auto const crossed_x = [&](auto const x) noexcept {
-            return (last_mouse_.x <= x) && (p.x >= x)
-                || (last_mouse_.x >= x) && (p.x <= x);
+            return ((last_mouse_.x <= x) && (p.x >= x))
+                || ((last_mouse_.x >= x) && (p.x <= x));
         };
 
         auto const crossed_y = [&](auto const y) noexcept {
-            return (last_mouse_.y <= y) && (p.y >= y)
-                || (last_mouse_.y >= y) && (p.y <= y);
+            return ((last_mouse_.y <= y) && (p.y >= y))
+                || ((last_mouse_.y >= y) && (p.y <= y));
         };
 
         auto const frame = list_->metrics().frame;
 
         bool const ok_x =
-           (last_hit_.x < 0) && ((value_cast(v.x) > 0) || crossed_x(frame.x0))
-        || (last_hit_.x > 0) && ((value_cast(v.x) < 0) || crossed_x(frame.x1));
+           ((last_hit_.x < 0) && ((value_cast(v.x) > 0) || crossed_x(frame.x0)))
+        || ((last_hit_.x > 0) && ((value_cast(v.x) < 0) || crossed_x(frame.x1)));
 
         bool const ok_y =
-           (last_hit_.y < 0) && ((value_cast(v.y) > 0) || crossed_y(frame.y0))
-        || (last_hit_.y > 0) && ((value_cast(v.y) < 0) || crossed_y(frame.y1));
+           ((last_hit_.y < 0) && ((value_cast(v.y) > 0) || crossed_y(frame.y0)))
+        || ((last_hit_.y > 0) && ((value_cast(v.y) < 0) || crossed_y(frame.y1)));
 
 
         if (!ok_x && !ok_y) {
