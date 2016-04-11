@@ -517,7 +517,7 @@ struct game_state {
 
         reset_view_to_player();
 
-        timers.add(std::chrono::seconds {1}
+        timers.add(djb2_hash_32c("timer message"), std::chrono::seconds {1}
           , [&](timer::duration const d, timer::timer_data& data) -> timer::duration {
                 static_string_buffer<128> buffer;
                 buffer.append("Timer %d", static_cast<int>(data++));
@@ -832,7 +832,7 @@ struct game_state {
         }
 
         if (event.went_down) {
-            cmd_translator.translate(event);
+            cmd_translator.translate(event, kmods);
 
             if (!kmods.test(kb_modifiers::m_shift)
                && (event.scancode == kb_scancode::k_lshift
@@ -971,6 +971,15 @@ struct game_state {
         case ct::move_sw   : do_player_move_by({-1,  1}); break;
         case ct::move_w    : do_player_move_by({-1,  0}); break;
         case ct::move_nw   : do_player_move_by({-1, -1}); break;
+
+        case ct::run_n    : do_player_run({ 0, -1}); break;
+        case ct::run_ne   : do_player_run({ 1, -1}); break;
+        case ct::run_e    : do_player_run({ 1,  0}); break;
+        case ct::run_se   : do_player_run({ 1,  1}); break;
+        case ct::run_s    : do_player_run({ 0,  1}); break;
+        case ct::run_sw   : do_player_run({-1,  1}); break;
+        case ct::run_w    : do_player_run({-1,  0}); break;
+        case ct::run_nw   : do_player_run({-1, -1}); break;
 
         case ct::move_down : do_change_level(ct::move_down); break;
         case ct::move_up   : do_change_level(ct::move_up);   break;
@@ -1332,6 +1341,52 @@ struct game_state {
         }
 
         return result;
+    }
+
+    void do_player_run(vec2i32 const v) {
+        BK_ASSERT(value_cast(abs(v.x)) <= 1
+               && value_cast(abs(v.y)) <= 1
+               && v != vec2i32 {});
+
+        auto&      lvl         = the_world.current_level();
+        auto const player_info = get_player();
+        auto const player_id   = player_info.first.definition();
+        auto const player_inst = player_info.first.instance();
+        auto       player_p    = player_info.second;
+
+        constexpr auto repeat_time =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds {1}) / 80;
+
+        auto const timer_id = timers.add(
+            djb2_hash_32c("run timer"), timer::duration {0}
+          , [=, &lvl](timer::duration, timer::timer_data) mutable -> timer::duration {
+                auto const result = lvl.move_by(player_inst, v);
+
+                if (result == placement_result::ok) {
+                    auto const p_cur = player_p;
+                    player_p = player_p + v;
+                    renderer_update(player_id, p_cur, player_p);
+                    advance(1);
+                } else {
+                    on_command(command_type::cancel, 0);
+                }
+
+                return repeat_time;
+          });
+
+        input_context c;
+
+        c.on_mouse_button_handler = [this, timer_id](auto, auto) {
+            timers.remove(timer_id);
+            return event_result::filter_detach;
+        };
+
+        c.on_command_handler = [this, timer_id](auto, auto) {
+            timers.remove(timer_id);
+            return event_result::filter_detach;
+        };
+
+        context_stack.push_back(std::move(c));
     }
 
     placement_result do_player_move_by(vec2i32 const v) {

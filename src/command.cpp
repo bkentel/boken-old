@@ -11,7 +11,7 @@ public:
     command_translator_impl();
     void on_command(command_handler_t handler) final override;
     void translate(text_input_event const& event) const final override;
-    void translate(kb_event const& event) const final override;
+    void translate(kb_event const& event, kb_modifiers const& kmods) const final override;
 private:
     command_handler_t handler_;
 };
@@ -53,10 +53,13 @@ void command_translator_impl::translate(text_input_event const& event) const {
     }
 }
 
-void command_translator_impl::translate(kb_event const& event) const {
+void command_translator_impl::translate(kb_event const& event, kb_modifiers const& kmods) const {
+    using ct = command_type;
+    using km = kb_modifiers;
+
     switch (event.keycode) {
     case kb_keycode::k_t :
-        if (kb_modifiers {event.mods}.test(kb_modifiers::m_ctrl)) {
+        if (km {event.mods}.test(km::m_ctrl)) {
             handler_(command_type::debug_teleport_self, 0);
             return;
         }
@@ -67,43 +70,43 @@ void command_translator_impl::translate(kb_event const& event) const {
 
     switch (event.scancode) {
     case kb_scancode::k_right :
-        handler_(command_type::move_e, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_e : ct::move_e, 0);
         break;
     case kb_scancode::k_left :
-        handler_(command_type::move_w, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_w : ct::move_w, 0);
         break;
     case kb_scancode::k_down :
-        handler_(command_type::move_s, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_s : ct::move_s, 0);
         break;
     case kb_scancode::k_up :
-        handler_(command_type::move_n, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_n : ct::move_n, 0);
         break;
     case kb_scancode::k_kp_1 :
-        handler_(command_type::move_sw, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_sw : ct::move_sw, 0);
         break;
     case kb_scancode::k_kp_2 :
-        handler_(command_type::move_s, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_s : ct::move_s, 0);
         break;
     case kb_scancode::k_kp_3 :
-        handler_(command_type::move_se, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_se : ct::move_se, 0);
         break;
     case kb_scancode::k_kp_4 :
-        handler_(command_type::move_w, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_w : ct::move_w, 0);
         break;
     case kb_scancode::k_kp_5 :
         handler_(command_type::move_here, 0);
         break;
     case kb_scancode::k_kp_6 :
-        handler_(command_type::move_e, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_e : ct::move_e, 0);
         break;
     case kb_scancode::k_kp_7 :
-        handler_(command_type::move_nw, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_nw : ct::move_nw, 0);
         break;
     case kb_scancode::k_kp_8 :
-        handler_(command_type::move_n, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_n : ct::move_n, 0);
         break;
     case kb_scancode::k_kp_9 :
-        handler_(command_type::move_ne, 0);
+        handler_(kmods.test(km::m_shift) ? ct::run_ne : ct::move_ne, 0);
         break;
     case kb_scancode::k_home :
         handler_(command_type::reset_view, 0);
@@ -139,6 +142,14 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(move_sw);
         BK_ENUM_MAPPING(move_w);
         BK_ENUM_MAPPING(move_nw);
+        BK_ENUM_MAPPING(run_n);
+        BK_ENUM_MAPPING(run_ne);
+        BK_ENUM_MAPPING(run_e);
+        BK_ENUM_MAPPING(run_se);
+        BK_ENUM_MAPPING(run_s);
+        BK_ENUM_MAPPING(run_sw);
+        BK_ENUM_MAPPING(run_w);
+        BK_ENUM_MAPPING(run_nw);
         BK_ENUM_MAPPING(move_up);
         BK_ENUM_MAPPING(move_down);
         BK_ENUM_MAPPING(get_all_items);
@@ -171,6 +182,14 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(move_sw);
         BK_ENUM_MAPPING(move_w);
         BK_ENUM_MAPPING(move_nw);
+        BK_ENUM_MAPPING(run_n);
+        BK_ENUM_MAPPING(run_ne);
+        BK_ENUM_MAPPING(run_e);
+        BK_ENUM_MAPPING(run_se);
+        BK_ENUM_MAPPING(run_s);
+        BK_ENUM_MAPPING(run_sw);
+        BK_ENUM_MAPPING(run_w);
+        BK_ENUM_MAPPING(run_nw);
         BK_ENUM_MAPPING(move_up);
         BK_ENUM_MAPPING(move_down);
         BK_ENUM_MAPPING(get_all_items);

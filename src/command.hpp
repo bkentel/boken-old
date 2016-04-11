@@ -8,6 +8,7 @@
 #include <cstdint>
 
 namespace boken { struct kb_event; }
+namespace boken { struct kb_modifiers; }
 namespace boken { struct text_input_event; }
 
 namespace boken {
@@ -24,6 +25,16 @@ enum class command_type : uint32_t {
   , move_sw       = djb2_hash_32c("move_sw")
   , move_w        = djb2_hash_32c("move_w")
   , move_nw       = djb2_hash_32c("move_nw")
+
+  , run_n        = djb2_hash_32c("run_n")
+  , run_ne       = djb2_hash_32c("run_ne")
+  , run_e        = djb2_hash_32c("run_e")
+  , run_se       = djb2_hash_32c("run_se")
+  , run_s        = djb2_hash_32c("run_s")
+  , run_sw       = djb2_hash_32c("run_sw")
+  , run_w        = djb2_hash_32c("run_w")
+  , run_nw       = djb2_hash_32c("run_nw")
+
   , move_up       = djb2_hash_32c("move_up")
   , move_down     = djb2_hash_32c("move_down")
   , get_all_items = djb2_hash_32c("get_all_items")
@@ -53,7 +64,7 @@ public:
 
     virtual void on_command(command_handler_t handler) = 0;
     virtual void translate(text_input_event const& event) const = 0;
-    virtual void translate(kb_event const& event) const = 0;
+    virtual void translate(kb_event const& event, kb_modifiers const& kmods) const = 0;
 };
 
 std::unique_ptr<command_translator> make_command_translator();
