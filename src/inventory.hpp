@@ -128,6 +128,7 @@ public:
     virtual void clear() noexcept = 0;
 
     //--------------------------------------------------------------------------
+    virtual bool selection_toggle(int row) = 0;
     virtual void selection_set(std::initializer_list<int> rows) = 0;
     virtual void selection_union(std::initializer_list<int> rows) = 0;
     virtual void selection_clear() = 0;

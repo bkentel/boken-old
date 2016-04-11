@@ -308,6 +308,21 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    bool selection_toggle(int const row) final override {
+        BK_ASSERT(row >= 0 && static_cast<size_t>(row) < rows());
+
+        auto const it = std::find(begin(selected_), end(selected_), row);
+        if (it != end(selected_)) {
+            selected_.erase(it);
+            return false;
+        }
+
+        selected_.push_back(row);
+        std::sort(begin(selected_), end(selected_));
+
+        return true;
+    }
+
     void selection_set(std::initializer_list<int> const rows) final override {
         selection_clear();
         std::copy_if(begin(rows), end(rows), back_inserter(selected_)
