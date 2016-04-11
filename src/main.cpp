@@ -1369,6 +1369,7 @@ struct game_state {
                     advance(1);
                 } else {
                     on_command(command_type::cancel, 0);
+                    return timer::duration {};
                 }
 
                 return repeat_time;
