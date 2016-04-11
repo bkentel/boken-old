@@ -36,9 +36,6 @@
 #include <cstdio>           // for printf
 #include <cinttypes>
 
-namespace boken {};
-namespace bk = boken;
-
 namespace boken {
 
 string_view name_of(game_database const& db, item_id const id) noexcept {
@@ -139,8 +136,6 @@ public:
     std::function<event_result (command_type, uintptr_t)>   on_command_handler;
 };
 
-
-
 class item_list_controller {
 public:
     using on_confirm_t = std::function<void (int const* first, int const* last)>;
@@ -191,19 +186,9 @@ public:
                 return std::to_string(stack);
             });
 
-        il.add_column(4, "Id"
-          , [&](item const& itm) {
-                auto const def = database.find(itm.definition());
-                return def ? def->id_string : "{unknown}";
-            });
-
         il.layout();
-        //
-        //
-        //
 
-        on_confirm_ = [](auto, auto) noexcept {};
-        on_cancel_  = []() noexcept {};
+        reset_callbacks();
     }
 
     //--------------------------------------------------------------------------
@@ -213,6 +198,11 @@ public:
 
     void on_cancel(on_cancel_t handler) {
         on_cancel_ = std::move(handler);
+    }
+
+    void reset_callbacks() {
+        on_confirm_ = [](auto, auto) noexcept {};
+        on_cancel_  = [&]() noexcept { hide(); };
     }
 
     //--------------------------------------------------------------------------
@@ -273,14 +263,17 @@ public:
             }
         } else if (event.button_change[0] == btype::went_up) {
             if (hit_test.what == type::cell) {
+                if (!is_multi_select_) {
+                    auto const p = il.get_selection();
+                    on_confirm_(&hit_test.y, &hit_test.y + 1);
+                    return !is_visible();
+                }
+
                 if (kmods.test(kb_modifiers::m_shift)) {
-                    il.selection_union({hit_test.y});
+                    il.selection_toggle(hit_test.y);
                 } else {
                     il.selection_set({hit_test.y});
                 }
-
-                auto const p = il.get_selection();
-                on_confirm_(p.first, p.second);
             }
         }
 
@@ -356,6 +349,19 @@ public:
         } else if (type == command_type::cancel) {
             on_cancel_();
             return !is_visible();
+        } else if (type == command_type::confirm) {
+            if (is_multi_select_) {
+                auto const sel = il.get_selection();
+                on_confirm_(sel.first, sel.second);
+            } else {
+                auto const i = il.indicated();
+                on_confirm_(&i, &i + 1);
+            }
+            return !is_visible();
+        } else if (type == command_type::toggle) {
+            if (is_multi_select_) {
+                il.selection_toggle(il.indicated());
+            }
         }
 
         return false;
@@ -383,6 +389,10 @@ public:
         list_->layout();
     }
 
+    void set_title(std::string title) {
+        list_->set_title(std::move(title));
+    }
+
     //--------------------------------------------------------------------------
     bool set_modal(bool const state) noexcept {
         BK_ASSERT(!state || state && is_visible());
@@ -393,6 +403,16 @@ public:
 
     bool is_modal() const noexcept {
         return is_modal_;
+    }
+
+    bool set_multiselect(bool const state) noexcept {
+        bool const result = is_multi_select_;
+        is_multi_select_ = state;
+        return result;
+    }
+
+    bool is_multiselect() const noexcept {
+        return is_multi_select_;
     }
 
     //--------------------------------------------------------------------------
@@ -464,9 +484,11 @@ private:
 
     point2i32    last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};
-    bool         is_moving_   {false};
-    bool         is_sizing_   {false};
-    bool         is_modal_    {false};
+
+    bool         is_moving_       {false};
+    bool         is_sizing_       {false};
+    bool         is_modal_        {false};
+    bool         is_multi_select_ {true};
 };
 
 struct game_state {
@@ -516,14 +538,6 @@ struct game_state {
         generate();
 
         reset_view_to_player();
-
-        timers.add(djb2_hash_32c("timer message"), std::chrono::seconds {1}
-          , [&](timer::duration const d, timer::timer_data& data) -> timer::duration {
-                static_string_buffer<128> buffer;
-                buffer.append("Timer %d", static_cast<int>(data++));
-                message_window.println(buffer.to_string());
-                return std::chrono::seconds {1};
-            });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -987,8 +1001,10 @@ struct game_state {
         case ct::get_all_items : do_get_all_items(); break;
 
         case ct::toggle_show_inventory :
-            item_list.toogle_visible();
-            item_list.assign(get_player().first.items());
+            if (item_list.toogle_visible()) {
+                item_list.assign(get_player().first.items());
+                item_list.set_title("Inventory");
+            }
             break;
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
@@ -1004,6 +1020,10 @@ struct game_state {
             break;
         case ct::cancel :
             do_cancel();
+            break;
+        case ct::confirm :
+            break;
+        case ct::toggle :
             break;
         case ct::drop_one :
             do_drop_one();
@@ -1028,6 +1048,10 @@ struct game_state {
         return boken::name_of(database, i.definition());
     }
 
+    string_view name_of(unique_item const& i) noexcept {
+        return name_of(i.get());
+    }
+
     string_view name_of(item_instance_id const id) noexcept {
         return boken::name_of(the_world, database, id);
     }
@@ -1040,8 +1064,25 @@ struct game_state {
         return boken::name_of(database, e.definition());
     }
 
+    string_view name_of(unique_entity const& e) noexcept {
+        return name_of(e.get());
+    }
+
     string_view name_of(entity_instance_id const id) noexcept {
         return boken::name_of(the_world, database, id);
+    }
+
+    std::pair<entity&, point2i32> get_player() noexcept {
+        constexpr auto player_id = entity_instance_id {1u};
+
+        auto const result = the_world.current_level().find(player_id);
+        BK_ASSERT(!!result.first);
+
+        return {*result.first, result.second};
+    }
+
+    std::pair<entity const&, point2i32> get_player() const noexcept {
+        return const_cast<game_state*>(this)->get_player();
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1054,15 +1095,17 @@ struct game_state {
     }
 
     void do_drop_one() {
+        item_list.set_title("Drop which one?");
         item_list.assign(get_player().first.items());
         item_list.show();
         item_list.set_modal(true);
+        item_list.set_multiselect(false);
 
         auto const on_finish = [&] {
             item_list.hide();
             item_list.set_modal(false);
-            item_list.on_confirm([](auto, auto) noexcept {});
-            item_list.on_cancel([]() noexcept {});
+            item_list.set_multiselect(true);
+            item_list.reset_callbacks();
         };
 
         item_list.on_confirm([&, on_finish](int const* const first, int const* const last) {
@@ -1072,8 +1115,8 @@ struct game_state {
             auto&      player      = player_info.first;
             auto const player_p    = player_info.second;
 
-            auto const id  = item_list.get().row_data(*first);
-            auto       itm = player.items().remove_item(id);
+            auto const  id  = item_list.get().row_data(*first);
+            unique_item itm = player.items().remove_item(id);
 
             BK_ASSERT(id == itm.get());
 
@@ -1081,8 +1124,7 @@ struct game_state {
             BK_ASSERT(result.second == placement_result::ok);
 
             static_string_buffer<128> buffer;
-            buffer.append("You drop the %s."
-              , name_of(id).data());
+            buffer.append("You drop the %s.", name_of(id).data());
             message_window.println(buffer.to_string());
 
             item_list.get().remove_row(*first);
@@ -1114,6 +1156,7 @@ struct game_state {
                     return event_result::filter;
                 }
 
+                message_window.println("Done.");
                 return event_result::filter_detach;
             };
 
@@ -1143,7 +1186,7 @@ struct game_state {
 
         auto const result = the_world.current_level().move_items(p, player
           , [&](unique_item&& itm, item_pile& pile) {
-                auto const name = name_of(itm.get());
+                auto const name = name_of(itm);
 
                 merge_into_pile(the_world, database, std::move(itm), pile);
 
@@ -1154,15 +1197,15 @@ struct game_state {
                 return item_merge_result::ok;
             });
 
-
         using mr = merge_item_result;
 
         switch (result) {
         case mr::ok_merged_none:
             break;
-        case mr::ok_merged_some: BK_ATTRIBUTE_FALLTHROUGH;
         case mr::ok_merged_all:
             renderer_remove_item(p);
+            BK_ATTRIBUTE_FALLTHROUGH;
+        case mr::ok_merged_some:
             if (item_list_visible) {
                 item_list.assign(player.items());
                 item_list.layout();
@@ -1171,7 +1214,9 @@ struct game_state {
         case mr::failed_bad_source:
             message_window.println("There is nothing here to get.");
             break;
-        case mr::failed_bad_destination: BK_ATTRIBUTE_FALLTHROUGH;
+        case mr::failed_bad_destination:
+            // merging into an entity (the player) should never cause this
+            BK_ATTRIBUTE_FALLTHROUGH;
         default:
             BK_ASSERT(false);
             break;
@@ -1316,13 +1361,11 @@ struct game_state {
     }
 
     placement_result do_player_move_to(point2i32 const p) {
-        auto& lvl = the_world.current_level();
-
+        auto&      lvl         = the_world.current_level();
         auto const player_info = get_player();
         auto&      player      = player_info.first;
-
-        auto const p_cur = player_info.second;
-        auto const p_dst = p;
+        auto const p_cur       = player_info.second;
+        auto const p_dst       = p;
 
         auto const result = lvl.move_by(player.instance(), p_dst - p_cur);
 
@@ -1354,14 +1397,13 @@ struct game_state {
         auto const player_inst = player_info.first.instance();
         auto       player_p    = player_info.second;
 
-        constexpr auto repeat_time =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds {1}) / 80;
+        using namespace std::chrono;
+        constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 60;
+        constexpr auto timer_name = djb2_hash_32c("run timer");
 
-        auto const timer_id = timers.add(
-            djb2_hash_32c("run timer"), timer::duration {0}
-          , [=, &lvl](timer::duration, timer::timer_data) mutable -> timer::duration {
+        auto const timer_id = timers.add(timer_name, timer::duration {0}
+          , [=, &lvl](auto, auto) mutable -> timer::duration {
                 auto const result = lvl.move_by(player_inst, v);
-
                 if (result == placement_result::ok) {
                     auto const p_cur = player_p;
                     player_p = player_p + v;
@@ -1372,17 +1414,19 @@ struct game_state {
                     return timer::duration {};
                 }
 
-                return repeat_time;
+                return delay;
           });
 
+        // add an input context that automatically terminates the run on
+        // player input
         input_context c;
 
-        c.on_mouse_button_handler = [this, timer_id](auto, auto) {
+        c.on_mouse_button_handler = [=](auto, auto) {
             timers.remove(timer_id);
             return event_result::filter_detach;
         };
 
-        c.on_command_handler = [this, timer_id](auto, auto) {
+        c.on_command_handler = [=](auto, auto) {
             timers.remove(timer_id);
             return event_result::filter_detach;
         };
@@ -1391,13 +1435,15 @@ struct game_state {
     }
 
     placement_result do_player_move_by(vec2i32 const v) {
-        auto& lvl = the_world.current_level();
+        BK_ASSERT(value_cast(abs(v.x)) <= 1
+               && value_cast(abs(v.y)) <= 1
+               && v != vec2i32 {});
 
+        auto&      lvl         = the_world.current_level();
         auto const player_info = get_player();
         auto&      player      = player_info.first;
-
-        auto const p_cur = player_info.second;
-        auto const p_dst = p_cur + v;
+        auto const p_cur       = player_info.second;
+        auto const p_dst       = p_cur + v;
 
         auto const result = lvl.move_by(player.instance(), v);
 
@@ -1412,9 +1458,11 @@ struct game_state {
         case placement_result::failed_obstacle:
             interact_obstacle(player, p_cur, p_dst);
             break;
-        case placement_result::failed_bounds: BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_bad_id:
+        case placement_result::failed_bounds:
             break;
+        case placement_result::failed_bad_id:
+            // the player id should always be valid
+            BK_ATTRIBUTE_FALLTHROUGH;
         default :
             BK_ASSERT(false);
             break;
@@ -1426,15 +1474,7 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    std::pair<entity const&, point2i32> get_player() const {
-        return const_cast<game_state*>(this)->get_player();
-    }
 
-    std::pair<entity&, point2i32> get_player() {
-        auto const result = the_world.current_level().find(entity_instance_id {1u});
-        BK_ASSERT(result.first);
-        return {*result.first, result.second};
-    }
 
     unique_entity create_entity(entity_definition const& def) {
         return the_world.create_entity([&](entity_instance_id const instance) {
@@ -1696,7 +1736,7 @@ void run_tests() {
 int main(int const argc, char const* argv[]) try {
     run_tests();
 
-    bk::game_state game;
+    boken::game_state game;
     game.run();
 
     return 0;
