@@ -1740,11 +1740,13 @@ struct game_state {
 
     //! Render the game
     void render(timepoint_t const last_frame) {
-        using namespace std::chrono_literals;
+        using namespace std::chrono;
 
         auto const now   = clock_t::now();
         auto const delta = now - last_frame;
         if (delta < 1s / 60) {
+
+        if (delta < frame_time) {
             return;
         }
 
