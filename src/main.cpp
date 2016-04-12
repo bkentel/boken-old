@@ -999,6 +999,7 @@ struct game_state {
         case ct::move_up   : do_change_level(ct::move_up);   break;
 
         case ct::get_all_items : do_get_all_items(); break;
+        case ct::get_items : do_get_items(); break;
 
         case ct::toggle_show_inventory :
             if (item_list.toogle_visible()) {
@@ -1109,14 +1110,14 @@ struct game_state {
         item_list.set_modal(true);
 
         if (is_multi_drop) {
-            item_list.set_title("Drop which ones?");
+            item_list.set_title("Drop which item?");
             item_list.set_multiselect(true);
         } else {
-            item_list.set_title("Drop which one?");
+            item_list.set_title("Drop which items?");
             item_list.set_multiselect(false);
         }
 
-        auto const on_finish = [&, was_multi_select] {
+        auto const on_finish = [=] {
             item_list.hide();
             item_list.set_modal(false);
             item_list.set_multiselect(was_multi_select);
@@ -1165,7 +1166,7 @@ struct game_state {
             il.remove_rows(first, last);
         });
 
-        item_list.on_cancel([&, on_finish] {
+        item_list.on_cancel([=] {
             message_window.println("Nevermind.");
             on_finish();
         });
@@ -1210,16 +1211,35 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
-    void do_get_all_items() {
-        auto const player_info       = get_player();
-        auto&      player            = player_info.first;
-        auto const p                 = player_info.second;
-        auto const item_list_visible = item_list.is_visible();
+    merge_item_result do_get_item_indicies(
+        int const* const first = nullptr
+      , int const* const last  = nullptr
+    ) {
+        BK_ASSERT(( !first &&  !last)
+               || (!!first && !!last));
+
+        auto&      lvl         = the_world.current_level();
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+        auto const player_p    = player_info.second;
+
+        int  i  = 0;
+        auto it = first;
 
         static_string_buffer<128> buffer;
 
-        auto const result = the_world.current_level().move_items(p, player
-          , [&](unique_item&& itm, item_pile& pile) {
+        auto const result = lvl.move_items(player_p, player
+          , [&](unique_item&& itm, item_pile& pile) mutable {
+                if (it) {
+                    if (it == last) {
+                        return item_merge_result::terminate;
+                    } else if (i++ != *it) {
+                        return item_merge_result::skip;
+                    } else {
+                        ++it;
+                    }
+                }
+
                 auto const name = name_of(itm);
 
                 merge_into_pile(the_world, database, std::move(itm), pile);
@@ -1229,32 +1249,85 @@ struct game_state {
                 message_window.println(buffer.to_string());
 
                 return item_merge_result::ok;
-            });
-
-        using mr = merge_item_result;
+          });
 
         switch (result) {
-        case mr::ok_merged_none:
+        case merge_item_result::ok_merged_none:
             break;
-        case mr::ok_merged_all:
-            renderer_remove_item(p);
-            BK_ATTRIBUTE_FALLTHROUGH;
-        case mr::ok_merged_some:
-            if (item_list_visible) {
-                item_list.assign(player.items());
-                item_list.layout();
-            }
+        case merge_item_result::ok_merged_all:
+            renderer_remove_item(player_p);
             break;
-        case mr::failed_bad_source:
-            message_window.println("There is nothing here to get.");
+        case merge_item_result::ok_merged_some:
             break;
-        case mr::failed_bad_destination:
+        case merge_item_result::failed_bad_source:
+            message_window.println("There is nothing here to pick up.");
+            break;
+        case merge_item_result::failed_bad_destination:
             // merging into an entity (the player) should never cause this
             BK_ATTRIBUTE_FALLTHROUGH;
         default:
             BK_ASSERT(false);
             break;
         }
+
+        return result;
+    }
+
+    void do_get_all_items() {
+        auto const was_visible = item_list.is_visible();
+
+        auto const result = do_get_item_indicies();
+
+        if (!was_visible) {
+            return;
+        }
+
+        if (result != merge_item_result::ok_merged_all
+         && result == merge_item_result::ok_merged_some
+        ) {
+            return;
+        }
+
+        item_list.assign(get_player().first.items());
+        item_list.layout();
+    }
+
+    void do_get_items() {
+        auto* const pile = the_world.current_level().item_at(get_player().second);
+        if (!pile) {
+            message_window.println("There is nothing here to get.");
+            return;
+        }
+
+        item_list.assign(*pile);
+        item_list.show();
+        item_list.set_modal(true);
+        item_list.set_title("Pick up which items?");
+        item_list.set_multiselect(true);
+
+        auto const on_finish = [&] {
+            item_list.hide();
+            item_list.set_modal(false);
+            item_list.reset_callbacks();
+        };
+
+        item_list.on_confirm([=](int const* const first, int const* const last) {
+            auto on_exit = BK_SCOPE_EXIT {
+                on_finish();
+            };
+
+            if (!first || !last || first == last) {
+                message_window.println("Nevermind.");
+                return;
+            }
+
+            do_get_item_indicies(first, last);
+        });
+
+        item_list.on_cancel([&, on_finish] {
+            message_window.println("Nevermind.");
+            on_finish();
+        });
     }
 
     void do_kill(entity& e, point2i32 const p) {
@@ -1436,7 +1509,7 @@ struct game_state {
         constexpr auto timer_name = djb2_hash_32c("run timer");
 
         auto const timer_id = timers.add(timer_name, timer::duration {0}
-          , [=, &lvl](auto, auto) mutable -> timer::duration {
+          , [=, &lvl](timer::duration, timer::timer_data) mutable -> timer::duration {
                 auto const result = lvl.move_by(player_inst, v);
                 if (result == placement_result::ok) {
                     auto const p_cur = player_p;
@@ -1508,8 +1581,6 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Simulation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
     unique_entity create_entity(entity_definition const& def) {
         return the_world.create_entity([&](entity_instance_id const instance) {
             return entity {instance, def.id};
