@@ -544,15 +544,15 @@ public:
 
         int n = 0;
 
-        for (auto i = from_pile->size(); i > 0; --i) {
-            auto itm = from_pile->remove_item(i - 1u);
+        for (auto i = from_pile->size(); i > 0u; --i) {
+            unique_item itm = from_pile->remove_item(i - 1u);
 
             switch (f(std::move(itm), to)) {
             case item_merge_result::ok:
                 ++n;
                 break;
             case item_merge_result::terminate:
-                i = 0u;
+                i = 1u; // break out at the end of the loop
                 BK_ATTRIBUTE_FALLTHROUGH;
             case item_merge_result::skip:
                 from_pile->add_item(std::move(itm));
