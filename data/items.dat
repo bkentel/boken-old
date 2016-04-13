@@ -11,6 +11,16 @@
         "tile_index": 15
       }
     },
+    "container_chest": {
+      "name": "wooden chest",
+      "properties": {
+        "type": "container",
+        "sub_type": "chest",
+        "weight": 5000,
+        "tile_index": 9,
+        "capacity": 20
+      }
+    },
     "weapon_dagger": {
       "name": "dagger",
       "properties": {

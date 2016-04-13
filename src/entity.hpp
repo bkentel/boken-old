@@ -3,15 +3,13 @@
 #include "types.hpp"
 #include "entity_def.hpp"
 #include "object.hpp"
-#include "item_pile.hpp"
-#include "forward_declarations.hpp"
+#include <cstdint>
 
 namespace boken { class item; }
 
 namespace boken {
 
-class entity
-  : public object<entity_instance_id, entity_definition> {
+class entity : public object<entity, entity_definition, entity_instance_id> {
 public:
     entity(entity_instance_id instance, entity_id id) noexcept;
 
@@ -24,15 +22,10 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // item / inventory management
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool can_add_item(item const& itm);
-    void add_item(unique_item itm);
-
-    item_pile const& items() const noexcept { return items_; }
-    item_pile&       items()       noexcept { return items_; }
+    bool can_add_item(item const& itm) const noexcept;
 private:
-    int16_t   max_health_;
-    int16_t   cur_health_;
-    item_pile items_;
+    int16_t max_health_;
+    int16_t cur_health_;
 };
 
 } //namespace boken

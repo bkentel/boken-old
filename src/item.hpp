@@ -1,16 +1,18 @@
 #pragma once
 
 #include "types.hpp"
-#include "forward_declarations.hpp"
 #include "item_def.hpp"
 #include "object.hpp"
 
 namespace boken {
 
-class item
-  : public object<item_instance_id, item_definition> {
+class item : public object<item, item_definition, item_instance_id> {
 public:
     using object::object;
+
+    bool can_add_item(item const&) const noexcept {
+        return true;
+    }
 };
 
 } //namespace boken

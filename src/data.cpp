@@ -4,6 +4,7 @@
 #include "tile.hpp"
 #include "utility.hpp"     // for find_ptr_if
 #include "serialize.hpp"
+#include "forward_declarations.hpp"
 
 #include <vector>          // for vector
 #include <unordered_map>
@@ -95,29 +96,26 @@ game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
 
 void game_database_impl::load_entity_defs_() {
     {
-        auto       id      = std::string {"rat_small"};
-        auto const id_hash = djb2_hash_32(id.data());
+        auto       id_string = std::string {"rat_small"};
+        auto const id        = entity_id {djb2_hash_32(id_string.data())};
 
-        auto edef = entity_definition {
-            basic_definition {std::move(id), "small rat", "source", 0}
-          , entity_id {id_hash}};
+        entity_definition def {std::move(id_string), id};
+        def.name = "small rat";
 
-        entity_defs_.insert(std::make_pair(entity_id {id_hash}, std::move(edef)));
+        entity_defs_.insert({id, std::move(def)});
+        tile_map_entities_.add_mapping(id, 21 + 6 * 26);
     }
 
     {
-        auto       id      = std::string {"player"};
-        auto const id_hash = djb2_hash_32(id.data());
+        auto       id_string = std::string {"player"};
+        auto const id        = entity_id {djb2_hash_32(id_string.data())};
 
-        entity_defs_.insert(std::make_pair(
-            entity_id {id_hash}
-          , entity_definition {
-                basic_definition {std::move(id), "player", "source", 0}
-              , entity_id {id_hash}}));
+        entity_definition def {std::move(id_string), id};
+        def.name = "player";
+
+        entity_defs_.insert({id, std::move(def)});
+        tile_map_entities_.add_mapping(id, 13 + 13 * 26);
     }
-
-    tile_map_entities_.add_mapping(entity_id {djb2_hash_32("rat_small")}, 21 + 6 * 26);
-    tile_map_entities_.add_mapping(entity_id {djb2_hash_32("player")}, 13 + 13 * 26);
 }
 
 void game_database_impl::load_item_defs_() {
@@ -151,45 +149,6 @@ game_database_impl::game_database_impl() {
     load_item_defs_();
 }
 
-bool has_property(game_database const& data, entity_id const& def, entity_property_id const property) noexcept {
-    auto const edef = data.find(def);
-    return !!edef && has_property(*edef, property);
-}
-
-bool has_property(entity_definition const& def, entity_property_id const property) noexcept {
-    return def.properties.has_property(property);
-}
-
-entity_property_value property_value_or(game_database const& data, entity_id const& def, entity_property_id const property, entity_property_value const value) noexcept {
-    auto const edef = data.find(def);
-    return !edef
-      ? value
-      : property_value_or(*edef, property, value);
-}
-
-entity_property_value property_value_or(entity_definition const& def, entity_property_id const property, entity_property_value const value) noexcept {
-    return def.properties.value_or(property, value);
-}
-
-bool has_property(game_database const& data, item_id const& def, item_property_id const property) noexcept {
-    auto const idef = data.find(def);
-    return !!idef && has_property(*idef, property);
-}
-
-bool has_property(item_definition const& def, item_property_id const property) noexcept {
-    return def.properties.has_property(property);
-}
-
-item_property_value property_value_or(game_database const& data, item_id const& def, item_property_id const property, item_property_value const value) noexcept {
-    auto const idef = data.find(def);
-    return !idef
-      ? value
-      : property_value_or(*idef, property, value);
-}
-
-item_property_value property_value_or(item_definition const& def, item_property_id const property, item_property_value const value) noexcept {
-    return def.properties.value_or(property, value);
-}
 
 item_definition const* find(game_database const& db, item_id const id) noexcept {
     return db.find(id);
@@ -197,6 +156,41 @@ item_definition const* find(game_database const& db, item_id const id) noexcept 
 
 entity_definition const* find(game_database const& db, entity_id const id) noexcept {
     return db.find(id);
+}
+
+namespace {
+
+template <typename DefId, typename PropertyId, typename PropertyValue>
+PropertyValue property_value_or_impl(
+    game_database const& db
+  , DefId         const  id
+  , PropertyId    const  property
+  , PropertyValue const  value
+) noexcept {
+    auto* const def = db.find(id);
+    return def ? def->properties.value_or(property, value) : value;
+}
+
+} // namespace
+
+template <>
+item_property_value property_value_or(
+    game_database       const& db
+  , item_id             const  id
+  , item_property_id    const  property
+  , item_property_value const  value
+) noexcept {
+    return property_value_or_impl(db, id, property, value);
+}
+
+template <>
+entity_property_value property_value_or(
+    game_database         const& db
+  , entity_id             const  id
+  , entity_property_id    const  property
+  , entity_property_value const  value
+) noexcept {
+    return property_value_or_impl(db, id, property, value);
 }
 
 } //namespace boken

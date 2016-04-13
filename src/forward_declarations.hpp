@@ -38,4 +38,16 @@ item_pile const* get_items(item const& i) noexcept;
 item_pile& get_items(entity& e) noexcept;
 item_pile const& get_items(entity const& e) noexcept;
 
+template <typename DefId, typename PropertyId>
+bool has_property(game_database const& data, DefId id, PropertyId property) noexcept;
+
+template <typename Definition, typename PropertyId>
+bool has_property(Definition const& def, PropertyId property) noexcept;
+
+template <typename DefId, typename PropertyId, typename PropertyValue>
+PropertyValue property_value_or(game_database const& data, DefId id, PropertyId property, PropertyValue value) noexcept;
+
+template <typename Definition, typename PropertyId, typename PropertyValue>
+PropertyValue property_value_or(Definition const& def, PropertyId property, PropertyValue value) noexcept;
+
 } //namespace boken

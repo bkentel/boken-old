@@ -156,6 +156,7 @@
     <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />
+    <ClInclude Include="src\property_set.hpp" />
     <ClInclude Include="src\random.hpp" />
     <ClInclude Include="src\random_algorithm.hpp" />
     <ClInclude Include="src\rect.hpp" />

@@ -293,8 +293,6 @@ bool item_definition_handler::run() {
             def_.id_string.clear();
             def_.name.clear();
             def_.properties.clear();
-            def_.source_line = 0;
-            def_.source_name = "";
         });
     case state::data_end:
         return require(type::obj_end, state::end);
