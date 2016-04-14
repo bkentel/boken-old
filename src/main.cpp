@@ -172,11 +172,11 @@ public:
                 auto const weight = property_value_or(
                     database
                   , itm.definition()
-                  , iprop::weight
+                  , property(item_property::weight)
                   , item_property_value {0});
 
                 auto const stack = itm.property_value_or(
-                    database, iprop::current_stack_size, 1);
+                    database, property(item_property::current_stack_size), 1);
 
                 return std::to_string(weight * stack);
             });
@@ -184,7 +184,7 @@ public:
         il.add_column(3, "Count"
           , [&](item const& itm) {
                 auto const stack = itm.property_value_or(
-                    database, iprop::current_stack_size, 1);
+                    database, property(item_property::current_stack_size), 1);
 
                 return std::to_string(stack);
             });
@@ -1681,21 +1681,9 @@ struct game_state {
         return add_object_at_(std::move(object), instance->definition(), p);
     }
 
-    //placement_pair add_object_at(unique_item&& i, item_id const id, point2i32 const p) {
-    //    return add_object_at_(std::move(i), id, p);
-    //}
-
-    //placement_pair add_object_at(unique_entity&& e, entity_id const id, point2i32 const p) {
-    //    return add_object_at_(std::move(e), id, p);
-    //}
-
     placement_pair add_object_at(unique_item&& i, point2i32 const p) {
         return add_object_at_(std::move(i), p);
     }
-
-    //placement_pair add_object_at(unique_entity&& e, point2i32 const p) {
-    //    return add_object_at_(std::move(e), p);
-    //}
 
     void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
         auto& lvl = the_world.current_level();

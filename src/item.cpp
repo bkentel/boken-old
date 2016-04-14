@@ -37,9 +37,16 @@ item create_object(
 ) {
     item result {instance, def.id};
 
-    auto const stack_size = def.properties.value_or(iprop::stack_size, 0);
+    //
+    // check if the item type can be stacked, and if so set its current stack
+    // size.
+    //
+    auto const stack_size = def.properties.value_or(
+        property(item_property::stack_size), 0);
+
     if (stack_size > 0) {
-        result.add_or_update_property(iprop::current_stack_size, 1);
+        result.add_or_update_property(
+            property(item_property::current_stack_size), 1);
     }
 
     return result;
@@ -78,12 +85,12 @@ void merge_into_pile(
     };
 
     auto const get_current_stack = [&](item const& i) {
-        return i.property_value_or(db, iprop::current_stack_size, 0);
+        return i.property_value_or(db, property(item_property::current_stack_size), 0);
     };
 
     auto const set_current_stack = [&](item& i, item_property_value const n) {
         auto const result =
-            i.add_or_update_property(iprop::current_stack_size, n);
+            i.add_or_update_property(property(item_property::current_stack_size), n);
         BK_ASSERT(!result);
     };
 
@@ -97,7 +104,7 @@ void merge_into_pile(
     }
 
     // if the item can't be stacked, just add the item to the pile
-    auto const max_stack = a_def_ptr->properties.value_or(iprop::stack_size, 0);
+    auto const max_stack = a_def_ptr->properties.value_or(property(item_property::stack_size), 0);
     if (max_stack <= 0) {
         pile.add_item(std::move(itm));
         return;
