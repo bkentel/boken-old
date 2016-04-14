@@ -1604,7 +1604,7 @@ struct game_state {
 
     placement_pair add_item_near(unique_item&& i, item_id const id, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const result = the_world.current_level()
-          .add_item_nearest_random(rng, std::move(i), p, distance);
+          .add_object_nearest_random(rng, std::move(i), p, distance);
 
         if (result.second == placement_result::ok) {
             renderer_add(id, p);
@@ -1615,7 +1615,7 @@ struct game_state {
 
     placement_pair add_entity_near(unique_entity&& e, entity_id const id, point2i32 const p, int32_t const distance, random_state& rng) {
         auto const result = the_world.current_level()
-          .add_entity_nearest_random(rng, std::move(e), p, distance);
+          .add_object_nearest_random(rng, std::move(e), p, distance);
 
         if (result.second == placement_result::ok) {
             renderer_add(id, p);
@@ -1626,7 +1626,7 @@ struct game_state {
 
     placement_pair add_item_at(unique_item&& i, item_id const id, point2i32 const p) {
         auto const result =
-            the_world.current_level().add_item_at(std::move(i), p);
+            the_world.current_level().add_object_at(std::move(i), p);
 
         if (result == placement_result::ok) {
             renderer_add(id, p);
@@ -1644,7 +1644,7 @@ struct game_state {
 
     placement_pair add_entity_at(unique_entity&& e, entity_id const id, point2i32 const p) {
         auto const result =
-            the_world.current_level().add_entity_at(std::move(e), p);
+            the_world.current_level().add_object_at(std::move(e), p);
 
         if (result == placement_result::ok) {
             renderer_add(id, p);

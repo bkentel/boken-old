@@ -125,8 +125,8 @@ public:
       , std::function<void (entity&, point2i32, point2i32)>&& on_success
     ) = 0;
 
-    virtual placement_result add_item_at(unique_item&& i, point2i32 p) = 0;
-    virtual placement_result add_entity_at(unique_entity&& e, point2i32 p) = 0;
+    virtual placement_result add_object_at(unique_item&& i, point2i32 p) = 0;
+    virtual placement_result add_object_at(unique_entity&& e, point2i32 p) = 0;
 
     virtual unique_entity remove_entity_at(point2i32 p) noexcept = 0;
     virtual unique_entity remove_entity(entity_instance_id id) noexcept = 0;
@@ -138,9 +138,15 @@ public:
     //! @returns The actual position that item was placed. Otherwise {0, 0} and
     //! the reason why placement failed.
     virtual std::pair<point2i32, placement_result>
-        add_item_nearest_random(random_state& rng, unique_item&& i, point2i32 p, int max_distance) = 0;
+        add_object_nearest_random(random_state& rng, unique_item&& i, point2i32 p, int max_distance) = 0;
     virtual std::pair<point2i32, placement_result>
-        add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i32 p, int max_distance) = 0;
+        add_object_nearest_random(random_state& rng, unique_entity&& e, point2i32 p, int max_distance) = 0;
+
+    virtual std::pair<point2i32, placement_result>
+        find_valid_item_placement_neareast(random_state& rng, point2i32 p, int max_distance) const noexcept = 0;
+
+    virtual std::pair<point2i32, placement_result>
+        find_valid_entity_placement_neareast(random_state& rng, point2i32 p, int max_distance) const noexcept = 0;
 
     virtual placement_result move_by(item_instance_id   id, vec2i32 v) noexcept = 0;
     virtual placement_result move_by(entity_instance_id id, vec2i32 v) noexcept = 0;

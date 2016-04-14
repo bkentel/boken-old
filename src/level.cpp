@@ -388,7 +388,7 @@ public:
         }
     }
 
-    placement_result add_item_at(unique_item&& i, point2i32 const p) final override {
+    placement_result add_object_at(unique_item&& i, point2i32 const p) final override {
         if (!item_deleter_) {
             item_deleter_ = &i.get_deleter();
         }
@@ -422,7 +422,7 @@ public:
         return placement_result::ok;
     }
 
-    placement_result add_entity_at(unique_entity&& e, point2i32 const p) final override {
+    placement_result add_object_at(unique_entity&& e, point2i32 const p) final override {
         if (!entity_deleter_) {
             entity_deleter_ = &e.get_deleter();
         }
@@ -454,13 +454,14 @@ public:
           : unique_entity {entity_instance_id {}, *entity_deleter_};
     }
 
-    std::pair<point2i32, placement_result>
-    add_item_nearest_random(random_state& rng, unique_item&& i, point2i32 p, int max_distance) final override {
-        auto const where = find_random_nearest(rng, p, max_distance
-          , [&](point2i32 const q) {
-                return add_item_at(std::move(i), q) == placement_result::ok;
-            });
-
+    template <typename Predicate>
+    std::pair<point2i32, placement_result> find_valid_placement_neareast_(
+        random_state&   rng
+      , point2i32 const p
+      , int       const max_distance
+      , Predicate       pred
+    ) const noexcept  {
+        auto const where = find_random_nearest(rng, p, max_distance, pred);
         if (!where.second) {
             return {p, placement_result::failed_obstacle};
         }
@@ -468,18 +469,64 @@ public:
         return {where.first, placement_result::ok};
     }
 
-    std::pair<point2i32, placement_result>
-    add_entity_nearest_random(random_state& rng, unique_entity&& e, point2i32 const p, int const max_distance) final override {
-        auto const where = find_random_nearest(rng, p, max_distance
-          , [&](point2i32 const q) {
-                return add_entity_at(std::move(e), q) == placement_result::ok;
+    std::pair<point2i32, placement_result> find_valid_entity_placement_neareast(
+        random_state&   rng
+      , point2i32 const p
+      , int       const max_distance
+    ) const noexcept final override {
+        return find_valid_placement_neareast_(rng, p, max_distance
+          , [&](point2i32 const q) noexcept {
+                return can_place_entity_at(q) == placement_result::ok;
             });
+    }
 
-        if (!where.second) {
-            return {p, placement_result::failed_obstacle};
+    std::pair<point2i32, placement_result> find_valid_item_placement_neareast(
+        random_state&   rng
+      , point2i32 const p
+      , int       const max_distance
+    ) const noexcept final override {
+        return find_valid_placement_neareast_(rng, p, max_distance
+          , [&](point2i32 const q) noexcept {
+                return can_place_item_at(q) == placement_result::ok;
+            });
+    }
+
+    template <typename T>
+    std::pair<point2i32, placement_result> add_object_nearest_random_(
+        random_state&   rng
+      , T&&             object
+      , point2i32 const p
+      , int       const max_distance
+    ) {
+        auto const where =
+            find_valid_item_placement_neareast(rng, p, max_distance);
+
+        if (where.second != placement_result::ok) {
+            return where;
         }
 
-        return {where.first, placement_result::ok};
+        auto const result = add_object_at(std::move(object), where.first);
+        BK_ASSERT(result == placement_result::ok);
+
+        return where;
+    }
+
+    std::pair<point2i32, placement_result> add_object_nearest_random(
+        random_state&   rng
+      , unique_item&&   i
+      , point2i32 const p
+      , int       const max_distance
+    ) final override {
+        return add_object_nearest_random_(rng, std::move(i), p, max_distance);
+    }
+
+    std::pair<point2i32, placement_result> add_object_nearest_random(
+        random_state&   rng
+      , unique_entity&& e
+      , point2i32 const p
+      , int       const max_distance
+    ) final override {
+        return add_object_nearest_random_(rng, std::move(e), p, max_distance);
     }
 
     size_t region_count() const noexcept final override {
