@@ -38,6 +38,9 @@
 
 namespace boken {
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// name of
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 string_view name_of(game_database const& db, item_id const id) noexcept {
     auto const def_ptr = db.find(id);
     return def_ptr
@@ -662,24 +665,19 @@ struct game_state {
     // Initialization / Generation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void generate_player() {
-        auto& lvl = the_world.current_level();
+        auto const result = create_object_at(
+            make_id<entity_id>("player")
+          , the_world.current_level().stair_up(0));
 
-        auto const id  = make_id<entity_id>("player");
-        auto const def = database.find(id);
-        BK_ASSERT(!!def);
-
-        auto const result = add_entity_at(create_entity(*def), id, lvl.stair_up(0));
         BK_ASSERT(result.second == placement_result::ok);
     }
 
     void generate_entities() {
         auto& lvl = the_world.current_level();
 
-        auto const id  = make_id<entity_id>("rat_small");
-        auto const def = database.find(id);
-        BK_ASSERT(!!def);
-
-        auto ent = create_entity(*def);
+        auto const def_ptr = database.find(make_id<entity_id>("rat_small"));
+        BK_ASSERT(!!def_ptr);
+        auto const& def = *def_ptr;
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -690,21 +688,23 @@ struct game_state {
             point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
                              , region.bounds.y0 + region.bounds.height() / 2};
 
-            auto const result = add_entity_near(std::move(ent), id, p, 3, rng_substantive);
-            if (result.second == placement_result::ok) {
-                ent.reset(create_entity(*def).release());
+            auto const result =
+                lvl.find_valid_entity_placement_neareast(rng_substantive, p, 3);
+
+            if (result.second != placement_result::ok) {
+                continue;
             }
+
+            create_object_at(def, result.first);
         }
     }
 
     void generate_items() {
         auto& lvl = the_world.current_level();
 
-        auto const id  = make_id<item_id>("weapon_dagger");
-        auto const def = database.find(id);
-        BK_ASSERT(!!def);
-
-        auto itm = create_item(*def);
+        auto const def_ptr = database.find(make_id<item_id>("weapon_dagger"));
+        BK_ASSERT(!!def_ptr);
+        auto const& def = *def_ptr;
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -715,10 +715,14 @@ struct game_state {
             point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
                              , region.bounds.y0 + region.bounds.height() / 2};
 
-            auto const result = add_item_near(std::move(itm), id, p, 3, rng_substantive);
-            if (result.second == placement_result::ok) {
-                itm.reset(create_item(*def).release());
+            auto const result =
+                lvl.find_valid_item_placement_neareast(rng_substantive, p, 3);
+
+            if (result.second != placement_result::ok) {
+                continue;
             }
+
+            create_object_at(def, result.first);
         }
     }
 
@@ -1073,6 +1077,8 @@ struct game_state {
         return boken::name_of(the_world, database, id);
     }
 
+    /////
+
     std::pair<entity&, point2i32> get_player() noexcept {
         constexpr auto player_id = entity_instance_id {1u};
 
@@ -1151,7 +1157,7 @@ struct game_state {
 
                 BK_ASSERT(id == itm.get());
 
-                auto const result = add_item_at(std::move(itm), player_p);
+                auto const result = add_object_at(std::move(itm), player_p);
                 BK_ASSERT(result.second == placement_result::ok);
 
                 buffer.clear();
@@ -1369,7 +1375,7 @@ struct game_state {
 
         auto const idef = database.find(drop_item_id);
         BK_ASSERT(!!idef);
-        add_item_at(create_item(*idef), drop_item_id, p);
+        create_object_at(*idef, p);
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
@@ -1579,15 +1585,15 @@ struct game_state {
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Simulation
+    // Object creation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    unique_entity create_entity(entity_definition const& def) {
+    unique_entity create_object(entity_definition const& def) {
         return the_world.create_entity([&](entity_instance_id const instance) {
             return entity {instance, def.id};
         });
     }
 
-    unique_item create_item(item_definition const& def) {
+    unique_item create_object(item_definition const& def) {
         return the_world.create_item([&](item_instance_id const instance) {
             item result {instance, def.id};
 
@@ -1624,9 +1630,51 @@ struct game_state {
         return result;
     }
 
-    placement_pair add_item_at(unique_item&& i, item_id const id, point2i32 const p) {
+    template <typename Definition, typename Predicate>
+    placement_pair create_object_at_(Definition const& def, point2i32 const p, Predicate pred) {
+        auto& lvl = the_world.current_level();
+
+        auto const check = pred(lvl, p);
+        if (check != placement_result::ok) {
+            return {p, check};
+        }
+
+        auto const result = lvl.add_object_at(create_object(def), p);
+        BK_ASSERT(result == placement_result::ok);
+
+        renderer_add(def.id, p);
+
+        return {p, result};
+    }
+
+    placement_pair create_object_at(item_definition const& def, point2i32 const p) {
+        return create_object_at_(def, p
+          , [&](level const& lvl, point2i32 const q) noexcept {
+                return lvl.can_place_item_at(q);
+            });
+    }
+
+    placement_pair create_object_at(entity_definition const& def, point2i32 const p) {
+        return create_object_at_(def, p
+          , [&](level const& lvl, point2i32 const q) noexcept {
+                return lvl.can_place_entity_at(q);
+            });
+    }
+
+    template <typename Id>
+    placement_pair create_object_at(Id const id, point2i32 const p) {
+        auto* const def = boken::find(database, id);
+        if (!def) {
+            return {p, placement_result::failed_bad_id};
+        }
+
+        return create_object_at(*def, p);
+    }
+
+    template <typename T, typename Id>
+    placement_pair add_object_at_(T&& object, Id const id, point2i32 const p) {
         auto const result =
-            the_world.current_level().add_object_at(std::move(i), p);
+            the_world.current_level().add_object_at(std::move(object), p);
 
         if (result == placement_result::ok) {
             renderer_add(id, p);
@@ -1635,23 +1683,29 @@ struct game_state {
         return {p, result};
     }
 
-    placement_pair add_item_at(unique_item&& i, point2i32 const p) {
-        BK_ASSERT(!!i);
-        auto const itm = the_world.find(i.get());
-        BK_ASSERT(!!itm);
-        return add_item_at(std::move(i), itm->definition(), p);
+    template <typename T>
+    placement_pair add_object_at_(T&& object, point2i32 const p) {
+        BK_ASSERT(!!object);
+        auto* const instance = the_world.find(object.get());
+        BK_ASSERT(!!instance);
+        return add_object_at_(std::move(object), instance->definition(), p);
     }
 
-    placement_pair add_entity_at(unique_entity&& e, entity_id const id, point2i32 const p) {
-        auto const result =
-            the_world.current_level().add_object_at(std::move(e), p);
+    //placement_pair add_object_at(unique_item&& i, item_id const id, point2i32 const p) {
+    //    return add_object_at_(std::move(i), id, p);
+    //}
 
-        if (result == placement_result::ok) {
-            renderer_add(id, p);
-        }
+    //placement_pair add_object_at(unique_entity&& e, entity_id const id, point2i32 const p) {
+    //    return add_object_at_(std::move(e), id, p);
+    //}
 
-        return {p, result};
+    placement_pair add_object_at(unique_item&& i, point2i32 const p) {
+        return add_object_at_(std::move(i), p);
     }
+
+    //placement_pair add_object_at(unique_entity&& e, point2i32 const p) {
+    //    return add_object_at_(std::move(e), p);
+    //}
 
     void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
         auto& lvl = the_world.current_level();
