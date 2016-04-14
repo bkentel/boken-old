@@ -23,6 +23,29 @@ item_pile const& get_items(entity const& e) noexcept {
     return e.items();
 }
 
+namespace {
+
+entity create_object(
+    entity_instance_id const  instance
+  , entity_definition  const& def
+  , random_state&             rng
+) {
+    entity result {instance, def.id};
+    return result;
+}
+
+} // namespace
+
+unique_entity create_object(
+    world&                   w
+  , entity_definition const& def
+  , random_state&            rng
+) {
+    return create_object(w, [&](entity_instance_id const instance) {
+        return create_object(instance, def, rng);
+    });
+}
+
 //=====--------------------------------------------------------------------=====
 //                                  entity
 //=====--------------------------------------------------------------------=====

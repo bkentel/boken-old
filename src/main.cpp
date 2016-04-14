@@ -667,7 +667,8 @@ struct game_state {
     void generate_player() {
         auto const result = create_object_at(
             make_id<entity_id>("player")
-          , the_world.current_level().stair_up(0));
+          , the_world.current_level().stair_up(0)
+          , rng_substantive);
 
         BK_ASSERT(result.second == placement_result::ok);
     }
@@ -695,7 +696,7 @@ struct game_state {
                 continue;
             }
 
-            create_object_at(def, result.first);
+            create_object_at(def, result.first, rng_substantive);
         }
     }
 
@@ -722,7 +723,7 @@ struct game_state {
                 continue;
             }
 
-            create_object_at(def, result.first);
+            create_object_at(def, result.first, rng_substantive);
         }
     }
 
@@ -1375,7 +1376,7 @@ struct game_state {
 
         auto const idef = database.find(drop_item_id);
         BK_ASSERT(!!idef);
-        create_object_at(*idef, p);
+        create_object_at(*idef, p, rng_superficial);
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
@@ -1587,23 +1588,12 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Object creation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    unique_entity create_object(entity_definition const& def) {
-        return the_world.create_entity([&](entity_instance_id const instance) {
-            return entity {instance, def.id};
-        });
+    unique_entity create_object(entity_definition const& def, random_state& rng) {
+        return boken::create_object(the_world, def, rng);
     }
 
-    unique_item create_object(item_definition const& def) {
-        return the_world.create_item([&](item_instance_id const instance) {
-            item result {instance, def.id};
-
-            auto const stack_size = def.properties.value_or(iprop::stack_size, 0);
-            if (stack_size > 0) {
-                result.add_or_update_property(iprop::current_stack_size, 1);
-            }
-
-            return result;
-        });
+    unique_item create_object(item_definition const& def, random_state& rng) {
+        return boken::create_object(the_world, def, rng);
     }
 
     using placement_pair = std::pair<point2i32, placement_result>;
@@ -1631,7 +1621,7 @@ struct game_state {
     }
 
     template <typename Definition, typename Predicate>
-    placement_pair create_object_at_(Definition const& def, point2i32 const p, Predicate pred) {
+    placement_pair create_object_at_(Definition const& def, point2i32 const p, random_state& rng, Predicate pred) {
         auto& lvl = the_world.current_level();
 
         auto const check = pred(lvl, p);
@@ -1639,7 +1629,7 @@ struct game_state {
             return {p, check};
         }
 
-        auto const result = lvl.add_object_at(create_object(def), p);
+        auto const result = lvl.add_object_at(create_object(def, rng), p);
         BK_ASSERT(result == placement_result::ok);
 
         renderer_add(def.id, p);
@@ -1647,28 +1637,28 @@ struct game_state {
         return {p, result};
     }
 
-    placement_pair create_object_at(item_definition const& def, point2i32 const p) {
-        return create_object_at_(def, p
+    placement_pair create_object_at(item_definition const& def, point2i32 const p, random_state& rng) {
+        return create_object_at_(def, p, rng
           , [&](level const& lvl, point2i32 const q) noexcept {
                 return lvl.can_place_item_at(q);
             });
     }
 
-    placement_pair create_object_at(entity_definition const& def, point2i32 const p) {
-        return create_object_at_(def, p
+    placement_pair create_object_at(entity_definition const& def, point2i32 const p, random_state& rng) {
+        return create_object_at_(def, p, rng
           , [&](level const& lvl, point2i32 const q) noexcept {
                 return lvl.can_place_entity_at(q);
             });
     }
 
     template <typename Id>
-    placement_pair create_object_at(Id const id, point2i32 const p) {
+    placement_pair create_object_at(Id const id, point2i32 const p, random_state& rng) {
         auto* const def = boken::find(database, id);
         if (!def) {
             return {p, placement_result::failed_bad_id};
         }
 
-        return create_object_at(*def, p);
+        return create_object_at(*def, p, rng);
     }
 
     template <typename T, typename Id>

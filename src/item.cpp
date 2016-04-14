@@ -28,6 +28,35 @@ item_pile const* get_items(item const& i) noexcept {
     return nullptr;
 }
 
+namespace {
+
+item create_object(
+    item_instance_id const  instance
+  , item_definition  const& def
+  , random_state&           rng
+) {
+    item result {instance, def.id};
+
+    auto const stack_size = def.properties.value_or(iprop::stack_size, 0);
+    if (stack_size > 0) {
+        result.add_or_update_property(iprop::current_stack_size, 1);
+    }
+
+    return result;
+}
+
+} // namespace
+
+unique_item create_object(
+    world&                 w
+  , item_definition const& def
+  , random_state&          rng
+) {
+    return create_object(w, [&](item_instance_id const instance) {
+        return create_object(instance, def, rng);
+    });
+}
+
 void merge_into_pile(
     world& w
   , game_database const& db

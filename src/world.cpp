@@ -130,4 +130,12 @@ entity* find(world& w, entity_instance_id id) noexcept {
     return w.find(id);
 }
 
+unique_item create_object(world& w, std::function<item (item_instance_id)> const& f) {
+    return w.create_item(f);
+}
+
+unique_entity create_object(world& w, std::function<entity (entity_instance_id)> const& f) {
+    return w.create_entity(f);
+}
+
 } //namespace boken
