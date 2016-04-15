@@ -12,6 +12,35 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+item_property_value get_property_value_or(
+    game_database const&      db
+  , item const&               i
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    return i.property_value_or(db, property, fallback);
+}
+
+item_property_value get_property_value_or(
+    game_database const&      db
+  , item_id const             id
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    auto* const def = find(db, id);
+    return def
+      ? get_property_value_or(*def, property, fallback)
+      : fallback;
+}
+
+item_property_value get_property_value_or(
+    item_definition const& def
+  , item_property_id       property
+  , item_property_value    fallback
+) noexcept {
+    return def.properties.value_or(property, fallback);
+}
+
 item_instance_id get_instance(item const& i) noexcept {
     return i.instance();
 }
@@ -75,13 +104,11 @@ void merge_into_pile(
 
     // {item&, item_id, item_definition*}
     auto const get_info = [&](item_instance_id const instance_id) {
-        auto const itm_ptr = find(w, instance_id);
-        BK_ASSERT(!!itm_ptr);
+        auto&       itm = find(w, instance_id);
+        auto  const id  = itm.definition();
+        auto* const def = find(db, id);
 
-        auto const id = itm_ptr->definition();
-        auto const def_ptr = find(db, id);
-
-        return std::make_tuple(std::ref(*itm_ptr), id, def_ptr);
+        return std::make_tuple(std::ref(itm), id, def);
     };
 
     auto const get_current_stack = [&](item const& i) {

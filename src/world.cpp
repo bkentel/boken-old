@@ -114,20 +114,31 @@ std::unique_ptr<world> make_world() {
     return std::make_unique<world_impl>();
 }
 
-item const* find(world const& w, item_instance_id id) noexcept {
-    return w.find(id);
+namespace {
+
+template <typename World, typename Id>
+auto&& find_impl(World&& w, Id const id) noexcept {
+    auto const result = w.find(id);
+    BK_ASSERT(!!result);
+    return *result;
 }
 
-entity const* find(world const& w, entity_instance_id id) noexcept {
-    return w.find(id);
+} //namespace
+
+item& find(world& w, item_instance_id const id) noexcept {
+    return find_impl(w, id);
 }
 
-item* find(world& w, item_instance_id id) noexcept {
-    return w.find(id);
+entity& find(world& w, entity_instance_id const id) noexcept {
+    return find_impl(w, id);
 }
 
-entity* find(world& w, entity_instance_id id) noexcept {
-    return w.find(id);
+item const& find(world const& w, item_instance_id const id) noexcept {
+    return find_impl(w, id);
+}
+
+entity const& find(world const& w, entity_instance_id const id) noexcept {
+    return find_impl(w, id);
 }
 
 unique_item create_object(world& w, std::function<item (item_instance_id)> const& f) {

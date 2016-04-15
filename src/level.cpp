@@ -309,7 +309,7 @@ public:
             return {nullptr, point2i32 {}};
         }
 
-        return {boken::find(world_, *result.first), result.second};
+        return {&boken::find(world_, *result.first), result.second};
     }
 
     std::pair<entity const*, point2i32>
@@ -319,7 +319,7 @@ public:
 
     entity* entity_at(point2i32 const p) noexcept final override {
         auto const id = entities_.find(underlying_cast_unsafe<int16_t>(p));
-        return id ? boken::find(world_, *id) : nullptr;
+        return id ? &boken::find(world_, *id) : nullptr;
     }
 
     entity const* entity_at(point2i32 const p) const noexcept final override {
@@ -375,7 +375,7 @@ public:
 
         for (size_t i = 0; i < entities_.size(); ++i, ++v_it, ++p_it) {
             auto const p = *p_it;
-            auto&      e = *boken::find(world_, *v_it);
+            auto&      e = boken::find(world_, *v_it);
 
             auto const q = transform(e, p);
             if (p == q) {
@@ -399,13 +399,6 @@ public:
                 return result;
             }
         }
-
-        auto const itm = boken::find(world_, i.get());
-        if (!itm) {
-            return placement_result::failed_bad_id;
-        }
-
-        BK_ASSERT(get_instance(*itm) == i.get());
 
         auto const q = underlying_cast_unsafe<int16_t>(p);
 
@@ -747,7 +740,7 @@ private:
         get_entity_id_t(world const& w) noexcept : world_ {w} {}
 
         entity_id operator()(entity_instance_id const id) const noexcept {
-            return get_id(*boken::find(world_, id));
+            return get_id(boken::find(world_, id));
         }
 
         world const& world_;
@@ -765,7 +758,7 @@ private:
         item_id operator()(item_pile const& p) const noexcept {
             return p.empty()
               ? item_id {}
-              : get_id(*boken::find(world_, *p.begin()));
+              : get_id(boken::find(world_, *p.begin()));
         }
 
         world const& world_;

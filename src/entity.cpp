@@ -71,8 +71,4 @@ bool entity::modify_health(int16_t const delta) noexcept {
     return is_alive();
 }
 
-bool entity::can_add_item(item const&) const noexcept {
-    return true;
-}
-
 } //namespace boken

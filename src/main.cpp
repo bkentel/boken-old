@@ -55,22 +55,43 @@ int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool can_add_item(entity const& dest, item const& itm) {
+
+bool can_add_item(game_database const& db, entity const& dest, item const& itm) {
     return true;
 }
 
-bool can_add_item(item const& dest, item const& itm) {
+bool can_add_item(game_database const& db, item const& dest, item const& itm) {
     return false;
 }
 
-bool can_add_item(entity const& dest, item_definition const& def) {
+bool can_add_item(game_database const& db, entity const& dest, item_definition const& def) {
     return true;
 }
 
-bool can_add_item(item const& dest, item_definition const& def) {
-    return false;
-}
+bool can_add_item(game_database const& db, item const& dest, item_definition const& def) {
+    auto const dest_capacity =
+        get_property_value_or(db, dest, property(item_property::capacity), 0);
 
+    // the destination is not a container
+    if (dest_capacity <= 0) {
+        return false;
+    }
+
+    // the destination is full
+    if (dest.items().size() + 1 > dest_capacity) {
+        return false;
+    }
+
+    auto const itm_capacity =
+        get_property_value_or(def, property(item_property::capacity), 0);
+
+    // the item to add is itself a container
+    if (itm_capacity > 0) {
+        return false;
+    }
+
+    return true;
+}
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // name of
@@ -203,22 +224,19 @@ public:
 
         il.add_column(2, "Weight"
           , [&](item const& itm) {
-                auto const weight = property_value_or(
-                    database
-                  , itm.definition()
-                  , property(item_property::weight)
-                  , item_property_value {0});
+                auto const weight = get_property_value_or(database, itm
+                  , property(item_property::weight), 0);
 
-                auto const stack = itm.property_value_or(
-                    database, property(item_property::current_stack_size), 1);
+                auto const stack = get_property_value_or(database, itm
+                  , property(item_property::current_stack_size), 1);
 
                 return std::to_string(weight * stack);
             });
 
         il.add_column(3, "Count"
           , [&](item const& itm) {
-                auto const stack = itm.property_value_or(
-                    database, property(item_property::current_stack_size), 1);
+                auto const stack = get_property_value_or(database, itm
+                  , property(item_property::current_stack_size), 1);
 
                 return std::to_string(stack);
             });
@@ -755,7 +773,7 @@ struct game_state {
             auto* const idef = database.find(id);
             BK_ASSERT(!!idef);
 
-            if (!can_add_item(*e, *idef)) {
+            if (!can_add_item(database, *e, *idef)) {
                 continue;
             }
 
@@ -766,9 +784,14 @@ struct game_state {
     void generate_items() {
         auto& lvl = the_world.current_level();
 
-        auto const def_ptr = database.find(make_id<item_id>("weapon_dagger"));
+        auto const def_ptr = database.find(make_id<item_id>("container_chest"));
         BK_ASSERT(!!def_ptr);
         auto const& def = *def_ptr;
+
+
+        auto const dag_def_ptr = database.find(make_id<item_id>("weapon_dagger"));
+        BK_ASSERT(!!dag_def_ptr);
+        auto const& dag_def = *dag_def_ptr;
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -786,7 +809,21 @@ struct game_state {
                 continue;
             }
 
-            create_object_at(def, result.first, rng_substantive);
+            auto const create_result =
+                create_object_at(def, result.first, rng_substantive);
+            BK_ASSERT(create_result.second == placement_result::ok);
+
+            auto* const items = lvl.item_at(create_result.first);
+            BK_ASSERT(!!items && items->size() == 1);
+
+            auto const id = (*items)[0];
+
+            if (!can_add_item(database, boken::find(the_world, id), dag_def)) {
+                continue;
+            }
+
+            auto inner_itm = create_object(dag_def, rng_substantive);
+            boken::find(the_world, id).add_item(std::move(inner_itm));
         }
     }
 

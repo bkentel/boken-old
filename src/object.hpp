@@ -64,12 +64,12 @@ public:
     property_value_t property_value_or(
         game_database    const& data
       , property_t       const  property
-      , property_value_t const  value
+      , property_value_t const  fallback
     ) const noexcept {
         auto const pair = properties_.get_property(property);
         return pair.second
           ? pair.first
-          : boken::property_value_or(data, id_, property, value);
+          : boken::get_property_value_or(data, id_, property, fallback);
     }
 
     bool add_or_update_property(

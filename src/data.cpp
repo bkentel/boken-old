@@ -158,39 +158,4 @@ entity_definition const* find(game_database const& db, entity_id const id) noexc
     return db.find(id);
 }
 
-namespace {
-
-template <typename DefId, typename PropertyId, typename PropertyValue>
-PropertyValue property_value_or_impl(
-    game_database const& db
-  , DefId         const  id
-  , PropertyId    const  property
-  , PropertyValue const  value
-) noexcept {
-    auto* const def = db.find(id);
-    return def ? def->properties.value_or(property, value) : value;
-}
-
-} // namespace
-
-template <>
-item_property_value property_value_or(
-    game_database       const& db
-  , item_id             const  id
-  , item_property_id    const  property
-  , item_property_value const  value
-) noexcept {
-    return property_value_or_impl(db, id, property, value);
-}
-
-template <>
-entity_property_value property_value_or(
-    game_database         const& db
-  , entity_id             const  id
-  , entity_property_id    const  property
-  , entity_property_value const  value
-) noexcept {
-    return property_value_or_impl(db, id, property, value);
-}
-
 } //namespace boken

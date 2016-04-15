@@ -440,28 +440,28 @@ public:
     weight_list(InputIt1 const first_weight, InputIt1 const last_weight
               , InputIt2 const first_result, InputIt2 const last_result
     ) {
-        using tag1_t = typename std::iterator_traits<InputIt1>::iterator_category>;
-        using tag2_t = typename std::iterator_traits<InputIt2>::iterator_category>;
+        using tag1_t = typename std::iterator_traits<InputIt1>::iterator_category;
+        using tag2_t = typename std::iterator_traits<InputIt2>::iterator_category;
 
         size_t const s1 =
-            weight_list_size(tag1_t {}, first_weight, last_weight);
+            detail::weight_list_size(tag1_t {}, first_weight, last_weight);
 
         size_t const s2 =
-            weight_list_size(tag2_t {}, first_result, last_result);
+            detail::weight_list_size(tag2_t {}, first_result, last_result);
 
         size_t const reserve_size =
             ((s1 > 0u) && (s2 > 0u)) ? std::min(s1, s2)
           : (s1 > 0u)                ? s1
           : (s2 > 0u)                ? s2
                                      : 0u;
-        data.reserve(reserve_size);
+        data_.reserve(reserve_size);
 
         auto it1 = first_weight;
         auto it2 = first_result;
 
         for (; it1 != last_weight && it2 != last_result; ++it1, ++it2) {
-            BK_ASSERT(*it1 > Weight {})
-            data.push_back({sum_ += *it1, *it2});
+            BK_ASSERT(*it1 > Weight {});
+            data_.push_back({sum_ += *it1, *it2});
         }
     }
 

@@ -31,6 +31,9 @@ using item_property_id   = tagged_value<uint32_t, tag_id_property_item>;
 
 using region_id = tagged_value<uint16_t, tag_id_region>;
 
+using entity_property_value = uint32_t;
+using item_property_value   = uint32_t;
+
 //===------------------------------------------------------------------------===
 //                              Custom deleters
 //===------------------------------------------------------------------------===

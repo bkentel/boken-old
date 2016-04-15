@@ -29,13 +29,18 @@ item_instance_id get_instance(item const& i) noexcept;
 entity_id get_id(entity const& e) noexcept;
 item_id get_id(item const& i) noexcept;
 
-// instance -> object
-item const* find(world const& w, item_instance_id id) noexcept;
-entity const* find(world const& w, entity_instance_id id) noexcept;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                         object lookup
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+item   const& find(world const& w, item_instance_id   id) noexcept;
+entity const& find(world const& w, entity_instance_id id) noexcept;
 
-item* find(world& w, item_instance_id id) noexcept;
-entity* find(world& w, entity_instance_id id) noexcept;
+item&   find(world& w, item_instance_id   id) noexcept;
+entity& find(world& w, entity_instance_id id) noexcept;
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                         object definition lookup
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // id -> definition
 item_definition const* find(game_database const& db, item_id id) noexcept;
 entity_definition const* find(game_database const& db, entity_id id) noexcept;
@@ -47,16 +52,52 @@ item_pile const* get_items(item const& i) noexcept;
 item_pile& get_items(entity& e) noexcept;
 item_pile const& get_items(entity const& e) noexcept;
 
-template <typename DefId, typename PropertyId>
-bool has_property(game_database const& data, DefId id, PropertyId property) noexcept;
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//                              object properties
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-template <typename Definition, typename PropertyId>
-bool has_property(Definition const& def, PropertyId property) noexcept;
+bool has_property(game_database const& db, item const& i
+                , item_property_id property) noexcept;
 
-template <typename DefId, typename PropertyId, typename PropertyValue>
-PropertyValue property_value_or(game_database const& data, DefId id, PropertyId property, PropertyValue value) noexcept;
+bool has_property(game_database const& db, entity const& e
+                , entity_property_id property) noexcept;
 
-template <typename Definition, typename PropertyId, typename PropertyValue>
-PropertyValue property_value_or(Definition const& def, PropertyId property, PropertyValue value) noexcept;
+bool has_property(game_database const& db, item_id id
+                , item_property_id property) noexcept;
+
+bool has_property(game_database const& db, entity_id id
+                , entity_property_id property) noexcept;
+
+bool has_property(item_definition const& def
+                , item_property_id property) noexcept;
+
+bool has_property(entity_definition const& def
+                , entity_property_id property) noexcept;
+
+//------------------------------------------------------------------------------
+
+item_property_value get_property_value_or(
+    game_database const& db, item const& i, item_property_id property
+  , item_property_value fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    game_database const& db, entity const& e
+  , entity_property_id property, entity_property_value fallback) noexcept;
+
+item_property_value get_property_value_or(
+    game_database const& db, item_id id, item_property_id property
+  , item_property_value fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    game_database const& db, entity_id id
+  , entity_property_id property, entity_property_value fallback) noexcept;
+
+item_property_value get_property_value_or(
+    item_definition const& def
+  , item_property_id property, item_property_value fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    entity_definition const& def
+  , entity_property_id property, entity_property_value fallback) noexcept;
 
 } //namespace boken
