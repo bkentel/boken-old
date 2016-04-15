@@ -4,7 +4,7 @@
 #include <cstdint>
 
 namespace boken {
-    template <typename Key, typename Value> class weight_list;
+    template <typename Weight, typename Result> class weight_list;
 }
 
 namespace boken {
@@ -41,10 +41,10 @@ double random_normal(random_state& rng, double mean, double variance = 1.0) noex
 //===------------------------------------------------------------------------===
 uint32_t random_color(random_state& rng) noexcept;
 
-template <typename Key, typename Value>
-Value random_weighted(random_state& rng, weight_list<Key, Value> const& weights) noexcept {
-    return weights[
-        random_uniform_int(rng, weights.min_key(), weights.max_key())].second;
+template <typename Weight, typename Result>
+Result const& random_weighted(random_state& rng, weight_list<Weight, Result> const& weights) noexcept {
+    auto const roll = random_uniform_int(rng, 0, weights.max() - 1);
+    return weights[roll];
 }
 
 } //namespace boken

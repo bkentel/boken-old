@@ -414,61 +414,86 @@ private:
     std::array<char, N> buffer_;
 };
 
-template <typename Key, typename Value>
+namespace detail {
+
+template <typename It>
+size_t weight_list_size(std::random_access_iterator_tag, It const first, It const last) noexcept {
+    return static_cast<size_t>(std::distance(first, last));
+}
+
+template <typename Tag, typename It>
+size_t weight_list_size(Tag, It const first, It const last) noexcept {
+    return 0u;
+}
+
+} // namespace detail
+
+template <typename Weight, typename Result>
 class weight_list {
+    static_assert(std::is_arithmetic<Weight>::value, "");
+
+    using pair_t = std::pair<Weight, Result>;
 public:
-    using key_type   = Key;
-    using value_type = Value;
-    using pair_type  = std::pair<key_type, value_type>;
+    weight_list() = default;
 
-    weight_list(std::initializer_list<pair_type> const il)
-      : weights_ {il}
-    {
-        normalize_();
-    }
+    template <typename InputIt1, typename InputIt2>
+    weight_list(InputIt1 const first_weight, InputIt1 const last_weight
+              , InputIt2 const first_result, InputIt2 const last_result
+    ) {
+        using tag1_t = typename std::iterator_traits<InputIt1>::iterator_category>;
+        using tag2_t = typename std::iterator_traits<InputIt2>::iterator_category>;
 
-    weight_list& operator=(std::initializer_list<pair_type> const il) {
-        weights_.assign(il);
-        normalize_();
-        return *this;
-    }
+        size_t const s1 =
+            weight_list_size(tag1_t {}, first_weight, last_weight);
 
-    //! @returns The value of the closest key <= @p key, or 0 if no such key
-    //! exists.
-    pair_type operator[](Key const key) const noexcept {
-        auto const first = begin(weights_);
-        auto const last  = end(weights_);
+        size_t const s2 =
+            weight_list_size(tag2_t {}, first_result, last_result);
 
-        for (auto it = first, prev = first; it != last; prev = it++) {
-            if (!(it->first <= key)) {
-                return *prev;
-            }
+        size_t const reserve_size =
+            ((s1 > 0u) && (s2 > 0u)) ? std::min(s1, s2)
+          : (s1 > 0u)                ? s1
+          : (s2 > 0u)                ? s2
+                                     : 0u;
+        data.reserve(reserve_size);
+
+        auto it1 = first_weight;
+        auto it2 = first_result;
+
+        for (; it1 != last_weight && it2 != last_result; ++it1, ++it2) {
+            BK_ASSERT(*it1 > Weight {})
+            data.push_back({sum_ += *it1, *it2});
         }
-
-        return weights_.back();
     }
 
-    key_type   const& min_key() const noexcept { return weights_.front().first; }
-    key_type   const& max_key() const noexcept { return weights_.back().first; }
-    value_type const& min_val() const noexcept { return weights_[min_val_index_].second; }
-    value_type const& max_val() const noexcept { return weights_[max_val_index_].second; }
+    weight_list(std::initializer_list<pair_t> const data) {
+        data_.reserve(data.size());
+
+        for (auto const& p : data) {
+            BK_ASSERT(p.first > 0);
+            data_.push_back({sum_ += p.first, p.second});
+        }
+    }
+
+    Weight max() const noexcept { return sum_; }
+
+    Result const& operator[](Weight const n) const noexcept {
+        BK_ASSERT(!data_.empty() && n >= Weight {} && n < sum_);
+
+        auto const first = begin(data_);
+        auto const last  = end(data_);
+
+        auto const it = std::lower_bound(first, last, n
+          , [](pair_t const& p, Weight const w) noexcept {
+                return p.first <= w;
+            });
+
+        return (it != last)
+          ? it->second
+          : data_.back().second;
+    }
 private:
-    void normalize_() {
-        auto const first = begin(weights_);
-        auto const last  = end(weights_);
-
-        std::sort(first, last, sort_by_nth_element<0>());
-
-        auto const p = std::minmax_element(first, last, sort_by_nth_element<1>());
-
-        min_val_index_ = static_cast<uint16_t>(std::distance(first, p.first));
-        max_val_index_ = static_cast<uint16_t>(std::distance(first, p.second));
-    }
-
-    uint16_t min_val_index_ {};
-    uint16_t max_val_index_ {};
-
-    std::vector<pair_type> weights_;
+    std::vector<pair_t> data_ {};
+    Weight              sum_  {};
 };
 
 } //namespace boken

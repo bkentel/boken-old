@@ -61,11 +61,19 @@ void bsp_generator_impl::generate(random_state& rng) {
         {point2i32 {}, p.width, p.height}, 0, 0, 0});
 
     auto const pass_split_chance = [&](recti32 const r) noexcept {
-        auto const lo   = p.weights.min_val();
-        auto const hi   = p.weights.max_val();
         auto const area = value_cast(r.area());
 
-        return p.weights[area].second >= random_uniform_int(rng, lo, hi);
+        if (area >= 400) {
+            return true;
+        } else if (area >= 100) {
+            return random_chance_in_x(rng, 1, 2);
+        } else if (area >= 50) {
+            return random_chance_in_x(rng, 1, 4);
+        } else if (area >= 25) {
+            return random_chance_in_x(rng, 1, 8);
+        }
+
+        return random_chance_in_x(rng, 1, 16);
     };
 
     auto const min_w = sizei32x {value_cast(p.min_region_size)};

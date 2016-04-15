@@ -39,6 +39,40 @@
 namespace boken {
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item&&)> const& f) {
+    int result = 0;
+
+    auto& items = e.items();
+    while (!items.empty()) {
+        auto itm = items.remove_item(0);
+        f(std::move(itm));
+        ++result;
+    }
+
+    return result;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bool can_add_item(entity const& dest, item const& itm) {
+    return true;
+}
+
+bool can_add_item(item const& dest, item const& itm) {
+    return false;
+}
+
+bool can_add_item(entity const& dest, item_definition const& def) {
+    return true;
+}
+
+bool can_add_item(item const& dest, item_definition const& def) {
+    return false;
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // name of
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 string_view name_of(game_database const& db, item_id const id) noexcept {
@@ -674,6 +708,15 @@ struct game_state {
     }
 
     void generate_entities() {
+        weight_list<int, item_id> const w {
+            {6, item_id {}}
+          , {3, make_id<item_id>("coin")}
+          , {1, make_id<item_id>("potion_health_small")}
+        };
+
+        auto const w_max = w.max();
+
+        auto& rng = rng_substantive;
         auto& lvl = the_world.current_level();
 
         auto const def_ptr = database.find(make_id<entity_id>("rat_small"));
@@ -690,13 +733,33 @@ struct game_state {
                              , region.bounds.y0 + region.bounds.height() / 2};
 
             auto const result =
-                lvl.find_valid_entity_placement_neareast(rng_substantive, p, 3);
+                lvl.find_valid_entity_placement_neareast(rng, p, 3);
 
             if (result.second != placement_result::ok) {
                 continue;
             }
 
-            create_object_at(def, result.first, rng_substantive);
+            auto const create_result = create_object_at(def, result.first, rng);
+            BK_ASSERT(create_result.second == placement_result::ok);
+
+            //TODO: this is a bit redundant; create_object_at should probably
+            //      return a pointer /ref to the created entity
+            auto* const e = lvl.entity_at(create_result.first);
+            BK_ASSERT(!!e);
+
+            auto const id = random_weighted(rng, w);
+            if (id == item_id {}) {
+                continue;
+            }
+
+            auto* const idef = database.find(id);
+            BK_ASSERT(!!idef);
+
+            if (!can_add_item(*e, *idef)) {
+                continue;
+            }
+
+            e->add_item(create_object(*idef, rng));
         }
     }
 
@@ -1343,40 +1406,16 @@ struct game_state {
         BK_ASSERT(!e.is_alive()
                && lvl.is_entity_at(p));
 
-        auto const choose_drop_item = [&] {
-            auto const n = random_weighted(rng_superficial, weight_list<int, int> {
-                {5,  0} // 0~5 -> 6/10
-              , {9,  1} // 6-9 -> 3/10
-              , {10, 2} // 10  -> 1/10
-            });
-
-            switch (n) {
-            case 0: return item_id {};
-            case 1: return make_id<item_id>("coin");
-            case 2: return make_id<item_id>("potion_health_small");
-            default:
-                BK_ASSERT(false);
-                break;
-            }
-
-            return item_id {};
-        };
-
         static_string_buffer<128> buffer;
         buffer.append("The %s dies.", name_of(e).data());
         message_window.println(buffer.to_string());
 
+        get_entity_loot(e, rng_superficial, [&](unique_item&& itm) {
+            add_object_at(std::move(itm), p);
+        });
+
         lvl.remove_entity(e.instance());
         renderer_remove_entity(p);
-
-        auto const drop_item_id = choose_drop_item();
-        if (!value_cast(drop_item_id)) {
-            return;
-        }
-
-        auto const idef = database.find(drop_item_id);
-        BK_ASSERT(!!idef);
-        create_object_at(*idef, p, rng_superficial);
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {

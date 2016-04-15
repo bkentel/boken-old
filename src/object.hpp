@@ -39,13 +39,12 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //                              Items
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool add_item(unique_item&& itm) {
-        if (!static_cast<Derived const*>(this)->can_add_item(*itm)) {
-            return false;
-        }
 
+    //! Take ownership of @p itm.
+    //! @note No checking is performed as to whether @p itm can be held by this
+    //!       object or not. A check must first be performed with can_add_item.
+    void add_item(unique_item&& itm) {
         items_.add_item(std::move(itm));
-        return true;
     }
 
     item_pile const& items() const noexcept { return items_; }

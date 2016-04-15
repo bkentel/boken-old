@@ -34,7 +34,7 @@ public:
         sizei32  room_chance_num {default_room_chance_num};
         sizei32  room_chance_den {default_room_chance_den};
 
-        weight_list<int32_t, int32_t> weights {{0, 0}};
+        weight_list<int32_t, int32_t> weights {};
 
         float split_variance = 5.0f;
     };

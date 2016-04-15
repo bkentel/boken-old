@@ -6,6 +6,29 @@
 #include <array>
 #include <vector>
 
+TEST_CASE("weight_list") {
+    using namespace boken;
+
+    SECTION("from initializer_list") {
+        weight_list<int, int> const w {
+            {6, 0}
+          , {3, 1}
+          , {1, 2}
+        };
+
+        REQUIRE(w[0] == 0);
+        REQUIRE(w[1] == 0);
+        REQUIRE(w[2] == 0);
+        REQUIRE(w[3] == 0);
+        REQUIRE(w[4] == 0);
+        REQUIRE(w[5] == 0);
+        REQUIRE(w[6] == 1);
+        REQUIRE(w[7] == 1);
+        REQUIRE(w[8] == 1);
+        REQUIRE(w[9] == 2);
+    }
+}
+
 TEST_CASE("static_string_buffer") {
     using namespace boken;
     static_string_buffer<16> buffer;

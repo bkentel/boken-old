@@ -1015,14 +1015,6 @@ void level_impl::generate(random_state& rng) {
 
     auto& bsp = *bsp_gen_;
 
-    bsp.params().weights = {
-        {400, 1000}
-      , {100, 400}
-      , {50,  200}
-      , {25,  100}
-      , {0,   100}
-    };
-
     auto const& p = bsp.params();
 
     bsp.clear();

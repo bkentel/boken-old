@@ -43,30 +43,12 @@ TEST_CASE("random weighted") {
     using namespace boken;
 
     weight_list<int, int> const weights {
-        {400, 1000}
-      , {100, 800}
-      , {50,  400}
-      , {25,  150}
-      , {0,   100}
+        {1, 0}
+      , {3, 1}
+      , {5, 2}
+      , {3, 3}
+      , {1, 4}
     };
-
-    // min max values
-    REQUIRE(weights.max_key() == 400);
-    REQUIRE(weights.min_key() == 0);
-    REQUIRE(weights.max_val() == 1000);
-    REQUIRE(weights.min_val() == 100);
-
-    // direct lookup
-    REQUIRE(weights[-1].second == 100);
-    REQUIRE(weights[ 0].second == 100);
-    REQUIRE(weights[24].second == 100);
-
-    REQUIRE(weights[25].second == 150);
-    REQUIRE(weights[49].second == 150);
-
-    REQUIRE(weights[399].second == 800);
-    REQUIRE(weights[400].second == 1000);
-    REQUIRE(weights[401].second == 1000);
 
     auto const state = make_random_state();
     auto& rng = *state;
