@@ -388,17 +388,14 @@ public:
         }
     }
 
-    placement_result add_object_at(unique_item&& i, point2i32 const p) final override {
+    item_instance_id add_object_at(unique_item&& i, point2i32 const p) final override {
+        auto const result = i.get();
+
         if (!item_deleter_) {
             item_deleter_ = &i.get_deleter();
         }
 
-        {
-            auto const result = can_place_item_at(p);
-            if (result != placement_result::ok) {
-                return result;
-            }
-        }
+        BK_ASSERT(can_place_item_at(p) == placement_result::ok);
 
         auto const q = underlying_cast_unsafe<int16_t>(p);
 
@@ -406,31 +403,30 @@ public:
         if (!pile) {
             item_pile new_pile;
             new_pile.add_item(std::move(i));
-            auto const result = items_.insert(q, std::move(new_pile));
-            BK_ASSERT(result.second);
+            auto const insert_result = items_.insert(q, std::move(new_pile));
+            BK_ASSERT(insert_result.second);
         } else {
             pile->add_item(std::move(i));
         }
 
-        return placement_result::ok;
+        return result;
     }
 
-    placement_result add_object_at(unique_entity&& e, point2i32 const p) final override {
+    entity_instance_id add_object_at(unique_entity&& e, point2i32 const p) final override {
+        auto const result = e.get();
+
         if (!entity_deleter_) {
             entity_deleter_ = &e.get_deleter();
         }
 
-        auto const result = can_place_entity_at(p);
-        if (result != placement_result::ok) {
-            return result;
-        }
+        BK_ASSERT(can_place_entity_at(p) == placement_result::ok);
 
-        //TODO these entities will never be deleted
-        auto const insert_result
-            = entities_.insert(underlying_cast_unsafe<int16_t>(p), e.release());
+        auto const q = underlying_cast_unsafe<int16_t>(p);
+
+        auto const insert_result = entities_.insert(q, e.release());
         BK_ASSERT(insert_result.second);
 
-        return placement_result::ok;
+        return result;
     }
 
     unique_entity remove_entity_at(point2i32 const p) noexcept final override {
@@ -499,7 +495,6 @@ public:
         }
 
         auto const result = add_object_at(std::move(object), where.first);
-        BK_ASSERT(result == placement_result::ok);
 
         return where;
     }

@@ -125,8 +125,16 @@ public:
       , std::function<void (entity&, point2i32, point2i32)>&& on_success
     ) = 0;
 
-    virtual placement_result add_object_at(unique_item&& i, point2i32 p) = 0;
-    virtual placement_result add_object_at(unique_entity&& e, point2i32 p) = 0;
+
+    //@{
+    //! Add an object at the position given by @p p.
+    //! @returns The instance id of the object added.
+    //! @pre     The position given by @p p must be valid for the object.
+
+    virtual item_instance_id   add_object_at(unique_item&&   i, point2i32 p) = 0;
+    virtual entity_instance_id add_object_at(unique_entity&& e, point2i32 p) = 0;
+
+    //@}
 
     virtual unique_entity remove_entity_at(point2i32 p) noexcept = 0;
     virtual unique_entity remove_entity(entity_instance_id id) noexcept = 0;

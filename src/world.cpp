@@ -18,18 +18,18 @@ public:
     world_impl() {
     }
 
-    item* find(item_instance_id id) noexcept final override;
-    entity* find(entity_instance_id id) noexcept final override;
+    item& find(item_instance_id id) noexcept final override;
+    entity& find(entity_instance_id id) noexcept final override;
 
-    item const* find(item_instance_id const id) const noexcept final override {
+    item const& find(item_instance_id const id) const noexcept final override {
         return const_cast<world_impl*>(this)->find(id);
     }
 
-    entity const* find(entity_instance_id const id) const noexcept final override {
+    entity const& find(entity_instance_id const id) const noexcept final override {
         return const_cast<world_impl*>(this)->find(id);
     }
 
-    unique_item create_item(std::function<item (item_instance_id)> const& f) final override {
+    unique_item create_object(std::function<item (item_instance_id)> const& f) final override {
         auto const id = item_instance_id {static_cast<uint32_t>(items_.next_block_id())};
         auto const result = items_.allocate(f(id));
 
@@ -37,7 +37,7 @@ public:
 
         return unique_item {id, item_deleter_};
     }
-    unique_entity create_entity(std::function<entity (entity_instance_id)> const& f) final override {
+    unique_entity create_object(std::function<entity (entity_instance_id)> const& f) final override {
         auto const id = entity_instance_id {static_cast<uint32_t>(entities_.next_block_id())};
         auto const result = entities_.allocate(f(id));
 
@@ -96,57 +96,54 @@ void entity_deleter::operator()(entity_instance_id const id) const noexcept {
     static_cast<world_impl*>(world_)->entities_.deallocate(value_cast<size_t>(id));
 }
 
-item* world_impl::find(item_instance_id const id) noexcept {
-    auto const i = value_cast<size_t>(id);
-    return ((i < 1) || (i > items_.capacity()))
-      ? nullptr
-      : &items_[i];
+namespace {
+
+template <typename Container, typename Id>
+auto&& find_impl_(Container&& c, Id const id) noexcept {
+    auto const i = value_cast(id);
+    static_assert(std::is_unsigned<decltype(i)>::value, "");
+
+    BK_ASSERT((i >= 1u) && (i <= c.capacity()));
+
+    return c[i];
 }
 
-entity* world_impl::find(entity_instance_id const id) noexcept {
-    auto const i = value_cast<size_t>(id);
-    return ((i < 1) || (i > entities_.capacity()))
-      ? nullptr
-      : &entities_[i];
+} // namespace
+
+item& world_impl::find(item_instance_id const id) noexcept {
+    return find_impl_(items_, id);
+}
+
+entity& world_impl::find(entity_instance_id const id) noexcept {
+    return find_impl_(entities_, id);
 }
 
 std::unique_ptr<world> make_world() {
     return std::make_unique<world_impl>();
 }
 
-namespace {
-
-template <typename World, typename Id>
-auto&& find_impl(World&& w, Id const id) noexcept {
-    auto const result = w.find(id);
-    BK_ASSERT(!!result);
-    return *result;
-}
-
-} //namespace
-
 item& find(world& w, item_instance_id const id) noexcept {
-    return find_impl(w, id);
+    return w.find(id);
 }
 
 entity& find(world& w, entity_instance_id const id) noexcept {
-    return find_impl(w, id);
+    return w.find(id);
 }
 
 item const& find(world const& w, item_instance_id const id) noexcept {
-    return find_impl(w, id);
+    return w.find(id);
 }
 
 entity const& find(world const& w, entity_instance_id const id) noexcept {
-    return find_impl(w, id);
+    return w.find(id);
 }
 
 unique_item create_object(world& w, std::function<item (item_instance_id)> const& f) {
-    return w.create_item(f);
+    return w.create_object(f);
 }
 
 unique_entity create_object(world& w, std::function<entity (entity_instance_id)> const& f) {
-    return w.create_entity(f);
+    return w.create_object(f);
 }
 
 } //namespace boken

@@ -17,16 +17,28 @@ class world {
 public:
     virtual ~world();
 
-    //! @returns The instance associated with a given @p id. Otherwise, if no
-    //! such definition exists a nullptr.
-    virtual item   const* find(item_instance_id   id) const noexcept = 0;
-    virtual entity const* find(entity_instance_id id) const noexcept = 0;
-    virtual item*         find(item_instance_id   id)       noexcept = 0;
-    virtual entity*       find(entity_instance_id id)       noexcept = 0;
+    //@{
+    //! @returns The instance associated with a given @p id.
+    //! @pre     The @p id must be valid.
+    //! @note    The reference returned may be invalidated by a call to
+    //!          @ref create_object.
 
+    virtual item   const& find(item_instance_id   id) const noexcept = 0;
+    virtual entity const& find(entity_instance_id id) const noexcept = 0;
+    virtual item&         find(item_instance_id   id)       noexcept = 0;
+    virtual entity&       find(entity_instance_id id)       noexcept = 0;
+
+    //@}
+
+    //@{
     //! @returns An owning handle to a new object created by the functor @p f.
-    virtual unique_item   create_item(std::function<item (item_instance_id)> const& f) = 0;
-    virtual unique_entity create_entity(std::function<entity (entity_instance_id)> const& f) = 0;
+    //! @note    References returned by @ref find can be invalidated by a call
+    //!          to this function.
+
+    virtual unique_item   create_object(std::function<item   (item_instance_id)>   const& f) = 0;
+    virtual unique_entity create_object(std::function<entity (entity_instance_id)> const& f) = 0;
+
+    //@}
 
     virtual int total_levels() const noexcept = 0;
 
