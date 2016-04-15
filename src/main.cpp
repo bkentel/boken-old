@@ -1678,9 +1678,11 @@ struct game_state {
         auto* const def = database.find(id);
         bool  const ok  = !!def;
 
+        using instance_t = decltype(create_object_at(*def, p, rng));
+
         auto const instance_id = ok
           ? create_object_at(*def, p, rng)
-          : item_instance_id {};
+          : instance_t {};
 
         return std::make_pair(instance_id, ok);
     }
