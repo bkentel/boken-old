@@ -576,13 +576,7 @@ struct game_state {
     game_state()
       : item_list {make_item_list_(), database}
     {
-        os.on_key([&](kb_event a, kb_modifiers b) { on_key(a, b); });
-        os.on_mouse_move([&](mouse_event a, kb_modifiers b) { on_mouse_move(a, b); });
-        os.on_mouse_wheel([&](int a, int b, kb_modifiers c) { on_mouse_wheel(a, b, c); });
-        os.on_mouse_button([&](mouse_event a, kb_modifiers b) { on_mouse_button(a, b); });
-        os.on_text_input([&](text_input_event const e) { on_text_input(e); });
-
-        cmd_translator.on_command([&](command_type a, uintptr_t b) { on_command(a, b); });
+        bind_event_handlers_();
 
         renderer.set_message_window(&message_window);
 
@@ -881,31 +875,8 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
-        return true;
-    }
 
-    bool ui_on_text_input(text_input_event const event) {
-        return true;
-    }
-
-    bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        return item_list.on_mouse_button(event, kmods);
-    }
-
-    bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        return item_list.on_mouse_move(event, kmods);
-    }
-
-    bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
-        return true;
-    }
-
-    bool ui_on_command(command_type const type, uintptr_t const data) {
-        return item_list.on_command(type, data);
-    }
-
-    //! @return true if events were not filtered, false otherwise.
+    //! @returns true if the event has not been filtered, false otherwise.
     template <typename... Args0, typename... Args1>
     bool process_context_stack(
         event_result (input_context::* handler)(Args0...)
@@ -940,12 +911,100 @@ struct game_state {
         return true;
     }
 
-    void on_key(kb_event const event, kb_modifiers const kmods) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_key, event, kmods)) {
-            return;
+    //! @returns true if the event has not been filtered, false otherwise.
+    template <typename... Args0, typename... Args1>
+    void process_event(
+        bool (game_state::* ui_handler)(Args0...)
+      , event_result (input_context::* ctx_handler)(Args0...)
+      , void (game_state::* base_handler)(Args0...)
+      , Args1&&... args
+    ) {
+        // first allow the ui a chance to process the event
+        if (!(this->*ui_handler)(std::forward<Args1>(args)...)) {
+            return; // ui filtered the event
         }
 
+        // then allow the input contexts a chance to process the event
+        if (!process_context_stack(ctx_handler, std::forward<Args1>(args)...)) {
+            return; // an input context filtered the event
+        }
+
+        // lastly, allow the default handler to process the event
+        (this->*base_handler)(std::forward<Args1>(args)...);
+    }
+
+    void bind_event_handlers_() {
+        os.on_key([&](kb_event const event, kb_modifiers const kmods) {
+            process_event(&game_state::ui_on_key
+                        , &input_context::on_key
+                        , &game_state::on_key
+                        , event, kmods);
+        });
+
+        os.on_text_input([&](text_input_event const event) {
+            process_event(&game_state::ui_on_text_input
+                        , &input_context::on_text_input
+                        , &game_state::on_text_input
+                        , event);
+        });
+
+        os.on_mouse_move([&](mouse_event const event, kb_modifiers const kmods) {
+            last_mouse_x = event.x;
+            last_mouse_y = event.y;
+
+            process_event(&game_state::ui_on_mouse_move
+                        , &input_context::on_mouse_move
+                        , &game_state::on_mouse_move
+                        , event, kmods);
+        });
+
+        os.on_mouse_button([&](mouse_event const event, kb_modifiers const kmods) {
+            process_event(&game_state::ui_on_mouse_button
+                        , &input_context::on_mouse_button
+                        , &game_state::on_mouse_button
+                        , event, kmods);
+        });
+
+        os.on_mouse_wheel([&](int const wx, int const wy, kb_modifiers const kmods) {
+            process_event(&game_state::ui_on_mouse_wheel
+                        , &input_context::on_mouse_wheel
+                        , &game_state::on_mouse_wheel
+                        , wx, wy, kmods);
+        });
+
+        cmd_translator.on_command([&](command_type const type, uint64_t const data) {
+            process_event(&game_state::ui_on_command
+                        , &input_context::on_command
+                        , &game_state::on_command
+                        , type, data);
+        });
+    }
+
+    bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
+        return true;
+    }
+
+    bool ui_on_text_input(text_input_event const event) {
+        return true;
+    }
+
+    bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        return item_list.on_mouse_button(event, kmods);
+    }
+
+    bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
+        return item_list.on_mouse_move(event, kmods);
+    }
+
+    bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
+        return true;
+    }
+
+    bool ui_on_command(command_type const type, uintptr_t const data) {
+        return item_list.on_command(type, data);
+    }
+
+    void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
             cmd_translator.translate(event, kmods);
 
@@ -963,22 +1022,10 @@ struct game_state {
     }
 
     void on_text_input(text_input_event const event) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_text_input, event)) {
-            return;
-        }
-
         cmd_translator.translate(event);
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        // first, allow ui a chance to filter events, then event listeners
-        if (!ui_on_mouse_button(event, kmods)
-         || !process_context_stack(&input_context::on_mouse_button, event, kmods)
-        ) {
-            return;
-        }
-
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
@@ -1005,19 +1052,6 @@ struct game_state {
     }
 
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        // always update the mouse position
-        auto on_exit = BK_SCOPE_EXIT {
-            last_mouse_x = event.x;
-            last_mouse_y = event.y;
-        };
-
-        // first, allow ui a chance to filter events, then event listeners
-        if (!ui_on_mouse_move(event, kmods)
-         || !process_context_stack(&input_context::on_mouse_move, event, kmods)
-        ) {
-            return;
-        }
-
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
@@ -1047,11 +1081,6 @@ struct game_state {
     }
 
     void on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
-        // first, pass events to listeners
-        if (!process_context_stack(&input_context::on_mouse_wheel, wy, wx, kmods)) {
-            return;
-        }
-
         auto const p_window = point2i32 {last_mouse_x, last_mouse_y};
         auto const p_world  = current_view.window_to_world(p_window);
 
@@ -1065,13 +1094,6 @@ struct game_state {
     }
 
     void on_command(command_type const type, uint64_t const data) {
-        // first, allow ui a chance to filter events, then event listeners
-        if (!ui_on_command(type, data)
-         || !process_context_stack(&input_context::on_command, type, data)
-        ) {
-            return;
-        }
-
         using ct = command_type;
         switch (type) {
         case ct::none : break;
@@ -1307,7 +1329,7 @@ struct game_state {
                     return event_result::filter_detach;
                 }
 
-                return event_result::pass_through;
+                return event_result::filter;
             };
 
         context_stack.push_back(std::move(c));
@@ -1589,6 +1611,10 @@ struct game_state {
         constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 100;
         constexpr auto timer_name = djb2_hash_32c("run timer");
 
+        // TODO: this is a bit of a hack; pushing new contexts should return an
+        //       identifier of for later use.
+        auto const context_index = context_stack.size();
+
         auto const timer_id = timers.add(timer_name, timer::duration {0}
           , [=, &lvl](timer::duration, timer::timer_data) mutable -> timer::duration {
                 auto const result = lvl.move_by(player_inst, v);
@@ -1598,7 +1624,12 @@ struct game_state {
                     renderer_update(player_id, p_cur, player_p);
                     advance(1);
                 } else {
-                    on_command(command_type::cancel, 0);
+                    // TODO: see the above TODO
+                    auto const where = context_stack.begin()
+                        + static_cast<ptrdiff_t>(context_index);
+
+                    context_stack.erase(where);
+
                     return timer::duration {};
                 }
 
