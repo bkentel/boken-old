@@ -102,6 +102,7 @@
     <ClCompile Include="src\entity.cpp" />
     <ClCompile Include="src\inventory.cpp" />
     <ClCompile Include="src\item.cpp" />
+    <ClCompile Include="src\item_list.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp">
@@ -148,6 +149,7 @@
     <ClInclude Include="src\inventory.hpp" />
     <ClInclude Include="src\item.hpp" />
     <ClInclude Include="src\item_def.hpp" />
+    <ClInclude Include="src\item_list.hpp" />
     <ClInclude Include="src\item_pile.hpp" />
     <ClInclude Include="src\item_properties.hpp" />
     <ClInclude Include="src\level.hpp" />

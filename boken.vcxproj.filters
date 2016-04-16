@@ -39,7 +39,6 @@
     <ClCompile Include="src\test\unicode.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
-    <ClCompile Include="src\inventory.cpp" />
     <ClCompile Include="src\test\math_types.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
@@ -71,6 +70,12 @@
     <ClCompile Include="src\entity.cpp">
       <Filter>objects</Filter>
     </ClCompile>
+    <ClCompile Include="src\item_list.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\inventory.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -96,7 +101,6 @@
     <ClInclude Include="src\item_pile.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
     <ClInclude Include="src\unicode.hpp" />
-    <ClInclude Include="src\inventory.hpp" />
     <ClInclude Include="src\math_types.hpp" />
     <ClInclude Include="src\catch.hpp">
       <Filter>external</Filter>
@@ -129,6 +133,12 @@
     <ClInclude Include="src\item_properties.hpp">
       <Filter>definitions</Filter>
     </ClInclude>
+    <ClInclude Include="src\item_list.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\inventory.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
@@ -142,6 +152,9 @@
     </Filter>
     <Filter Include="objects">
       <UniqueIdentifier>{e7771176-403f-4574-bceb-395ef3b0670a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{646f5a54-5935-4335-be6f-3cfd4b412a4c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
