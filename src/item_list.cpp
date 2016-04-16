@@ -113,13 +113,6 @@ bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers 
     using type  = inventory_list::hit_test_result::type;
     using btype = mouse_event::button_change_t;
 
-    auto& il = *list_;
-
-    if (!is_visible()) {
-        return !is_modal();
-    }
-
-    // first, take care of any moving or sizing
     auto const p = point2i32 {event.x, event.y};
     auto const v = p - last_mouse_;
 
@@ -127,6 +120,13 @@ bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers 
         last_mouse_ = p;
     };
 
+    auto& il = *list_;
+
+    if (!is_visible()) {
+        return !is_modal();
+    }
+
+    // first, take care of any moving or sizing
     if (is_moving_) {
         il.move_by(v);
         return false;
