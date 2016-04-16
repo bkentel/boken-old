@@ -381,7 +381,7 @@ public:
         return true;
     }
 
-    bool on_command(command_type const type, uintptr_t const data) {
+    bool on_command(command_type const type, uint64_t const data) {
         auto& il = *list_;
 
         if (!is_visible()) {
@@ -389,6 +389,9 @@ public:
         }
 
         auto const hit_test = il.hit_test(last_mouse_);
+
+        // passthrough the command if the mouse isn't over the list
+        // unless the list is modal.
         if (!hit_test && !is_modal()) {
             return true;
         }
@@ -595,6 +598,8 @@ struct game_state {
         generate();
 
         reset_view_to_player();
+
+        item_list.hide();
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
