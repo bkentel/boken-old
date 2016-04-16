@@ -1275,7 +1275,16 @@ struct game_state {
         }
     }
 
+    //! Common implementation for do_drop_one and do_drop_some
+    //! @param first Iterator (pointer) to the first index of the item list to
+    //!              remove from the player's inventory.
+    //! @param last  Iterator (pointer) to the last (one past the end) index of
+    //!              the item list to remove from the player's inventory.
+    //! @pre @p first and @p last are non null and point to a contiguous range
+    //!      of indicies.
     void impl_drop_selected_items_(int const* const first, int const* const last) {
+        BK_ASSERT(!!first && !!last);
+
         auto const player_info  = get_player();
         auto&      player       = player_info.first;
         auto const player_p     = player_info.second;
@@ -1298,12 +1307,10 @@ struct game_state {
         item_list.clear();
     }
 
+    //! Drop one item, or no items from the player's inventory at the player's
+    //! current position.
     void do_drop_one() {
-        auto const player_info  = get_player();
-        auto&      player       = player_info.first;
-        auto const player_p     = player_info.second;
-        auto&      player_items = player.items();
-        auto&      lvl          = the_world.current_level();
+        auto const& player_items = get_player().first.items();
 
         if (player_items.size() <= 0) {
             message_window.println("You have nothing to drop.");
@@ -1312,7 +1319,7 @@ struct game_state {
 
         item_list.assign(player_items);
         choose_one_item("Drop which item?"
-          , [&, player_p](int const index) {
+          , [&](int const index) {
                 impl_drop_selected_items_(&index, &index + 1);
             }
           , [&] {
@@ -1320,12 +1327,10 @@ struct game_state {
             });
     }
 
+    //! Drop 0 or more items from the player's inventory at the player's
+    //! current position.
     void do_drop_some() {
-        auto const player_info  = get_player();
-        auto&      player       = player_info.first;
-        auto const player_p     = player_info.second;
-        auto&      player_items = player.items();
-        auto&      lvl          = the_world.current_level();
+        auto const& player_items = get_player().first.items();
 
         if (player_items.size() <= 0) {
             message_window.println("You have nothing to drop.");
@@ -1334,7 +1339,7 @@ struct game_state {
 
         item_list.assign(player_items);
         choose_n_items("Drop which item(s)?"
-          , [&, player_p](int const* const first, int const* const last) {
+          , [&](int const* const first, int const* const last) {
                 impl_drop_selected_items_(first, last);
             }
           , [&] {
@@ -1454,17 +1459,19 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
-    //! Shared implementation for picking up items at the player's current
-    //! position.
+    //! Common implementation for do_get_all_items and do_get_items.
     //!
     //! If both @p first and @p last are null, pickup all items. Otherwise,
-    //! pick up only items at the indicies given by the range [first, last).
+    //! pick up only items at the indicies given by the range [first, last) from
+    //! the item list.
     //!
-    //! @param first An optional iterator to the index of the first item to get.
-    //! @param last  An optional iterator to the index of the last item to get.
+    //! @param first An optional iterator (pointer) to the index of the first
+    //!              item to get.
+    //! @param last  An optional iterator (pointer) to the index of the last
+    //!              (one past the end) item to get.
     //! @pre Either @p first and @p last are both null, or neither are null and
     //!      point to a contiguous range of indicies.
-    merge_item_result impl_do_get_item_indicies_(
+    merge_item_result impl_get_selected_items_(
         int const* const first = nullptr
       , int const* const last  = nullptr
     ) {
@@ -1521,7 +1528,7 @@ struct game_state {
     void do_get_all_items() {
         auto const was_visible = item_list.is_visible();
 
-        auto const result = impl_do_get_item_indicies_();
+        auto const result = impl_get_selected_items_();
 
         if (!was_visible) {
             return;
@@ -1546,34 +1553,13 @@ struct game_state {
         }
 
         item_list.assign(*pile);
-        item_list.show();
-        item_list.set_modal(true);
-        item_list.set_title("Pick up which items?");
-        item_list.set_multiselect(true);
-
-        auto const on_finish = [&] {
-            item_list.hide();
-            item_list.set_modal(false);
-            item_list.reset_callbacks();
-        };
-
-        item_list.on_confirm([=](int const* const first, int const* const last) {
-            auto on_exit = BK_SCOPE_EXIT {
-                on_finish();
-            };
-
-            if (!first || !last || first == last) {
-                message_window.println("Nevermind.");
-                return;
+        choose_n_items("Pick up which item(s)?"
+          , [&](int const* const first, int const* const last) {
+                impl_get_selected_items_(first, last);
             }
-
-            impl_do_get_item_indicies_(first, last);
-        });
-
-        item_list.on_cancel([&, on_finish] {
-            message_window.println("Nevermind.");
-            on_finish();
-        });
+          , [&] {
+                message_window.println("Nevermind.");
+            });
     }
 
     void do_kill(entity& e, point2i32 const p) {
