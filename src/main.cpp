@@ -419,10 +419,20 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    void assign(item_pile const& items) {
+
+    //! clears all state and row data; leaves columns intact.
+    void clear() {
         auto& il = *list_;
 
         il.clear_rows();
+        il.selection_clear();
+    }
+
+    void assign(item_pile const& items) {
+        clear();
+
+        auto& il = *list_;
+
         il.reserve(il.cols(), items.size());
 
         std::for_each(begin(items), end(items), [&](item_instance_id const id) {
@@ -1240,7 +1250,7 @@ struct game_state {
 
             for (auto it = first; it != last; ++it) {
                 auto const  id  = il.row_data(*it);
-                unique_item itm = player_i.remove_item(id);
+                unique_item itm = player_i.remove_item(id); // TODO: this is O(n2)
 
                 BK_ASSERT(id == itm.get());
 
@@ -1303,7 +1313,17 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
-    merge_item_result do_get_item_indicies(
+    //! Shared implementation for picking up items at the player's current
+    //! position.
+    //!
+    //! If both @p first and @p last are null, pickup all items. Otherwise,
+    //! pick up only items at the indicies given by the range [first, last).
+    //!
+    //! @param first An optional iterator to the index of the first item to get.
+    //! @param last  An optional iterator to the index of the last item to get.
+    //! @pre Either @p first and @p last are both null, or neither are null and
+    //!      point to a contiguous range of indicies.
+    merge_item_result impl_do_get_item_indicies_(
         int const* const first = nullptr
       , int const* const last  = nullptr
     ) {
@@ -1315,33 +1335,24 @@ struct game_state {
         auto&      player      = player_info.first;
         auto const player_p    = player_info.second;
 
-        int  i  = 0;
-        auto it = first;
-
         static_string_buffer<128> buffer;
 
-        auto const result = lvl.move_items(player_p, player
-          , [&](unique_item&& itm, item_pile& pile) mutable {
-                if (it) {
-                    if (it == last) {
-                        return item_merge_result::terminate;
-                    } else if (i++ != *it) {
-                        return item_merge_result::skip;
-                    } else {
-                        ++it;
-                    }
-                }
+        auto const pred = [&](item_instance_id const id) {
+            return can_add_item(database, player, find(the_world, id));
+        };
 
-                auto const name = name_of(itm);
+        auto const sink = [&](unique_item&& itm, item_pile& pile) {
+            auto const name = name_of(itm);
 
-                merge_into_pile(the_world, database, std::move(itm), pile);
+            merge_into_pile(the_world, database, std::move(itm), pile);
 
-                buffer.clear();
-                buffer.append("Picked up %s.", name.data());
-                message_window.println(buffer.to_string());
+            buffer.clear();
+            buffer.append("Picked up %s.", name.data());
+            message_window.println(buffer.to_string());
+        };
 
-                return item_merge_result::ok;
-          });
+        auto const result = lvl.move_items(
+            player_p, player.items(), first, last, pred, sink);
 
         switch (result) {
         case merge_item_result::ok_merged_none:
@@ -1365,10 +1376,11 @@ struct game_state {
         return result;
     }
 
+    //! Pickup all items at the player's current position.
     void do_get_all_items() {
         auto const was_visible = item_list.is_visible();
 
-        auto const result = do_get_item_indicies();
+        auto const result = impl_do_get_item_indicies_();
 
         if (!was_visible) {
             return;
@@ -1384,6 +1396,7 @@ struct game_state {
         item_list.layout();
     }
 
+    //! Pickup 0..N items from a list at the player's current position.
     void do_get_items() {
         auto* const pile = the_world.current_level().item_at(get_player().second);
         if (!pile) {
@@ -1413,7 +1426,7 @@ struct game_state {
                 return;
             }
 
-            do_get_item_indicies(first, last);
+            impl_do_get_item_indicies_(first, last);
         });
 
         item_list.on_cancel([&, on_finish] {

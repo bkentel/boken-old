@@ -20,7 +20,6 @@ namespace boken { struct tile_data_set; }
 namespace boken { class world; }
 namespace boken { enum class tile_type : uint16_t; }
 namespace boken { enum class tile_id : uint32_t; }
-namespace boken { enum class item_merge_result : uint32_t; }
 namespace boken { enum class merge_item_result : uint32_t; }
 
 namespace boken {
@@ -162,10 +161,19 @@ public:
     virtual const_sub_region_range<tile_id>
         update_tile_at(random_state& rng, point2i32 p, tile_data_set const& data) noexcept = 0;
 
-    using item_merge_f = std::function<item_merge_result (unique_item&&, item_pile&)>;
-    virtual merge_item_result move_items(point2i32 from, entity& to, item_merge_f const& f) = 0;
-    virtual merge_item_result move_items(point2i32 from, item& to, item_merge_f const& f) = 0;
-    virtual merge_item_result move_items(point2i32 from, item_pile& to, item_merge_f const& f) = 0;
+    virtual merge_item_result move_items(
+        point2i32 from
+      , item_pile& to
+      , std::function<bool (item_instance_id)>          const& pred
+      , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
+
+    virtual merge_item_result move_items(
+        point2i32 from
+      , item_pile& to
+      , int const* first
+      , int const* last
+      , std::function<bool (item_instance_id)>          const& pred
+      , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access

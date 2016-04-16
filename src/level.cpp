@@ -569,59 +569,67 @@ public:
         return make_range_(area, data_.region_ids);
     }
 
-    merge_item_result move_items_(point2i32 const from_, item_pile& to, item_merge_f const& f) {
-        auto const from = underlying_cast_unsafe<int16_t>(from_);
+    merge_item_result impl_move_items_(
+        point2i32 const from
+      , item_pile& to
+      , int const* const first
+      , int const* const last
+      , std::function<bool (item_instance_id)>          const& pred
+      , std::function<void (unique_item&&, item_pile&)> const& sink
+    ) {
+        BK_ASSERT(( !first &&  !last)
+               || (!!first && !!last));
 
-        auto* const from_pile = items_.find(from);
-        if (!from_pile) {
+        auto  const src_pos  = underlying_cast_unsafe<int16_t>(from);
+        auto* const src_pile = items_.find(src_pos);
+        if (!src_pile) {
             return merge_item_result::failed_bad_source;
         }
 
-        int n = 0;
+        auto const pile_sink = [&](unique_item&& itm) {
+            sink(std::move(itm), to);
+        };
 
-        for (auto i = from_pile->size(); i > 0u; --i) {
-            unique_item itm = from_pile->remove_item(i - 1u);
+        auto const size_before = src_pile->size();
 
-            switch (f(std::move(itm), to)) {
-            case item_merge_result::ok:
-                ++n;
-                break;
-            case item_merge_result::terminate:
-                i = 1u; // break out at the end of the loop
-                BK_ATTRIBUTE_FALLTHROUGH;
-            case item_merge_result::skip:
-                from_pile->add_item(std::move(itm));
-                break;
-            default:
-                BK_ASSERT(false);
-                break;
-            }
+        if (!first && !last) {
+            src_pile->remove_if(pred, pile_sink);
+        } else {
+            src_pile->remove_if(first, last, pred, pile_sink);
         }
 
-        if (from_pile->empty()) {
-            items_.erase(from);
+        auto const size_after = src_pile->size();
+
+        BK_ASSERT(size_after <= size_before);
+
+        if (src_pile->empty()) {
+            items_.erase(src_pos);
             return merge_item_result::ok_merged_all;
-        } else if (n == 0) {
+        } else if (size_before - size_after == 0) {
             return merge_item_result::ok_merged_none;
         }
 
         return merge_item_result::ok_merged_some;
     }
 
-    merge_item_result move_items(point2i32 const from, entity& to, item_merge_f const& f) final override {
-        return move_items_(from, get_items(to), f);
+    merge_item_result move_items(
+        point2i32 from
+      , item_pile& to
+      , std::function<bool (item_instance_id)>          const& pred
+      , std::function<void (unique_item&&, item_pile&)> const& sink
+    ) final override {
+        return impl_move_items_(from, to, nullptr, nullptr, pred, sink);
     }
 
-    merge_item_result move_items(point2i32 const from, item& to, item_merge_f const& f) final override {
-        auto const pile_ptr = get_items(to);
-
-        return pile_ptr
-          ? move_items_(from, *pile_ptr, f)
-          : merge_item_result::failed_bad_destination;
-    }
-
-    merge_item_result move_items(point2i32 const from, item_pile& to, item_merge_f const& f) final override {
-        return move_items_(from, to, f);
+    merge_item_result move_items(
+        point2i32 from
+      , item_pile& to
+      , int const* first
+      , int const* last
+      , std::function<bool (item_instance_id)>          const& pred
+      , std::function<void (unique_item&&, item_pile&)> const& sink
+    ) final override {
+        return impl_move_items_(from, to, first, last, pred, sink);
     }
 
     point2i32 stair_up(int const i) const noexcept final override {
