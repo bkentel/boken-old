@@ -403,7 +403,11 @@ public:
         } else if (type == command_type::confirm) {
             if (is_multi_select_) {
                 auto const sel = il.get_selection();
-                on_confirm_(sel.first, sel.second);
+                if (sel.first != sel.second) {
+                    on_confirm_(sel.first, sel.second);
+                } else {
+                    on_cancel_();
+                }
             } else {
                 auto const i = il.indicated();
                 on_confirm_(&i, &i + 1);
@@ -949,13 +953,13 @@ struct game_state {
         });
 
         os.on_mouse_move([&](mouse_event const event, kb_modifiers const kmods) {
-            last_mouse_x = event.x;
-            last_mouse_y = event.y;
-
             process_event(&game_state::ui_on_mouse_move
                         , &input_context::on_mouse_move
                         , &game_state::on_mouse_move
                         , event, kmods);
+
+            last_mouse_x = event.x;
+            last_mouse_y = event.y;
         });
 
         os.on_mouse_button([&](mouse_event const event, kb_modifiers const kmods) {
@@ -1139,22 +1143,13 @@ struct game_state {
             renderer.debug_toggle_show_regions();
             renderer.update_map_data();
             break;
-        case ct::debug_teleport_self :
-            do_debug_teleport_self();
-            break;
-        case ct::cancel :
-            do_cancel();
-            break;
-        case ct::confirm :
-            break;
-        case ct::toggle :
-            break;
-        case ct::drop_one :
-            do_drop_one();
-            break;
-        case ct::drop_some :
-            do_drop_some();
-            break;
+        case ct::debug_teleport_self : do_debug_teleport_self(); break;
+        case ct::cancel : do_cancel(); break;
+        case ct::confirm : break;
+        case ct::toggle : break;
+        case ct::drop_one : do_drop_one(); break;
+        case ct::drop_some : do_drop_some(); break;
+        case ct::open : do_open(); break;
         default:
             BK_ASSERT(false);
             break;
@@ -1214,86 +1209,210 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    template <typename Confirm, typename Cancel>
+    void choose_one_item(std::string title, Confirm on_confirm, Cancel on_cancel) {
+        auto& il = item_list;
+
+        il.show();
+        il.set_modal(true);
+        il.set_title(std::move(title));
+        il.set_multiselect(false);
+
+        auto const on_finish = [&] {
+            il.hide();
+            il.set_modal(false);
+            il.reset_callbacks();
+        };
+
+        il.on_confirm([=](int const* const first, int const* const last) {
+            BK_ASSERT(!!first
+                   && !!last
+                   && std::distance(first, last) == 1);
+
+            on_finish();
+            on_confirm(*first);
+        });
+
+        il.on_cancel([=] {
+            on_finish();
+            on_cancel();
+        });
+    }
+
+    template <typename Confirm, typename Cancel>
+    void choose_n_items(std::string title, Confirm on_confirm, Cancel on_cancel) {
+        auto& il = item_list;
+
+        il.show();
+        il.set_modal(true);
+        il.set_title(std::move(title));
+        il.set_multiselect(true);
+
+        auto const on_finish = [&] {
+            il.hide();
+            il.set_modal(false);
+            il.reset_callbacks();
+        };
+
+        il.on_confirm([=](int const* const first, int const* const last) {
+            BK_ASSERT(!!first
+                   && !!last
+                   && std::distance(first, last) > 0);
+
+            on_finish();
+            on_confirm(first, last);
+        });
+
+        il.on_cancel([=] {
+            on_finish();
+            on_cancel();
+        });
+    }
+
     void do_cancel() {
         if (item_list.is_visible()) {
             item_list.hide();
         }
     }
 
-    void do_drop_one() {
-        do_drop_some(1);
-    }
+    void impl_drop_selected_items_(int const* const first, int const* const last) {
+        auto const player_info  = get_player();
+        auto&      player       = player_info.first;
+        auto const player_p     = player_info.second;
+        auto&      player_items = player.items();
 
-    void do_drop_some(int const n = 2) {
-        BK_ASSERT(n >= 1);
+        static_string_buffer<128> buffer;
 
-        auto const is_multi_drop    = n > 1;
-        auto const was_multi_select = item_list.is_multiselect();
+        for (auto it = first; it != last; ++it) {
+            auto const  id   = item_list.get().row_data(*it);
+            auto const& itm  = find(the_world, id);
+            auto const  name = name_of(itm);
 
-        item_list.assign(get_player().first.items());
-        item_list.show();
-        item_list.set_modal(true);
+            buffer.clear();
+            buffer.append("You drop the %s on the ground.", name.data());
+            message_window.println(buffer.to_string());
 
-        if (is_multi_drop) {
-            item_list.set_title("Drop which item?");
-            item_list.set_multiselect(true);
-        } else {
-            item_list.set_title("Drop which items?");
-            item_list.set_multiselect(false);
+            add_object_at(player_items.remove_item(id), player_p);
         }
 
-        auto const on_finish = [=] {
-            item_list.hide();
-            item_list.set_modal(false);
-            item_list.set_multiselect(was_multi_select);
-            item_list.reset_callbacks();
+        item_list.clear();
+    }
+
+    void do_drop_one() {
+        auto const player_info  = get_player();
+        auto&      player       = player_info.first;
+        auto const player_p     = player_info.second;
+        auto&      player_items = player.items();
+        auto&      lvl          = the_world.current_level();
+
+        if (player_items.size() <= 0) {
+            message_window.println("You have nothing to drop.");
+            return;
+        }
+
+        item_list.assign(player_items);
+        choose_one_item("Drop which item?"
+          , [&, player_p](int const index) {
+                impl_drop_selected_items_(&index, &index + 1);
+            }
+          , [&] {
+                message_window.println("Nevermind.");
+            });
+    }
+
+    void do_drop_some() {
+        auto const player_info  = get_player();
+        auto&      player       = player_info.first;
+        auto const player_p     = player_info.second;
+        auto&      player_items = player.items();
+        auto&      lvl          = the_world.current_level();
+
+        if (player_items.size() <= 0) {
+            message_window.println("You have nothing to drop.");
+            return;
+        }
+
+        item_list.assign(player_items);
+        choose_n_items("Drop which item(s)?"
+          , [&, player_p](int const* const first, int const* const last) {
+                impl_drop_selected_items_(first, last);
+            }
+          , [&] {
+                message_window.println("Nevermind.");
+            });
+    }
+
+    void do_open() {
+        auto const  player_info = get_player();
+        auto const& player      = player_info.first;
+        auto const  player_p    = player_info.second;
+        auto&       lvl         = the_world.current_level();
+
+        static_string_buffer<128> buffer;
+
+        auto* const pile = lvl.item_at(player_p);
+        if (!pile) {
+            message_window.println("There is nothing here to open.");
+            return;
+        }
+
+        auto const is_container = [&](item_instance_id const id) noexcept {
+            auto const& itm = find(the_world, id);
+            auto const capacity = get_property_value_or(
+                database, itm, property(item_property::capacity), 0);
+            return capacity;
         };
 
-        item_list.on_confirm([=](int const* const first, int const* const last) {
-            auto on_exit = BK_SCOPE_EXIT {
-                on_finish();
-            };
+        auto const find_container = [&](auto const first, auto const last) {
+            return std::find_if(first, last, is_container);
+        };
 
-            if (!first || !last || first == last) {
+        auto const last  = pile->end();
+        auto       it    = find_container(pile->begin(), last);
+
+        if (it == last) {
+            message_window.println("There is nothing here to open.");
+            return;
+        }
+
+        auto& il = item_list;
+
+        auto const show_container = [&](item_instance_id const id) {
+            auto const& itm = find(the_world, id);
+
+            il.clear();
+            il.set_title(name_of(itm).to_string());
+            il.assign(itm.items());
+            il.show();
+        };
+
+        auto const container0 = it;
+        auto const container1 = find_container(++it, last);
+
+        // there is only one container here
+        if (container1 == last) {
+            show_container(*container0);
+            return;
+        }
+
+        // there are at least two containers here
+        il.clear();
+        il.append(*container0);
+
+        it = container1;
+        for ( ; it != last; it = find_container(++it, last)) {
+            il.append(*it);
+        }
+
+        il.layout();
+
+        choose_one_item("Open which container?"
+          , [=](int const index) {
+                show_container((*pile)[static_cast<size_t>(index)]);
+            }
+          , [&] {
                 message_window.println("Nevermind.");
-                return;
-            }
-
-            BK_ASSERT((is_multi_drop)
-                   || (!is_multi_drop && std::distance(first, last) == 1));
-
-            auto const player_info = get_player();
-            auto&      player      = player_info.first;
-            auto const player_p    = player_info.second;
-            auto&      player_i    = player.items();
-            auto&      il          = item_list.get();
-
-            static_string_buffer<128> buffer;
-
-            for (auto it = first; it != last; ++it) {
-                auto const  id  = il.row_data(*it);
-                unique_item itm = player_i.remove_item(id); // TODO: this is O(n2)
-
-                BK_ASSERT(id == itm.get());
-
-                add_object_at(std::move(itm), player_p);
-
-                buffer.clear();
-                buffer.append("You drop the %s.", name_of(id).data());
-                message_window.println(buffer.to_string());
-
-                if (!is_multi_drop) {
-                    break;
-                }
-            }
-
-            il.remove_rows(first, last);
-        });
-
-        item_list.on_cancel([=] {
-            message_window.println("Nevermind.");
-            on_finish();
-        });
+            });
     }
 
     void do_debug_teleport_self() {

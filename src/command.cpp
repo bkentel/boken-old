@@ -51,6 +51,9 @@ void command_translator_impl::translate(text_input_event const& event) const {
     case 'g':
         handler_(command_type::get_items, 0);
         break;
+    case 'o':
+        handler_(command_type::open, 0);
+        break;
     default:
         break;
     }
@@ -167,6 +170,7 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(toggle);
         BK_ENUM_MAPPING(drop_one);
         BK_ENUM_MAPPING(drop_some);
+        BK_ENUM_MAPPING(open);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);
@@ -210,6 +214,7 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(toggle);
         BK_ENUM_MAPPING(drop_one);
         BK_ENUM_MAPPING(drop_some);
+        BK_ENUM_MAPPING(open);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);

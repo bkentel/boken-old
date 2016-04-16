@@ -46,6 +46,7 @@ enum class command_type : uint32_t {
   , toggle        = djb2_hash_32c("toggle")
   , drop_one      = djb2_hash_32c("drop_one")
   , drop_some     = djb2_hash_32c("drop_some")
+  , open          = djb2_hash_32c("open")
 
   , toggle_show_inventory = djb2_hash_32c("toggle_show_inventory")
 
