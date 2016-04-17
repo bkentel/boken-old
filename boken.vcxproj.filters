@@ -19,7 +19,6 @@
     <ClCompile Include="src\random.cpp" />
     <ClCompile Include="src\bsp_generator.cpp" />
     <ClCompile Include="src\text.cpp" />
-    <ClCompile Include="src\data.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\world.cpp" />
     <ClCompile Include="src\test\utility.t.cpp">
@@ -45,7 +44,6 @@
     <ClCompile Include="src\catch.cpp">
       <Filter>external</Filter>
     </ClCompile>
-    <ClCompile Include="src\serialize.cpp" />
     <ClCompile Include="src\test\serialize.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
@@ -76,6 +74,12 @@
     <ClCompile Include="src\inventory.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="src\data.cpp">
+      <Filter>data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\serialize.cpp">
+      <Filter>data</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -90,7 +94,6 @@
     <ClInclude Include="src\text.hpp" />
     <ClInclude Include="src\spatial_map.hpp" />
     <ClInclude Include="src\config.hpp" />
-    <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\level.hpp" />
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\world.hpp" />
@@ -105,7 +108,6 @@
     <ClInclude Include="src\catch.hpp">
       <Filter>external</Filter>
     </ClInclude>
-    <ClInclude Include="src\serialize.hpp" />
     <ClInclude Include="src\rect.hpp" />
     <ClInclude Include="src\random_algorithm.hpp" />
     <ClInclude Include="src\algorithm.hpp" />
@@ -139,6 +141,12 @@
     <ClInclude Include="src\inventory.hpp">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="src\data.hpp">
+      <Filter>data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\serialize.hpp">
+      <Filter>data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
@@ -155,6 +163,9 @@
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{646f5a54-5935-4335-be6f-3cfd4b412a4c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="data">
+      <UniqueIdentifier>{1dd56c58-bdab-47d9-a192-58e87dc2f106}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

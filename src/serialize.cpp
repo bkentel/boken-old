@@ -1,3 +1,6 @@
+// currently the implementations for item and entity parsing are nearly
+// identical, but as the diverge so too will the parsers.
+
 #include "serialize.hpp"
 #include "hash.hpp"
 #include "item_def.hpp"
@@ -66,8 +69,7 @@ public:
         return static_cast<Derived*>(this)->current_state();
     }
 
-    template <typename T>
-    void set_current_state(state_type const state) const noexcept {
+    void set_current_state(state_type const state) noexcept {
         return static_cast<Derived*>(this)->set_current_state(state);
     }
 
@@ -125,6 +127,39 @@ public:
 
         a();
         return true;
+    }
+
+    std::pair<serialize_data_type, uint32_t>
+    to_property() noexcept {
+        using st = serialize_data_type;
+
+        switch (last_type_) {
+        case element_type::null:
+            return std::make_pair(st::null, boken::to_property(nullptr));
+        case element_type::boolean:
+            return std::make_pair(st::boolean, boken::to_property(last_bool_));
+        case element_type::i32:
+            return std::make_pair(st::i32, boken::to_property(last_i32_));
+        case element_type::u32:
+            return std::make_pair(st::u32, boken::to_property(last_u32_));
+        case element_type::float_p:
+            return std::make_pair(st::float_p, boken::to_property(last_double_));
+        case element_type::string:
+            return std::make_pair(st::string, last_string_hash_);
+        case element_type::i64:       BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::u64:       BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::none:      BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::obj_start: BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::obj_key:   BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::obj_end:   BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::arr_start: BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::arr_end:   BK_ATTRIBUTE_FALLTHROUGH;
+        default:
+            BK_ASSERT(false);
+            break;
+        }
+
+        return std::make_pair(st::null, boken::to_property(nullptr));
     }
 public:
     bool Null() noexcept {
@@ -184,7 +219,7 @@ public:
         return run();
     }
 
-    bool EndObject(size_t const n) noexcept {
+    bool EndObject(size_t) noexcept {
         last_type_ = element_type::obj_end;
         return run();
     }
@@ -201,11 +236,11 @@ public:
         return run();
     }
 
-    bool EndArray(size_t const n) noexcept {
+    bool EndArray(size_t) noexcept {
         last_type_ = element_type::arr_end;
         return run();
     }
-private:
+protected:
     element_type last_type_        {element_type::none};
     uint32_t     last_string_hash_ {};
     std::string  last_string_      {};
@@ -217,30 +252,32 @@ private:
     bool         last_bool_        {};
 };
 
-class item_definition_handler {
-public:
-    enum class type {
-        none
-      , null, boolean, i32, u32, i64, u64, float_p, string
-      , obj_start, obj_key, obj_end
-      , arr_start, arr_end
-    };
+namespace {
 
-    enum class state {
-        start
-      ,   type, type_value
-      ,   data, data_start
-      ,     item_id_or_end
-      ,     item_id, item_start
-      ,       item_name, item_name_value
-      ,       item_properties, item_properties_start
-      ,         item_property_name_or_end
-      ,         item_property_name, item_property_value
-      ,       item_properties_end
-      ,     item_end
-      ,   data_end
-      , end
-    };
+enum class item_definition_handler_state {
+    start
+  ,   type, type_value
+  ,   data, data_start
+  ,     item_id_or_end
+  ,     item_id, item_start
+  ,       item_name, item_name_value
+  ,       item_properties, item_properties_start
+  ,         item_property_name_or_end
+  ,         item_property_name, item_property_value
+  ,       item_properties_end
+  ,     item_end
+  ,   data_end
+  , end
+};
+
+} // namespace
+
+class item_definition_handler
+    : public definition_handler_base<item_definition_handler
+                                   , item_definition_handler_state>
+{
+public:
+    using state_type = definition_handler_base::state_type;
 
     item_definition_handler(
         on_finish_item_definition const& on_finish
@@ -250,85 +287,33 @@ public:
     {
     }
 
+    state_type current_state() const noexcept {
+        return state_;
+    }
+
+    void set_current_state(state_type const state) noexcept {
+        state_ = state;
+    }
+
     bool run();
-public:
-    bool Null() noexcept {
-        last_type_ = type::null;
-        return run();
-    }
+private:
+    bool add_property() {
+        auto const p = to_property();
 
-    bool Bool(bool const b) noexcept {
-        last_type_ = type::boolean;
-        last_bool_ = b;
-        return run();
-    }
+        auto const result = on_property_(
+            last_property_name_
+          , last_property_name_hash_
+          , p.first
+          , p.second);
 
-    bool RawNumber(const char* const s, size_t const len, bool const copy) {
+        if (!result) {
+            return false;
+        }
+
+        def_.properties.add_or_update_property(
+            item_property_id {last_property_name_hash_}, p.second);
+
         return true;
-    }
-
-    bool Int(int const i) {
-        last_type_ = type::i32;
-        last_i32_ = i;
-        return run();
-    }
-
-    bool Uint(unsigned const i) {
-        last_type_ = type::u32;
-        last_u32_ = i;
-        return run();
-    }
-
-    bool Int64(int64_t const i) {
-        last_type_ = type::i64;
-        last_i64_ = i;
-        return run();
-    }
-
-    bool Uint64(uint64_t const i) {
-        last_type_ = type::u64;
-        last_u64_ = i;
-        return run();
-    }
-
-    bool Double(double const d) {
-        last_type_ = type::float_p;
-        last_double_ = d;
-        return run();
-    }
-
-    bool String(const char* const s, size_t const len, bool const copy) {
-        last_type_ = type::string;
-        last_string_.assign(s, len);
-        last_string_hash_ = djb2_hash_32(s, s + len);
-        return run();
-    }
-
-    bool StartObject() {
-        last_type_ = type::obj_start;
-        return run();
-    }
-
-    bool EndObject(size_t const n) {
-        last_type_ = type::obj_end;
-        return run();
-    }
-
-    bool Key(const char* const s, size_t const len, bool const copy) {
-        last_type_ = type::obj_key;
-        last_string_.assign(s, len);
-        last_string_hash_ = djb2_hash_32(s, s + len);
-        return run();
-    }
-
-    bool StartArray() {
-        last_type_ = type::arr_start;
-        return run();
-    }
-
-    bool EndArray(size_t const n) {
-        last_type_ = type::arr_end;
-        return run();
     }
 private:
     on_finish_item_definition const& on_finish_;
@@ -339,175 +324,121 @@ private:
     std::string last_property_name_      {};
     uint32_t    last_property_name_hash_ {};
 
-    type  last_type_ = type::none;
-    state state_     = state::start;
+    state_type state_ {state_type::start};
 
-    uint32_t    last_string_hash_ {};
-    std::string last_string_ {};
-    double      last_double_ {};
-    int64_t     last_i64_    {};
-    uint64_t    last_u64_    {};
-    unsigned    last_u32_    {};
-    int         last_i32_    {};
-    bool        last_bool_   {};
-private:
-    bool require(type const expected_type, state const next_state) noexcept {
-        return (last_type_ == expected_type) && ((state_ = next_state), true);
-    }
-
-    template <typename T>
-    bool require(type const expected_type, T const& value, T const& expected, state const next_state) noexcept {
-        return (value == expected) && require(expected_type, next_state);
-    }
-
-    template <typename Action>
-    bool require(type const expected_type, state const next_state, Action a) {
-        return require(expected_type, next_state) && (a(), true);
-    }
-
-    template <typename Action, typename T>
-    bool require(type const expected_type, T const& value, T const& expected, state const next_state, Action a) {
-        return require(expected_type, value, expected, next_state) && (a(), true);
-    }
-
-    bool add_property();
 };
 
-bool item_definition_handler::add_property() {
-    uint32_t value  {};
-
-    auto const result = [&] {
-        using st = serialize_data_type;
-
-        auto const& name = last_property_name_;
-        auto const  hash = last_property_name_hash_;
-
-        switch (last_type_) {
-        case type::null:
-            return on_property_(name, hash
-              , st::null, (value = 0));
-        case type::boolean:
-            return on_property_(name, hash
-              , st::boolean, (value = last_bool_ ? 1u : 0u));
-        case type::i32:
-            return on_property_(name, hash
-              , st::i32, (value = static_cast<uint32_t>(last_i32_)));
-        case type::u32:
-            return on_property_(name, hash
-              , st::u32, (value = last_u32_));
-        case type::float_p:
-            return on_property_(name, hash
-              , st::float_p, (value = static_cast<uint32_t>(last_double_ * (1 << 16))));
-        case type::string:
-            return on_property_(name, hash
-              , st::string, (value = last_string_hash_));
-        case type::i64:
-        case type::u64:
-        case type::none:
-        case type::obj_start:
-        case type::obj_key:
-        case type::obj_end:
-        case type::arr_start:
-        case type::arr_end:
-        default:
-            break;
-        }
-
-        return false;
-    }();
-
-    if (result) {
-        state_ = state::item_property_name_or_end;
-        def_.properties.add_or_update_property(
-            item_property_id {last_property_name_hash_}, value);
-    }
-
-    return result;
-}
-
 bool item_definition_handler::run() {
-    switch (state_) {
-    case state::start:
-        return require(type::obj_start, state::type);
-    case state::type:
-        return require(type::obj_key
-          , last_string_hash_, djb2_hash_32c("type"), state::type_value);
-    case state::type_value:
-        return require(type::string
-          , last_string_hash_, djb2_hash_32c("items"), state::data);
-    case state::data:
-        return require(type::obj_key
-          , last_string_hash_, djb2_hash_32c("data"), state::data_start);
-    case state::data_start:
-        return require(type::obj_start, state::item_id_or_end);
-    case state::item_id_or_end:
-        if (last_type_ == type::obj_key) {
-            state_ = state::item_id;
-            return run();
-        } else if (last_type_ == type::obj_end) {
-            state_ = state::data_end;
-            return run();
+    using st = state_type;
+    using et = element_type;
+
+    for (;;) switch (state_) {
+    case st::start:
+        return transition(et::obj_start
+                        , st::type);
+    case st::type:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("type")
+                        , st::type_value);
+    case st::type_value:
+        return transition(et::string
+                        , last_string_hash_
+                        , djb2_hash_32c("items")
+                        , st::data);
+    case st::data:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("data")
+                        , st::data_start);
+    case st::data_start:
+        return transition(et::obj_start
+                        , st::item_id_or_end);
+    case st::item_id_or_end:
+        if (last_type_ == et::obj_key) {
+            state_ = st::item_id;
+            continue;
+        } else if (last_type_ == et::obj_end) {
+            state_ = st::data_end;
+            continue;
         }
 
         return false;
-    case state::item_id:
-        return require(type::obj_key, state::item_start, [&] {
+    case st::item_id:
+        return transition(et::obj_key, st::item_start, [&] {
             def_.id_string = last_string_;
             def_.id = item_id {last_string_hash_};
         });
-    case state::item_start:
-        return require(type::obj_start, state::item_name);
-    case state::item_name:
-        return require(type::obj_key
-          , last_string_hash_, djb2_hash_32c("name"), state::item_name_value);
-    case state::item_name_value:
-        return require(type::string, state::item_properties, [&] {
-            def_.name = last_string_;
-        });
-    case state::item_properties:
-        return require(type::obj_key
-          , last_string_hash_, djb2_hash_32c("properties"), state::item_properties_start);
-    case state::item_properties_start:
-        return require(type::obj_start, state::item_property_name_or_end);
-    case state::item_property_name_or_end:
-        if (last_type_ == type::obj_key) {
-            state_ = state::item_property_name;
-            return run();
-        } else if (last_type_ == type::obj_end) {
-            state_ = state::item_properties_end;
-            return run();
+    case st::item_start:
+        return transition(et::obj_start
+                        , st::item_name);
+    case st::item_name:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("name")
+                        , st::item_name_value);
+    case st::item_name_value:
+        return transition(et::string
+                        , st::item_properties
+                        , [&] {
+                              def_.name = last_string_;
+                          });
+    case st::item_properties:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("properties")
+                        , st::item_properties_start);
+    case st::item_properties_start:
+        return transition(et::obj_start
+                        , st::item_property_name_or_end);
+    case st::item_property_name_or_end:
+        if (last_type_ == et::obj_key) {
+            state_ = st::item_property_name;
+            continue;
+        } else if (last_type_ == et::obj_end) {
+            state_ = st::item_properties_end;
+            continue;
         }
 
         return false;
-    case state::item_property_name:
-        return require(type::obj_key, state::item_property_value, [&] {
+    case st::item_property_name:
+        return transition(et::obj_key, st::item_property_value, [&] {
             last_property_name_      = last_string_;
             last_property_name_hash_ = last_string_hash_;
         });
-    case state::item_property_value:
-        return add_property()
-            && ((state_ = state::item_property_name_or_end), true);
-    case state::item_properties_end:
-        return require(type::obj_end, state::item_end);
-    case state::item_end:
-        return require(type::obj_end, state::item_id_or_end, [&] {
-            on_finish_(def_);
-            def_.id = item_id {};
-            def_.id_string.clear();
-            def_.name.clear();
-            def_.properties.clear();
-        });
-    case state::data_end:
-        return require(type::obj_end, state::end);
-    case state::end:
-        return require(type::obj_end, state::start);
+    case st::item_property_value:
+        if (!add_property()) {
+            return false;
+        }
+
+        state_ = st::item_property_name_or_end;
+        return true;
+    case st::item_properties_end:
+        return transition(et::obj_end
+                        , st::item_end);
+    case st::item_end:
+        return transition(et::obj_end
+                        , st::item_id_or_end
+                        , [&] {
+                              on_finish_(def_);
+                              def_.id = item_id {};
+                              def_.id_string.clear();
+                              def_.name.clear();
+                              def_.properties.clear();
+                        });
+    case st::data_end:
+        return transition(et::obj_end
+                        , st::end);
+    case st::end:
+        return transition(et::obj_end
+                        , st::start);
     default:
+        BK_ASSERT(false);
         break;
     }
 
     return false;
 }
-
 
 namespace {
 
@@ -529,8 +460,10 @@ enum class entity_definition_handler_state {
 
 } // namespace
 
-class entity_definition_handler : public definition_handler_base<
-    entity_definition_handler, entity_definition_handler_state> {
+class entity_definition_handler
+    : public definition_handler_base<entity_definition_handler
+                                   , entity_definition_handler_state>
+{
 public:
     using state_type = definition_handler_base::state_type;
 
@@ -542,8 +475,33 @@ public:
     {
     }
 
-    bool run() {
-        return false;
+    state_type current_state() const noexcept {
+        return state_;
+    }
+
+    void set_current_state(state_type const state) noexcept {
+        state_ = state;
+    }
+
+    bool run();
+private:
+    bool add_property() {
+        auto const p = to_property();
+
+        auto const result = on_property_(
+            last_property_name_
+          , last_property_name_hash_
+          , p.first
+          , p.second);
+
+        if (!result) {
+            return false;
+        }
+
+        def_.properties.add_or_update_property(
+            item_property_id {last_property_name_hash_}, p.second);
+
+        return true;
     }
 private:
     on_finish_entity_definition const& on_finish_;
@@ -559,101 +517,138 @@ private:
 
 };
 
-//bool entity_definition_handler::run() {
-//    switch (state_) {
-//    case state::start:
-//        return require(type::obj_start, state::type);
-//    case state::type:
-//        return require(type::obj_key
-//          , last_string_hash_, djb2_hash_32c("type"), state::type_value);
-//    case state::type_value:
-//        return require(type::string
-//          , last_string_hash_, djb2_hash_32c("entitys"), state::data);
-//    case state::data:
-//        return require(type::obj_key
-//          , last_string_hash_, djb2_hash_32c("data"), state::data_start);
-//    case state::data_start:
-//        return require(type::obj_start, state::entity_id_or_end);
-//    case state::entity_id_or_end:
-//        if (last_type_ == type::obj_key) {
-//            state_ = state::entity_id;
-//            return run();
-//        } else if (last_type_ == type::obj_end) {
-//            state_ = state::data_end;
-//            return run();
-//        }
-//
-//        return false;
-//    case state::entity_id:
-//        return require(type::obj_key, state::entity_start, [&] {
-//            def_.id_string = last_string_;
-//            def_.id = entity_id {last_string_hash_};
-//        });
-//    case state::entity_start:
-//        return require(type::obj_start, state::entity_name);
-//    case state::entity_name:
-//        return require(type::obj_key
-//          , last_string_hash_, djb2_hash_32c("name"), state::entity_name_value);
-//    case state::entity_name_value:
-//        return require(type::string, state::entity_properties, [&] {
-//            def_.name = last_string_;
-//        });
-//    case state::entity_properties:
-//        return require(type::obj_key
-//          , last_string_hash_, djb2_hash_32c("properties"), state::entity_properties_start);
-//    case state::entity_properties_start:
-//        return require(type::obj_start, state::entity_property_name_or_end);
-//    case state::entity_property_name_or_end:
-//        if (last_type_ == type::obj_key) {
-//            state_ = state::entity_property_name;
-//            return run();
-//        } else if (last_type_ == type::obj_end) {
-//            state_ = state::entity_properties_end;
-//            return run();
-//        }
-//
-//        return false;
-//    case state::entity_property_name:
-//        return require(type::obj_key, state::entity_property_value, [&] {
-//            last_property_name_      = last_string_;
-//            last_property_name_hash_ = last_string_hash_;
-//        });
-//    case state::entity_property_value:
-//        return add_property()
-//            && ((state_ = state::entity_property_name_or_end), true);
-//    case state::entity_properties_end:
-//        return require(type::obj_end, state::entity_end);
-//    case state::entity_end:
-//        return require(type::obj_end, state::entity_id_or_end, [&] {
-//            on_finish_(def_);
-//            def_.id = entity_id {};
-//            def_.id_string.clear();
-//            def_.name.clear();
-//            def_.properties.clear();
-//        });
-//    case state::data_end:
-//        return require(type::obj_end, state::end);
-//    case state::end:
-//        return require(type::obj_end, state::start);
-//    default:
-//        break;
-//    }
-//
-//    return false;
-//}
+bool entity_definition_handler::run() {
+    using st = state_type;
+    using et = element_type;
 
-void load_item_definitions(
-    on_finish_item_definition const& on_finish
-  , on_add_new_item_property  const& on_property
+    for (;;) switch (state_) {
+    case st::start:
+        return transition(et::obj_start
+                        , st::type);
+    case st::type:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("type")
+                        , st::type_value);
+    case st::type_value:
+        return transition(et::string
+                        , last_string_hash_
+                        , djb2_hash_32c("entities")
+                        , st::data);
+    case st::data:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("data")
+                        , st::data_start);
+    case st::data_start:
+        return transition(et::obj_start
+                        , st::entity_id_or_end);
+    case st::entity_id_or_end:
+        if (last_type_ == et::obj_key) {
+            state_ = st::entity_id;
+            continue;
+        } else if (last_type_ == et::obj_end) {
+            state_ = st::data_end;
+            continue;
+        }
+
+        return false;
+    case st::entity_id:
+        return transition(et::obj_key, st::entity_start, [&] {
+            def_.id_string = last_string_;
+            def_.id = entity_id {last_string_hash_};
+        });
+    case st::entity_start:
+        return transition(et::obj_start
+                        , st::entity_name);
+    case st::entity_name:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("name")
+                        , st::entity_name_value);
+    case st::entity_name_value:
+        return transition(et::string
+                        , st::entity_properties
+                        , [&] {
+                              def_.name = last_string_;
+                          });
+    case st::entity_properties:
+        return transition(et::obj_key
+                        , last_string_hash_
+                        , djb2_hash_32c("properties")
+                        , st::entity_properties_start);
+    case st::entity_properties_start:
+        return transition(et::obj_start
+                        , st::entity_property_name_or_end);
+    case st::entity_property_name_or_end:
+        if (last_type_ == et::obj_key) {
+            state_ = st::entity_property_name;
+            continue;
+        } else if (last_type_ == et::obj_end) {
+            state_ = st::entity_properties_end;
+            continue;
+        }
+
+        return false;
+    case st::entity_property_name:
+        return transition(et::obj_key, st::entity_property_value, [&] {
+            last_property_name_      = last_string_;
+            last_property_name_hash_ = last_string_hash_;
+        });
+    case st::entity_property_value:
+        if (!add_property()) {
+            return false;
+        }
+
+        state_ = st::entity_property_name_or_end;
+        return true;
+    case st::entity_properties_end:
+        return transition(et::obj_end
+                        , st::entity_end);
+    case st::entity_end:
+        return transition(et::obj_end
+                        , st::entity_id_or_end
+                        , [&] {
+                              on_finish_(def_);
+                              def_.id = entity_id {};
+                              def_.id_string.clear();
+                              def_.name.clear();
+                              def_.properties.clear();
+                        });
+    case st::data_end:
+        return transition(et::obj_end
+                        , st::end);
+    case st::end:
+        return transition(et::obj_end
+                        , st::start);
+    default:
+        BK_ASSERT(false);
+        break;
+    }
+
+    return false;
+}
+
+namespace {
+
+template <typename Handler, typename Finish, typename Property>
+void impl_load_definitions_(
+    string_view const filename
+  , Finish   const& on_finish
+  , Property const& on_property
 ) {
     constexpr size_t buffer_size = 65536;
 
-    item_definition_handler handler {on_finish, on_property};
+    Handler handler {on_finish, on_property};
 
     rapidjson::Reader reader {nullptr};
     char buffer[buffer_size];
 
-    auto const handle = fopen("./data/items.dat", "rb");
+    auto const handle = fopen(filename.data(), "rb");
+    if (!handle) {
+        BK_ASSERT(false); // TODO error handing
+    }
+
     auto const on_exit = BK_SCOPE_EXIT {
         fclose(handle);
     };
@@ -666,28 +661,22 @@ void load_item_definitions(
     }
 }
 
+} // namespace
+
+void load_item_definitions(
+    on_finish_item_definition const& on_finish
+  , on_add_new_item_property  const& on_property
+) {
+    impl_load_definitions_<item_definition_handler>(
+        "./data/items.dat", on_finish, on_property);
+}
+
 void load_entity_definitions(
     on_finish_entity_definition const& on_finish
   , on_add_new_entity_property  const& on_property
 ) {
-    constexpr size_t buffer_size = 65536;
-
-    entity_definition_handler handler {on_finish, on_property};
-
-    rapidjson::Reader reader {nullptr};
-    char buffer[buffer_size];
-
-    auto const handle = fopen("./data/entities.dat", "rb");
-    auto const on_exit = BK_SCOPE_EXIT {
-        fclose(handle);
-    };
-
-    rapidjson::FileReadStream in {handle, buffer, buffer_size};
-
-    auto const result = reader.Parse(in, handler);
-    if (!result) {
-        BK_ASSERT(false); //TODO parsing error
-    }
+    impl_load_definitions_<entity_definition_handler>(
+        "./data/entities.dat", on_finish, on_property);
 }
 
 } //namespace boken
