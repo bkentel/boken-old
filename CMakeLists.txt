@@ -53,6 +53,7 @@ set(SOURCES
     src/entity.cpp
     src/inventory.cpp
     src/item.cpp
+    src/item_list.cpp
     src/level.cpp
     src/main.cpp
     src/random.cpp

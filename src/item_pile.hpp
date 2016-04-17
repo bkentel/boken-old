@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <functional>
+#include <algorithm>
 
 namespace boken { class world; }
 namespace boken { class game_database; }

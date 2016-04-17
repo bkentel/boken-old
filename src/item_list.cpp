@@ -6,6 +6,8 @@
 
 #include "bkassert/assert.hpp"
 
+#include <algorithm>
+
 namespace boken {
 
 //--------------------------------------------------------------------------
