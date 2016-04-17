@@ -98,6 +98,8 @@ public:
     virtual void set_message_window(message_log const* window) noexcept = 0;
 
     virtual void set_inventory_window(inventory_list const* window) noexcept = 0;
+    // TODO: consider a different method to accomplish this
+    virtual void set_inventory_window_focus(bool focus) noexcept = 0;
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
 };

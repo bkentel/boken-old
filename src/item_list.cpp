@@ -15,6 +15,7 @@ item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
   : list_ {std::move(list)}
 {
     reset_callbacks();
+    on_focus_change_ = [](auto) noexcept {};
 }
 
 void item_list_controller::add_column(std::string heading, std::function<std::string(item const&)> getter) {
@@ -34,6 +35,11 @@ void item_list_controller::on_cancel(on_cancel_t handler) {
 void item_list_controller::reset_callbacks() {
     on_confirm_ = [](auto, auto) noexcept {};
     on_cancel_  = [&]() noexcept { hide(); };
+}
+
+//--------------------------------------------------------------------------
+void item_list_controller::on_focus_change(on_focus_change_t handler) {
+    on_focus_change_ = std::move(handler);
 }
 
 //--------------------------------------------------------------------------
@@ -139,8 +145,21 @@ bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers 
 
     // next, do a hit test, and passthrough if it fails. Otherwise, filter.
     auto const hit_test = il.hit_test(p);
+
+    auto const modal = is_modal();
+    if (!modal) {
+        auto const hit_test_before = il.hit_test(last_mouse_);
+
+        // check if the mouse entered / exited and notify
+        if (!hit_test_before && hit_test) {
+            on_focus_change_(true);
+        } else if (hit_test_before && !hit_test) {
+            on_focus_change_(false);
+        }
+    }
+
     if (!hit_test) {
-        return !is_modal();
+        return !modal;
     }
 
     // indicate the row the mouse is over
@@ -246,6 +265,15 @@ bool item_list_controller::set_modal(bool const state) noexcept {
     BK_ASSERT(!state || state && is_visible());
     bool const result = is_modal_;
     is_modal_ = state;
+
+    if (result && !is_modal_ && !list_->hit_test(last_mouse_)) {
+        // became non-modal
+        on_focus_change_(false);
+    } else if (!result && is_modal_ && !list_->hit_test(last_mouse_)) {
+        // became modal
+        on_focus_change_(true);
+    }
+
     return result;
 }
 
@@ -261,6 +289,10 @@ bool item_list_controller::set_multiselect(bool const state) noexcept {
 
 bool item_list_controller::is_multiselect() const noexcept {
     return is_multi_select_;
+}
+
+bool item_list_controller::has_focus() const noexcept {
+    return is_visible() && (is_modal() || list_->hit_test(last_mouse_));
 }
 
 //--------------------------------------------------------------------------
@@ -284,9 +316,19 @@ bool item_list_controller::is_visible() const noexcept {
 }
 
 void item_list_controller::set_visible_(bool const state) noexcept {
+    auto const prev_state = is_visible();
+
     is_moving_ = false;
     is_sizing_ = false;
     state ? list_->show() : list_->hide();
+
+    if (!prev_state && state && (is_modal() || list_->hit_test(last_mouse_))) {
+        // became visible
+        on_focus_change_(true);
+    } else if (prev_state && !state) {
+        // became invisible
+        on_focus_change_(false);
+    }
 }
 
 void item_list_controller::resize_(point2i32 const p, vec2i32 const v) {

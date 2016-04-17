@@ -410,6 +410,31 @@ public:
         SDL_RenderFillRect(renderer_, &r0);
     }
 
+    void render_draw_rect(recti32 const r, int const w, int h, uint32_t const color) final override {
+        auto const rw = value_cast(r.width());
+        auto const rh = value_cast(r.height());
+
+        auto const x0 = value_cast(r.x0);
+        auto const y0 = value_cast(r.y0);
+        auto const x1 = value_cast(r.x1);
+        auto const y1 = value_cast(r.y1);
+
+        constexpr int count = 4;
+        SDL_Rect const rects[count] {
+            {x0 + 0, y0 + 0,        w, rh}
+          , {x1 - w, y0 + 0,        w, rh}
+          , {x0 + w, y0 + 0, rw - 2*w, h }
+          , {x0 + w, y1 - h, rw - 2*w, h }
+        };
+
+        set_draw_color(color);
+        SDL_RenderFillRects(renderer_, rects, count);
+    }
+
+    void render_draw_rect(recti32 const r, int const w, uint32_t const color) final override {
+        render_draw_rect(r, w, w, color);
+    }
+
     void render_background() final override {
         auto const w = background_.width();
         auto const h = background_.height();

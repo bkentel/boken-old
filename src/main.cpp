@@ -270,6 +270,9 @@ struct game_state {
 
         set_item_list_columns();
         item_list.hide();
+        item_list.on_focus_change([&](bool const state) {
+            renderer.set_inventory_window_focus(state);
+        });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

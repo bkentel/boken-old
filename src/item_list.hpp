@@ -24,7 +24,8 @@ namespace boken {
 class item_list_controller {
 public:
     using on_confirm_t = std::function<void (int const* first, int const* last)>;
-    using on_cancel_t  = std::function<void ()>;
+    using on_cancel_t = std::function<void ()>;
+    using on_focus_change_t = std::function<void (bool)>;
 
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
@@ -37,6 +38,9 @@ public:
     void on_cancel(on_cancel_t handler);
 
     void reset_callbacks();
+
+    //--------------------------------------------------------------------------
+    void on_focus_change(on_focus_change_t handler);
 
     //--------------------------------------------------------------------------
     bool on_key(kb_event const& event, kb_modifiers const& kmods);
@@ -73,6 +77,7 @@ public:
 
     bool is_multiselect() const noexcept;
 
+    bool has_focus() const noexcept;
     //--------------------------------------------------------------------------
     void show() noexcept;
 
@@ -93,8 +98,9 @@ private:
 private:
     std::unique_ptr<inventory_list> list_;
 
-    on_confirm_t on_confirm_;
-    on_cancel_t  on_cancel_;
+    on_confirm_t      on_confirm_;
+    on_cancel_t       on_cancel_;
+    on_focus_change_t on_focus_change_;
 
     point2i32    last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};

@@ -152,6 +152,10 @@ public:
         inventory_list_ = window;
     }
 
+    void set_inventory_window_focus(bool const focus) noexcept final override {
+        inventory_list_focus_ = focus;
+    }
+
     void render(duration_t delta, view const& v) const noexcept final override;
 private:
     uint32_t choose_tile_color_(tile_id tid, region_id rid) noexcept;
@@ -182,7 +186,9 @@ private:
 
     text_layout tool_tip_;
     message_log const* message_log_ {};
+
     inventory_list const* inventory_list_ {};
+    bool inventory_list_focus_ {false};
 
     bool debug_show_regions_ = false;
 };
@@ -440,40 +446,24 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     auto const& inv_window = *inventory_list_;
     auto const  m = inv_window.metrics();
 
-    uint32_t const color_border   = 0xEF555555u;
-    uint32_t const color_title    = 0xEF886666u;
-    uint32_t const color_header   = 0xDF66AA66u;
-    uint32_t const color_row_even = 0xDF666666u;
-    uint32_t const color_row_odd  = 0xDF888888u;
-    uint32_t const color_row_sel  = 0xDFBB2222u;
-    uint32_t const color_row_ind  = 0xDF22BBBBu;
-
-    //TODO: move to renderer
-    auto const draw_hollow_rect = [&](recti32 const r, int32_t const w, int32_t const h, uint32_t const color) {
-        auto const rw = value_cast(r.width());
-        auto const rh = value_cast(r.height());
-
-        auto const x0 = value_cast(r.x0);
-        auto const y0 = value_cast(r.y0);
-        auto const x1 = value_cast(r.x1);
-        auto const y1 = value_cast(r.y1);
-
-        auto const r_left   = recti32 {point2i32 {x0,     y0}, sizei32x {w}, sizei32y {rh}};
-        auto const r_right  = recti32 {point2i32 {x1 - w, y0}, sizei32x {w}, sizei32y {rh}};
-        auto const r_top    = recti32 {point2i32 {x0 + w, y0}, sizei32x {rw - 2*w}, sizei32y {h}};
-        auto const r_bottom = recti32 {point2i32 {x0 + w, y1 - h}, sizei32x {rw - 2*w}, sizei32y {h}};
-
-        os_.render_fill_rect(r_left, color);
-        os_.render_fill_rect(r_right, color);
-        os_.render_fill_rect(r_top, color);
-        os_.render_fill_rect(r_bottom, color);
-    };
+    uint32_t const color_border       = 0xEF555555u;
+    uint32_t const color_border_focus = 0xEFEFEFEFu;
+    uint32_t const color_title        = 0xEF886666u;
+    uint32_t const color_header       = 0xDF66AA66u;
+    uint32_t const color_row_even     = 0xDF666666u;
+    uint32_t const color_row_odd      = 0xDF888888u;
+    uint32_t const color_row_sel      = 0xDFBB2222u;
+    uint32_t const color_row_ind      = 0xDF22BBBBu;
 
     // draw the frame
     {
         auto const frame_size = (m.frame.width() - m.client_frame.width()) / 2;
+        auto const color = inventory_list_focus_
+          ? color_border_focus
+          : color_border;
+
         os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-        draw_hollow_rect(m.frame, value_cast(frame_size), value_cast(frame_size), color_border);
+        os_.render_draw_rect(m.frame, value_cast(frame_size), color);
     }
 
     // draw the title
@@ -549,7 +539,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         os_.render_fill_rect(r, color);
 
         if (i == indicated) {
-            draw_hollow_rect(r, 2, 2, color_row_ind);
+            os_.render_draw_rect(r, 2, color_row_ind);
         }
 
         std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {

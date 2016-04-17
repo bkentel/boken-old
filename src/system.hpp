@@ -690,6 +690,8 @@ public:
     virtual void render_present() = 0;
 
     virtual void render_fill_rect(recti32 r, uint32_t color) = 0;
+    virtual void render_draw_rect(recti32 r, int w, int h, uint32_t color) = 0;
+    virtual void render_draw_rect(recti32 r, int w, uint32_t color) = 0;
 
     virtual void render_background() = 0;
 
