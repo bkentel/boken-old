@@ -1,0 +1,21 @@
+{
+  "type": "entities",
+  "data": {
+    "player": {
+      "name": "player",
+      "properties": {
+        "race": "player",
+        "class": "player",
+        "tile_index": 351
+      }
+    },
+    "rat_small": {
+      "name": "small rat",
+      "properties": {
+        "race": "rodent",
+        "ai_type": "passive",
+        "tile_index": 177
+      }
+    }
+  }
+}
