@@ -16,6 +16,7 @@ namespace boken {
 //! commands
 enum class command_type : uint32_t {
     none      = djb2_hash_32c("none")
+
   , move_here = djb2_hash_32c("move_here")
   , move_n    = djb2_hash_32c("move_n")
   , move_ne   = djb2_hash_32c("move_ne")
@@ -47,6 +48,9 @@ enum class command_type : uint32_t {
   , drop_one      = djb2_hash_32c("drop_one")
   , drop_some     = djb2_hash_32c("drop_some")
   , open          = djb2_hash_32c("open")
+
+  , alt_get_items = djb2_hash_32c("alt_get_items")
+  , alt_drop_some = djb2_hash_32c("alt_drop_some")
 
   , toggle_show_inventory = djb2_hash_32c("toggle_show_inventory")
 
