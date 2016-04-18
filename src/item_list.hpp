@@ -21,10 +21,16 @@ namespace boken { enum class command_type : uint32_t; }
 
 namespace boken {
 
+enum class event_result : uint32_t {
+    filter              //!< filter the event
+  , filter_detach       //!< detach and filter the event
+  , pass_through        //!< pass through to the next handler
+  , pass_through_detach //!< detach and pass through to the next handler
+};
+
 class item_list_controller {
 public:
-    using on_confirm_t = std::function<void (int const* first, int const* last)>;
-    using on_cancel_t = std::function<void ()>;
+    using on_command_t = std::function<event_result (command_type type, int const* first, int const* last)>;
     using on_focus_change_t = std::function<void (bool)>;
 
     //--------------------------------------------------------------------------
@@ -33,14 +39,10 @@ public:
     void add_column(std::string heading, std::function<std::string (item const&)> getter);
 
     //--------------------------------------------------------------------------
-    void on_confirm(on_confirm_t handler);
-
-    void on_cancel(on_cancel_t handler);
-
-    void reset_callbacks();
-
-    //--------------------------------------------------------------------------
-    void on_focus_change(on_focus_change_t handler);
+    void set_on_command(on_command_t handler);
+    void set_on_command();
+    void set_on_focus_change(on_focus_change_t handler);
+    void set_on_focus_change();
 
     //--------------------------------------------------------------------------
     bool on_key(kb_event const& event, kb_modifiers const& kmods);
@@ -95,11 +97,13 @@ private:
     void set_visible_(bool state) noexcept;
 
     void resize_(point2i32 p, vec2i32 v);
+
+    event_result do_on_command_(command_type type, int const* first, int const* last);
 private:
     std::unique_ptr<inventory_list> list_;
 
-    on_confirm_t      on_confirm_;
-    on_cancel_t       on_cancel_;
+    on_command_t      on_command_;
+    on_command_t      on_command_swap_;
     on_focus_change_t on_focus_change_;
 
     point2i32    last_mouse_  {};
@@ -109,6 +113,7 @@ private:
     bool is_sizing_       {false};
     bool is_modal_        {false};
     bool is_multi_select_ {true};
+    bool is_processing_callback_ {false};
 };
 
 } // namespace boken

@@ -64,6 +64,16 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
     using km = kb_modifiers;
 
     switch (event.keycode) {
+    case kb_keycode::k_d :
+        if (km {event.mods}.test(km::m_ctrl)) {
+            handler_(command_type::alt_drop_some, 0);
+            return;
+        }
+    case kb_keycode::k_g :
+        if (km {event.mods}.test(km::m_ctrl)) {
+            handler_(command_type::alt_get_items, 0);
+            return;
+        }
     case kb_keycode::k_t :
         if (km {event.mods}.test(km::m_ctrl)) {
             handler_(command_type::debug_teleport_self, 0);

@@ -14,8 +14,8 @@ namespace boken {
 item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
   : list_ {std::move(list)}
 {
-    reset_callbacks();
-    on_focus_change_ = [](auto) noexcept {};
+    set_on_command();
+    set_on_focus_change();
 }
 
 void item_list_controller::add_column(std::string heading, std::function<std::string(item const&)> getter) {
@@ -24,22 +24,25 @@ void item_list_controller::add_column(std::string heading, std::function<std::st
 }
 
 //--------------------------------------------------------------------------
-void item_list_controller::on_confirm(on_confirm_t handler) {
-    on_confirm_ = std::move(handler);
+void item_list_controller::set_on_command(on_command_t handler) {
+    if (!is_processing_callback_) {
+        on_command_ = std::move(handler);
+    } else {
+        on_command_swap_ = std::move(handler);
+    }
 }
 
-void item_list_controller::on_cancel(on_cancel_t handler) {
-    on_cancel_ = std::move(handler);
+void item_list_controller::set_on_command() {
+    BK_ASSERT(!is_processing_callback_);
+    on_command_ = [](auto, auto, auto) noexcept { return event_result::pass_through; };
 }
 
-void item_list_controller::reset_callbacks() {
-    on_confirm_ = [](auto, auto) noexcept {};
-    on_cancel_  = [&]() noexcept { hide(); };
-}
-
-//--------------------------------------------------------------------------
-void item_list_controller::on_focus_change(on_focus_change_t handler) {
+void item_list_controller::set_on_focus_change(on_focus_change_t handler) {
     on_focus_change_ = std::move(handler);
+}
+
+void item_list_controller::set_on_focus_change() {
+    on_focus_change_ = [](auto) noexcept {};
 }
 
 //--------------------------------------------------------------------------
@@ -102,7 +105,7 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
         if (hit_test.what == type::cell) {
             if (!is_multi_select_) {
                 auto const p = il.get_selection();
-                on_confirm_(&hit_test.y, &hit_test.y + 1);
+                do_on_command_(command_type::confirm, &hit_test.y, &hit_test.y + 1);
                 return !is_visible();
             }
 
@@ -180,6 +183,21 @@ bool item_list_controller::on_mouse_wheel(int const wy, int const wx, kb_modifie
     return true;
 }
 
+event_result item_list_controller::do_on_command_(
+    command_type const type
+  , int const* const first, int const* const last
+) {
+    // the temporary should always be empty here
+    BK_ASSERT(!is_processing_callback_ && !on_command_swap_);
+
+    is_processing_callback_ = true;
+    auto on_exit = BK_SCOPE_EXIT {
+        is_processing_callback_ = false;
+    };
+
+    return on_command_(type, first, last);
+}
+
 bool item_list_controller::on_command(command_type const type, uint64_t const data) {
     auto& il = *list_;
 
@@ -195,33 +213,60 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
         return true;
     }
 
-    if (type == command_type::move_n) {
-        il.indicate_prev();
-    } else if (type == command_type::move_s) {
-        il.indicate_next();
-    } else if (type == command_type::cancel) {
-        on_cancel_();
-        return !is_visible();
-    } else if (type == command_type::confirm) {
-        if (is_multi_select_) {
-            auto const sel = il.get_selection();
-            if (sel.first != sel.second) {
-                on_confirm_(sel.first, sel.second);
-            } else {
-                on_cancel_();
+    auto const sel = il.get_selection();
+    auto const ind = il.indicated();
+
+    auto const result = [&] {
+        using ct = command_type;
+
+        if (type == ct::move_n) {
+            il.indicate_prev();
+            return event_result::filter;
+        } else if (type == ct::move_s) {
+            il.indicate_next();
+            return event_result::filter;
+        } else if (type == ct::confirm) {
+            if (!is_multi_select_ || (!sel.first && !sel.second)) {
+                return do_on_command_(ct::confirm, &ind, &ind + 1);
             }
+        } else if (type == ct::toggle) {
+            if (is_multi_select_) {
+                il.selection_toggle(il.indicated());
+            }
+            return event_result::filter;
+        }
+
+        return do_on_command_(type, sel.first, sel.second);
+    }();
+
+    auto const pass = !is_modal();
+
+    auto const on_detach = [&] {
+        if (on_command_swap_) {
+            std::swap(on_command_swap_, on_command_);
+            on_command_swap_ = on_command_t {};
         } else {
-            auto const i = il.indicated();
-            on_confirm_(&i, &i + 1);
+            set_on_command();
+            set_modal(false);
+            hide();
         }
-        return !is_visible();
-    } else if (type == command_type::toggle) {
-        if (is_multi_select_) {
-            il.selection_toggle(il.indicated());
-        }
+    };
+
+    auto on_exit = BK_SCOPE_EXIT {
+        BK_ASSERT(!on_command_swap_);
+    };
+
+    switch (result) {
+    case event_result::filter:                           return false;
+    case event_result::filter_detach:       on_detach(); return false;
+    case event_result::pass_through:                     return pass;
+    case event_result::pass_through_detach: on_detach(); return pass;
+    default:
+        BK_ASSERT(false);
+        break;
     }
 
-    return false;
+    return pass;
 }
 
 //--------------------------------------------------------------------------
@@ -262,7 +307,6 @@ void item_list_controller::set_title(std::string title) {
 
 //--------------------------------------------------------------------------
 bool item_list_controller::set_modal(bool const state) noexcept {
-    BK_ASSERT(!state || state && is_visible());
     bool const result = is_modal_;
     is_modal_ = state;
 
