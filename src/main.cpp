@@ -185,10 +185,6 @@ public:
 };
 
 struct game_state {
-    enum class placement_type {
-        at, near
-    };
-
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -262,9 +258,14 @@ struct game_state {
         reset_view_to_player();
 
         set_item_list_columns();
+
         item_list.hide();
+
         item_list.set_on_focus_change([&](bool const state) {
             renderer.set_inventory_window_focus(state);
+            if (state) {
+                renderer.update_tool_tip_visible(false);
+            }
         });
     }
 
@@ -614,6 +615,7 @@ struct game_state {
                         , &input_context::on_key
                         , &game_state::on_key
                         , event, kmods);
+            cmd_translator.translate(event, kmods);
         });
 
         os.on_text_input([&](text_input_event const event) {
@@ -621,6 +623,7 @@ struct game_state {
                         , &input_context::on_text_input
                         , &game_state::on_text_input
                         , event);
+            cmd_translator.translate(event);
         });
 
         os.on_mouse_move([&](mouse_event const event, kb_modifiers const kmods) {
@@ -656,11 +659,11 @@ struct game_state {
     }
 
     bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
-        return true;
+        return item_list.on_key(event, kmods);
     }
 
     bool ui_on_text_input(text_input_event const event) {
-        return true;
+        return item_list.on_text_input(event);
     }
 
     bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
@@ -672,7 +675,7 @@ struct game_state {
     }
 
     bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
-        return true;
+        return item_list.on_mouse_wheel(wy, wx, kmods);
     }
 
     bool ui_on_command(command_type const type, uintptr_t const data) {
@@ -681,8 +684,6 @@ struct game_state {
 
     void on_key(kb_event const event, kb_modifiers const kmods) {
         if (event.went_down) {
-            cmd_translator.translate(event, kmods);
-
             if (!kmods.test(kb_modifiers::m_shift)
                && (event.scancode == kb_scancode::k_lshift
                 || event.scancode == kb_scancode::k_rshift)
@@ -697,7 +698,6 @@ struct game_state {
     }
 
     void on_text_input(text_input_event const event) {
-        cmd_translator.translate(event);
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
@@ -907,7 +907,7 @@ struct game_state {
                     return event_result::filter_detach;
                 }
 
-                return event_result::pass_through;
+                return event_result::filter;
             });
     }
 
@@ -982,7 +982,7 @@ struct game_state {
                 return event_result::filter_detach;
             }
 
-            return event_result::pass_through;
+            return event_result::filter;
         });
     }
 
@@ -1034,6 +1034,7 @@ struct game_state {
         }
 
         item_list.get().remove_rows(first, last);
+        item_list.layout();
     }
 
     //! Drop one item, or no items from the player's inventory at the player's

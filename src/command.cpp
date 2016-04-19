@@ -63,6 +63,10 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
     using ct = command_type;
     using km = kb_modifiers;
 
+    if (!event.went_down) {
+        return;
+    }
+
     switch (event.keycode) {
     case kb_keycode::k_d :
         if (km {event.mods}.test(km::m_ctrl)) {

@@ -16,6 +16,7 @@ item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
 {
     set_on_command();
     set_on_focus_change();
+    set_on_selection_change();
 }
 
 void item_list_controller::add_column(std::string heading, std::function<std::string(item const&)> getter) {
@@ -45,12 +46,20 @@ void item_list_controller::set_on_focus_change() {
     on_focus_change_ = [](auto) noexcept {};
 }
 
+void item_list_controller::set_on_selection_change(on_selection_change_t handler) {
+    on_selection_change_ = std::move(handler);
+}
+
+void item_list_controller::set_on_selection_change() {
+    on_selection_change_ = [](auto, auto) noexcept {};
+}
+
 //--------------------------------------------------------------------------
 bool item_list_controller::on_key(kb_event const& event, kb_modifiers const& kmods) {
     auto& il = *list_;
 
     if (!is_visible()) {
-        return !is_modal();
+        return true;
     }
 
     return true;
@@ -60,7 +69,25 @@ bool item_list_controller::on_text_input(text_input_event const& event) {
     auto& il = *list_;
 
     if (!is_visible()) {
-        return !is_modal();
+        return true;
+    }
+
+    BK_ASSERT(event.text.size() >= 1);
+
+    if (event.text.size() > 1) {
+        return true;
+    }
+
+    int const c = event.text[0];
+    // a-z => 0  - 25
+    // A-Z => 26 - 51
+    // 0-9 => 52 - 61
+    if (c >= 'a' && c <= 'z') {
+        return false;
+    } else if (c >= 'A' && c <= 'Z') {
+        return false;
+    } else if (c >= '0' && c <= '9') {
+        return false;
     }
 
     return true;
@@ -167,7 +194,14 @@ bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers 
 
     // indicate the row the mouse is over
     if (hit_test.what == type::cell && event.button_state_bits() == 0) {
+        auto const before = il.indicated();
         il.indicate(hit_test.y);
+        auto const after = il.indicated();
+
+        if (before != after) {
+            auto const id = il.row_data(after);
+            on_selection_change_(id, {event.x + 32, event.y});
+        }
     }
 
     return false;

@@ -27,6 +27,17 @@ static ptrdiff_t distance_to_matching_or(
     return distance_to_matching_or(begin(c), end(c), fallback, pred);
 }
 
+template <typename Container, typename Predicate>
+auto erase_if(Container& c, Predicate pred) {
+    using std::begin;
+    using std::end;
+
+    auto const first = begin(c);
+    auto const last  = end(c);
+
+    return c.erase(std::remove_if(first, last, pred), last);
+}
+
 } // namespace
 
 namespace boken {
@@ -70,6 +81,15 @@ public:
 
     layout_metrics metrics() const noexcept final override {
         return metrics_;
+    }
+
+    recti32 cell_bounds(int const c, int const r) const noexcept final override {
+        BK_ASSERT(check_col_(c) && check_row_(r));
+
+        auto const bounds = (row(r).first + c)->extent();
+        auto const v = metrics_.frame.top_left() - point2i32 {};
+
+        return bounds + v;
     }
 
     vec2i32 scroll_offset() const noexcept final override {
@@ -196,16 +216,15 @@ public:
     }
 
     void indicate(int const n) noexcept final override {
-        BK_ASSERT(n >= 0 && static_cast<size_t>(n) <= rows());
+        BK_ASSERT(check_row_(n));
         indicated_ = n;
     }
 
     void indicate_change_(int const n) noexcept {
-        auto const n_rows = rows();
+        BK_ASSERT(check_row_(indicated_));
 
-        BK_ASSERT(indicated_ >= 0);
+        auto const n_rows = rows();
         auto const i = static_cast<size_t>(indicated_);
-        BK_ASSERT(i <= n_rows);
 
         if (n_rows <= 0) {
             indicated_ = 0;
@@ -266,8 +285,12 @@ public:
             return row;
         };
 
+        auto const make_data = [&](item_instance_id const id) {
+            return row_data_t {id, false};
+        };
+
         std::transform(first, last, back_inserter(rows_), make_row);
-        std::copy(first, last, back_inserter(row_data_));
+        std::transform(first, last, back_inserter(row_data_), make_data);
     }
 
     void remove_row(int const i) noexcept final override {
@@ -277,28 +300,29 @@ public:
     void remove_rows(int const* const first, int const* const last) noexcept final override {
         BK_ASSERT(!!first && !!last);
 
-        auto const n_rows = rows();
-
         std::for_each(first, last, [&](int const i) noexcept {
-            BK_ASSERT(i >= 0);
+            BK_ASSERT(check_row_(i));
             auto const j = static_cast<size_t>(i);
-            BK_ASSERT(j < n_rows);
 
             rows_[j].clear();
-            row_data_[j] = item_instance_id {};
+            row_data_[j] = row_data_t {};
         });
 
-        rows_.erase(std::remove_if(begin(rows_), end(rows_)
-          , [](auto const& row) noexcept { return row.empty(); }));
+        erase_if(rows_, [](auto const& row) noexcept {
+            return row.empty(); });
 
-        row_data_.erase(std::remove_if(begin(row_data_), end(row_data_)
-          , [](auto const id) noexcept { return value_cast(id) == 0; }));
+        erase_if(row_data_, [](auto const& row) noexcept {
+            return row.id == item_instance_id {}; });
+
+        auto const n = rows();
+        if (indicated() >= n) {
+            indicated_ = n ? static_cast<int>(n - 1) : 0;
+        }
     }
 
     void clear_rows() noexcept final override {
         rows_.clear();
         row_data_.clear();
-        selected_.clear();
         indicated_ = 0;
     }
 
@@ -309,51 +333,53 @@ public:
 
     //--------------------------------------------------------------------------
     bool selection_toggle(int const row) final override {
-        BK_ASSERT(row >= 0 && static_cast<size_t>(row) < rows());
-
-        auto const it = std::find(begin(selected_), end(selected_), row);
-        if (it != end(selected_)) {
-            selected_.erase(it);
-            return false;
-        }
-
-        selected_.push_back(row);
-        std::sort(begin(selected_), end(selected_));
-
-        return true;
+        BK_ASSERT(check_row_(row));
+        return row_data_[row].selected = !row_data_[row].selected;
     }
 
     void selection_set(std::initializer_list<int> const rows) final override {
-        selection_clear();
-        std::copy_if(begin(rows), end(rows), back_inserter(selected_)
-          , [&](int const i) noexcept {
-                auto const ok = i >= 0 && i < static_cast<int>(this->rows());
-                BK_ASSERT(ok);
-                return ok;
-            });
-        std::sort(begin(selected_), end(selected_));
-        auto const last = std::unique(begin(selected_), end(selected_));
-        selected_.erase(last, end(selected_));
+        auto const first = begin(rows);
+        auto const last  = end(rows);
+        auto       it    = first;
+
+        for (size_t i = 0; i < row_data_.size() && it != last; ++i) {
+            if (*it == i) {
+                row_data_[i].selected = true;
+                ++it;
+            } else {
+                row_data_[i].selected = false;
+            }
+        }
     }
 
     void selection_union(std::initializer_list<int> const rows) final override {
-        auto const last = end(selected_);
-        auto const find = [&](int const i) noexcept {
-            return last != std::find(begin(selected_), last, i);
-        };
+        auto const first = begin(rows);
+        auto const last  = end(rows);
+        auto       it    = first;
 
-        std::copy_if(begin(rows), end(rows), back_inserter(selected_)
-          , [&](int const i) noexcept { return !find(i); });
-
-        std::sort(begin(selected_), end(selected_));
+        for (size_t i = 0; i < row_data_.size() && it != last; ++i) {
+            if (*it == i) {
+                row_data_[i].selected = true;
+                ++it;
+            }
+        }
     }
 
     void selection_clear() final override {
-        selected_.clear();
-
+        for (auto& row : row_data_) {
+            row.selected = false;
+        }
     }
 
     std::pair<int const*, int const*> get_selection() const final override {
+        selected_.clear();
+
+        for (size_t i = 0; i < row_data_.size(); ++i) {
+            if (row_data_[i].selected) {
+                selected_.push_back(static_cast<int>(i));
+            }
+        }
+
         if (selected_.empty()) {
             return {nullptr, nullptr};
         }
@@ -363,8 +389,8 @@ public:
     }
 
     bool is_selected(int const row) const noexcept final override {
-        return std::any_of(begin(selected_), end(selected_)
-          , [row](int const r) noexcept { return row == r; });
+        BK_ASSERT(check_row_(row));
+        return row_data_[static_cast<size_t>(row)].selected;
     }
 
     column_info col(int const index) const noexcept final override {
@@ -385,27 +411,31 @@ public:
     //--------------------------------------------------------------------------
     std::pair<text_layout const*, text_layout const*>
     row(int const index) const noexcept final override {
-        BK_ASSERT(index >= 0);
-        auto const i = static_cast<size_t>(index);
-        BK_ASSERT(i < rows());
-
-        auto const& row = rows_[i];
+        BK_ASSERT(check_row_(index));
+        auto const& row = rows_[static_cast<size_t>(index)];
         return {row.data()
               , row.data() + row.size()};
     }
 
-    item_instance_id row_data(int index) const noexcept final override {
-        BK_ASSERT(index >= 0);
-        auto const i = static_cast<size_t>(index);
-        BK_ASSERT(i < rows());
-
-        return row_data_[i];
+    item_instance_id row_data(int const index) const noexcept final override {
+        BK_ASSERT(check_row_(index));
+        return row_data_[static_cast<size_t>(index)].id;
     }
 
     //--------------------------------------------------------------------------
     void layout() noexcept final override;
 private:
+    template <typename T>
+    bool check_row_(T const r) const noexcept {
+        static_assert(std::is_integral<T>::value, "");
+        return r >= T {0} && static_cast<size_t>(r) < rows_.size();
+    }
 
+    template <typename T>
+    bool check_col_(T const c) const noexcept {
+        static_assert(std::is_integral<T>::value, "");
+        return c >= T {0} && static_cast<size_t>(c) < cols_.size();
+    }
 private:
     struct col_data {
         text_layout text;
@@ -419,6 +449,11 @@ private:
 
     using row_t = std::vector<text_layout>;
 
+    struct row_data_t {
+        item_instance_id id;
+        bool             selected;
+    };
+
     text_renderer& trender_;
     lookup_f       lookup_;
 
@@ -427,14 +462,15 @@ private:
 
     text_layout title_;
 
-    int indicated_ {0};
-    std::vector<int> selected_;
+    std::vector<col_data>   cols_;
+    std::vector<row_t>      rows_;
+    std::vector<row_data_t> row_data_;
 
-    std::vector<col_data>         cols_;
-    std::vector<row_t>            rows_;
-    std::vector<item_instance_id> row_data_;
+    //!< temporary buffer used by get_selection
+    std::vector<int> mutable selected_;
 
-    bool is_visible_ = true;
+    int  indicated_  {0};
+    bool is_visible_ {true};
 };
 
 std::unique_ptr<inventory_list> make_inventory_list(

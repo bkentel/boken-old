@@ -362,11 +362,6 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     os_.render_set_texture(3);
 
     //
-    // tool tip
-    //
-    render_tool_tip_();
-
-    //
     // message log window
     //
     render_message_log_();
@@ -375,6 +370,11 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     // inventory window
     //
     render_inventory_list_();
+
+    //
+    // tool tip
+    //
+    render_tool_tip_();
 
     os_.render_present();
 }

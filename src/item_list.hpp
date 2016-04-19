@@ -32,6 +32,7 @@ class item_list_controller {
 public:
     using on_command_t = std::function<event_result (command_type type, int const* first, int const* last)>;
     using on_focus_change_t = std::function<void (bool)>;
+    using on_selection_change_t = std::function<void (item_instance_id, point2i32)>;
 
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
@@ -41,8 +42,12 @@ public:
     //--------------------------------------------------------------------------
     void set_on_command(on_command_t handler);
     void set_on_command();
+
     void set_on_focus_change(on_focus_change_t handler);
     void set_on_focus_change();
+
+    void set_on_selection_change(on_selection_change_t handler);
+    void set_on_selection_change();
 
     //--------------------------------------------------------------------------
     bool on_key(kb_event const& event, kb_modifiers const& kmods);
@@ -102,9 +107,10 @@ private:
 private:
     std::unique_ptr<inventory_list> list_;
 
-    on_command_t      on_command_;
-    on_command_t      on_command_swap_;
-    on_focus_change_t on_focus_change_;
+    on_command_t          on_command_;
+    on_command_t          on_command_swap_;
+    on_focus_change_t     on_focus_change_;
+    on_selection_change_t on_selection_change_;
 
     point2i32    last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};

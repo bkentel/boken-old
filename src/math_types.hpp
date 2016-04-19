@@ -418,6 +418,14 @@ public:
         return {value_cast(x0), value_cast(y0)};
     }
 
+    constexpr point2<T> top_right() const noexcept {
+        return {value_cast(x1), value_cast(y0)};
+    }
+
+    constexpr point2<T> bottom_left() const noexcept {
+        return {value_cast(x0), value_cast(y1)};
+    }
+
     constexpr point2<T> bottom_right() const noexcept {
         return {value_cast(x1), value_cast(y1)};
     }
