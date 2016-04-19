@@ -46,11 +46,14 @@ item_definition const* find(game_database const& db, item_id id) noexcept;
 entity_definition const* find(game_database const& db, entity_id id) noexcept;
 
 // contained items
-item_pile* get_items(item& i) noexcept;
-item_pile const* get_items(item const& i) noexcept;
+item_pile& get_items(item& i) noexcept;
+item_pile const& get_items(item const& i) noexcept;
 
 item_pile& get_items(entity& e) noexcept;
 item_pile const& get_items(entity const& e) noexcept;
+
+inline item_pile& get_items(item_pile& i) noexcept { return i; }
+inline item_pile const& get_items(item_pile const& i) noexcept { return i; }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //                              object properties

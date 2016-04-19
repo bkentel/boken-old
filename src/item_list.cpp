@@ -233,6 +233,10 @@ event_result item_list_controller::do_on_command_(
 }
 
 bool item_list_controller::on_command(command_type const type, uint64_t const data) {
+    auto on_exit = BK_SCOPE_EXIT {
+        BK_ASSERT(!on_command_swap_);
+    };
+
     auto& il = *list_;
 
     if (!is_visible()) {
@@ -250,6 +254,12 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
     auto const sel = il.get_selection();
     auto const ind = il.indicated();
 
+    BK_ASSERT((!!sel.first && !!sel.second)
+           || ( !sel.first &&  !sel.second));
+
+    auto const first_s = (is_multi_select_ && sel.first) ? sel.first  : &ind;
+    auto const last_s  = (is_multi_select_ && sel.first) ? sel.second : &ind + 1;
+
     auto const result = [&] {
         using ct = command_type;
 
@@ -259,10 +269,6 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
         } else if (type == ct::move_s) {
             il.indicate_next();
             return event_result::filter;
-        } else if (type == ct::confirm) {
-            if (!is_multi_select_ || (!sel.first && !sel.second)) {
-                return do_on_command_(ct::confirm, &ind, &ind + 1);
-            }
         } else if (type == ct::toggle) {
             if (is_multi_select_) {
                 il.selection_toggle(il.indicated());
@@ -270,7 +276,7 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
             return event_result::filter;
         }
 
-        return do_on_command_(type, sel.first, sel.second);
+        return do_on_command_(type, first_s, last_s);
     }();
 
     auto const pass = !is_modal();
@@ -284,10 +290,6 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
             set_modal(false);
             hide();
         }
-    };
-
-    auto on_exit = BK_SCOPE_EXIT {
-        BK_ASSERT(!on_command_swap_);
     };
 
     switch (result) {

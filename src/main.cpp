@@ -963,49 +963,67 @@ struct game_state {
           , on_cancel);
     }
 
-    enum class pile_type {
-        inventory, container, floor, other_inventory
-    };
+    template <typename Source, typename Dest>
+    void view_item_pile(
+        std::string title
+      , Source& src
+      , point2i32 const src_p
+      , Dest& dst
+    ) {
+        enum class pile_type {
+            inventory, container, floor, other_inventory, unknown
+        };
 
-    void view_item_pile(std::string title, pile_type const type, item_pile& pile) {
-        auto const is_modal = [&] {
-            switch (type) {
-            case pile_type::inventory:       return false;
-            case pile_type::container:       return true;
-            case pile_type::floor:           return true;
-            case pile_type::other_inventory: return true;
-            default:
-                BK_ASSERT(false);
-                break;
-            }
+        using src_t = std::decay_t<Source>;
 
-            return false;
-        }();
+        constexpr auto static_type =
+            std::conditional_t<std::is_same<item, src_t>::value
+              , std::integral_constant<pile_type, pile_type::container>
+          , std::conditional_t<std::is_same<item_pile, src_t>::value
+              , std::integral_constant<pile_type, pile_type::floor>
+          , std::conditional_t<std::is_same<entity, src_t>::value
+              , std::integral_constant<pile_type, pile_type::inventory>
+              , std::integral_constant<pile_type, pile_type::unknown>>>>::value;
+
+        static_assert(static_type != pile_type::unknown, "");
+
+        auto const type = (static_type != pile_type::inventory)
+          ? static_type
+          : (src_p == get_player().second) ? pile_type::inventory
+                                           : pile_type::other_inventory;
+
+        auto const is_modal = (type != pile_type::inventory);
+
+        auto& items = get_items(src);
 
         item_list.set_title(std::move(title));
-        item_list.assign(pile);
+        item_list.assign(items);
         item_list.set_modal(is_modal);
         item_list.set_multiselect(true);
         item_list.show();
 
         using ct = command_type;
 
-        item_list.set_on_command([=, &pile](ct const cmd, int const* const first, int const* const last) {
+        auto const update_list = [&](merge_item_result const r) {
+            if (r != merge_item_result::ok_merged_all
+             && r != merge_item_result::ok_merged_some
+            ) {
+                return;
+            }
+
+            item_list.assign(items);
+        };
+
+        item_list.set_on_command([=, &src, &items, &dst](ct const cmd, int const* const first, int const* const last) {
             if (cmd == ct::alt_drop_some) {
-                if (!!first && !!last) {
-                    impl_drop_selected_items_(pile, first, last);
-                }
+                update_list(move_items(
+                    src, the_world.current_level(), src_p, first, last));
+
                 return event_result::filter;
             } else if (cmd == ct::alt_get_items) {
-                if (type == pile_type::inventory) {
-                    get_selected_items(first, last);
-                } else if (type == pile_type::container) {
-                    get_selected_items(pile, first, last);
-                } else {
-                    BK_ASSERT(false); //TODO
+                if (type == pile_type::container) {
+                    update_list(move_items(items, dst, first, last));
                 }
-
-                item_list.assign(pile);
 
                 return event_result::filter;
             } else if (cmd == ct::cancel) {
@@ -1032,9 +1050,8 @@ struct game_state {
     }
 
     void do_view_inventory() {
-        view_item_pile("Inventory"
-                     , pile_type::inventory
-                     , get_player().first.items());
+        auto const p = get_player();
+        view_item_pile("Inventory", p.first, p.second, p.first);
     }
 
     //! Common implementation for do_drop_one and do_drop_some
@@ -1067,9 +1084,9 @@ struct game_state {
         item_list.layout();
     }
 
-    //! Drop one item, or no items from the player's inventory at the player's
-    //! current position.
-    void do_drop_one() {
+    void impl_do_drop_n_(int const n) {
+        BK_ASSERT(n > 0);
+
         auto const player_info  = get_player();
         auto const player_p     = player_info.second;
         auto&      player       = get_player().first;
@@ -1080,44 +1097,42 @@ struct game_state {
             return;
         }
 
-        item_list.assign(player_items);
-        choose_one_item("Drop which item?"
-          , [&, player_p](int const index) {
+        auto const on_cancel = [&] {
+            message_window.println("Nevermind.");
+        };
+
+        auto const on_confirm =
+            [&, player_p](int const* const first, int const* const last) {
                 move_items(player, the_world.current_level(), player_p
-                         , &index, &index + 1);
-            }
-          , [&] {
-                message_window.println("Nevermind.");
-            });
+                         , first, last);
+            };
+
+        item_list.assign(player_items);
+
+        if (n == 1) {
+            choose_one_item("Drop which item?"
+                          , [=](int const i) { on_confirm(&i, &i + 1); }
+                          , on_cancel);
+        } else {
+            choose_n_items("Drop which item(s)?", on_confirm, on_cancel);
+        }
+    }
+
+    //! Drop one item, or no items from the player's inventory at the player's
+    //! current position.
+    void do_drop_one() {
+        impl_do_drop_n_(1);
     }
 
     //! Drop 0 or more items from the player's inventory at the player's
     //! current position.
     void do_drop_some() {
-        auto const player_info  = get_player();
-        auto const player_p     = player_info.second;
-        auto&      player       = get_player().first;
-        auto&      player_items = player.items();
-
-        if (player_items.size() <= 0) {
-            message_window.println("You have nothing to drop.");
-            return;
-        }
-
-        item_list.assign(player_items);
-        choose_n_items("Drop which item(s)?"
-          , [&, player_p](int const* const first, int const* const last) {
-                move_items(player, the_world.current_level(), player_p
-                         , first, last);
-            }
-          , [&] {
-                message_window.println("Nevermind.");
-            });
+        impl_do_drop_n_(2);
     }
 
     void do_open() {
         auto const  player_info = get_player();
-        auto const& player      = player_info.first;
+        auto&       player      = player_info.first;
         auto const  player_p    = player_info.second;
         auto&       lvl         = the_world.current_level();
 
@@ -1159,7 +1174,7 @@ struct game_state {
         //
 
         // view the contents of the container give by id
-        auto const show_container = [&](item_instance_id const id) {
+        auto const show_container = [&, player_p](item_instance_id const id) {
             auto&      container = find(the_world, id);
             auto&      items     = container.items();
             auto const name      = name_of(container);
@@ -1168,9 +1183,7 @@ struct game_state {
             buffer.append("You open the %s.", name.data());
             message_window.println(buffer.to_string());
 
-            view_item_pile(name.to_string()
-                         , pile_type::container
-                         , items);
+            view_item_pile(name.to_string(), container, player_p, player);
         };
 
         auto const container0 = it;
@@ -1244,6 +1257,66 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
+
+    //! Common implementation for moving items from entity -> level and from
+    //! item -> level.
+    template <typename Object, typename Predicate, typename Success>
+    merge_item_result impl_move_items_object_to_level_(
+        Object&         src
+      , level&          dest_lvl
+      , point2i32 const dest_p
+      , int const* const first, int const* const last
+      , Predicate pred
+      , Success on_success
+    ) {
+        auto& items = src.items();
+
+        BK_ASSERT(dest_lvl.can_place_item_at(dest_p) == placement_result::ok);
+
+        auto const sink = [&](unique_item&& itm) {
+            auto const id = itm.get();
+            dest_lvl.add_object_at(std::move(itm), dest_p);
+            on_success(id);
+        };
+
+        items.remove_if(first, last, pred, sink);
+
+        // didn't actually move anything
+        auto* const pile = dest_lvl.item_at(dest_p);
+        if (!pile) {
+            return merge_item_result::ok_merged_none;
+        }
+
+        // make sure the resulting pile uses the correct icon
+        renderer_add(get_pile_id(*pile, get_pile_id()), dest_p);
+
+        return items.empty()
+          ? merge_item_result::ok_merged_all
+          : merge_item_result::ok_merged_some;
+    }
+
+    // move items from item (container) to level
+    merge_item_result move_items(
+        item&           src
+      , level&          dest_lvl
+      , point2i32 const dest_p
+      , int const* const first, int const* const last
+    ) {
+        static_string_buffer<128> buffer;
+        auto const src_name = name_of(src);
+
+        return impl_move_items_object_to_level_(
+            src, dest_lvl, dest_p, first, last
+          , [](item_instance_id const id) noexcept { return true; }
+          , [&](item_instance_id const id) {
+                buffer.clear();
+                buffer.append("You remove the %s from the %s and drop it on the ground."
+                            , name_of(id).data(), src_name.data());
+                message_window.println(buffer.to_string());
+            }
+        );
+    }
+
     // move items from entity to level
     merge_item_result move_items(
         entity&         src
@@ -1251,37 +1324,18 @@ struct game_state {
       , point2i32 const dest_p
       , int const* const first, int const* const last
     ) {
-        auto& items = src.items();
-        auto& lvl   = the_world.current_level();
-
-        BK_ASSERT(lvl.can_place_item_at(dest_p) == placement_result::ok);
-
-        auto const pred = [](auto const&) noexcept {
-            return true;
-        };
-
         static_string_buffer<128> buffer;
 
-        auto const sink = [&](unique_item&& itm) {
-            auto const name = name_of(itm);
-            lvl.add_object_at(std::move(itm), dest_p);
-
-            buffer.clear();
-            buffer.append("You drop the %s on the ground.", name.data());
-            message_window.println(buffer.to_string());
-        };
-
-        items.remove_if(first, last, pred, sink);
-        auto* const pile = lvl.item_at(dest_p);
-        if (!pile) {
-            return merge_item_result::ok_merged_none;
-        }
-
-        renderer_add(get_pile_id(*pile, get_pile_id()), dest_p);
-
-        return items.empty()
-          ? merge_item_result::ok_merged_all
-          : merge_item_result::ok_merged_some;
+        return impl_move_items_object_to_level_(
+            src, dest_lvl, dest_p, first, last
+          , [](item_instance_id const id) noexcept { return true; }
+          , [&](item_instance_id const id) {
+                buffer.clear();
+                buffer.append("You drop the %s on the ground."
+                            , name_of(id).data());
+                message_window.println(buffer.to_string());
+            }
+        );
     }
 
     //! move items from level to entity
