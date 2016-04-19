@@ -16,15 +16,9 @@ TEST_CASE("spatial map") {
         }
     };
 
-    struct property_t {
-        int operator()(value_t const v) const noexcept {
-            return v.value < 0 ? -1 : 1;
-        }
-    };
-
     constexpr int32_t width  = 20;
     constexpr int32_t height = 10;
-    spatial_map<value_t, key_t, property_t, int32_t> map {width, height};
+    spatial_map<value_t, key_t, int32_t> map {width, height};
 
     REQUIRE(map.size() == 0);
 
@@ -47,11 +41,6 @@ TEST_CASE("spatial map") {
 
     {
         auto const range = map.positions_range();
-        REQUIRE(std::distance(range.first, range.second) == 3);
-    }
-
-    {
-        auto const range = map.properties_range();
         REQUIRE(std::distance(range.first, range.second) == 3);
     }
 

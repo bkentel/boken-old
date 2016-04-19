@@ -29,69 +29,55 @@ class game_renderer_impl final : public game_renderer {
         };
     }
 
-    template <typename Data, typename Positions, typename Ids>
-    void update_data_(Data& data, Positions const& ps, Ids const& ids, tile_map const& tmap) {
+    template <typename Data, typename Type>
+    void update_data_(
+        Data&                       data
+      , update_t<Type> const* const first
+      , update_t<Type> const* const last
+      , tile_map const&             tmap
+    ) {
         auto const tranform_point = position_to_pixel_(tmap);
 
-        data.clear();
-        data.reserve(static_cast<size_t>(
-            std::distance(ps.first, ps.second)));
-
-        size_t i = 0;
-        std::transform(ps.first, ps.second, back_inserter(data)
-          , [&](auto const p) noexcept {
-                auto const index = id_to_index(tmap, *(ids.first + i++));
-                auto const tex_p = tmap.index_to_rect(index).top_left();
-                return data_t {
-                    tranform_point(p)
-                  , underlying_cast_unsafe<int16_t>(tex_p)
-                  , 0xFFu};
-            });
-    }
-
-    template <typename Data, typename Updates>
-    void update_data_(Data& data, Updates const& updates, tile_map const& tmap) {
-        auto const tranform_point = position_to_pixel_(tmap);
-
-        auto const get_texture_coord = [&](auto const& id) noexcept {
+        auto const get_texture_coord = [&](update_t<Type> const& u) noexcept {
             return underlying_cast_unsafe<int16_t>(
-                tmap.index_to_rect(id_to_index(tmap, id)).top_left());
+                tmap.index_to_rect(id_to_index(tmap, u.id)).top_left());
         };
 
-        auto const get_color = [&](auto const& id) noexcept {
+        auto const get_color = [&](update_t<Type> const&) noexcept {
             return 0xFF00FF00u;
         };
 
-        for (auto const& update : updates) {
-            auto const first = begin(data);
-            auto const last  = end(data);
-
+        std::for_each(first, last, [&](update_t<Type> const& update) {
             auto const p = tranform_point(update.prev_pos);
-            auto const it = std::find_if(first, last
+
+            auto const first_d = begin(data);
+            auto const last_d  = end(data);
+
+            auto const it = std::find_if(first_d, last_d
               , [p](data_t const& d) noexcept { return d.position == p; });
 
 
             // data to remove
             if (update.id == nullptr) {
-                BK_ASSERT(it != last);
+                BK_ASSERT(it != last_d);
                 data.erase(it);
-                continue;
+                return;
             }
 
-            auto const tex_coord = get_texture_coord(update.id);
-            auto const color     = get_color(update.id);
+            auto const tex_coord = get_texture_coord(update);
+            auto const color     = get_color(update);
 
             // new data
-            if (it == last) {
+            if (it == last_d) {
                 data.push_back({p, tex_coord, color});
-                continue;
+                return;
             }
 
             // data to update
             it->position  = tranform_point(update.next_pos);
             it->tex_coord = tex_coord;
             it->color     = color;
-        }
+        });
     }
 public:
     game_renderer_impl(system& os, text_renderer& trender)
@@ -118,26 +104,17 @@ public:
     void update_map_data() final override;
     void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
 
-    void update_entity_data() final override {
-        update_data_(entity_data
-                   , level_->entity_positions()
-                   , level_->entity_ids()
-                   , *tile_map_entities_);
+    void update_data(update_t<entity_id> const* first, update_t<entity_id> const* last) final override {
+        update_data_(entity_data, first, last, *tile_map_entities_);
     }
 
-    void update_item_data() final override {
-        update_data_(item_data
-                   , level_->item_positions()
-                   , level_->item_ids()
-                   , *tile_map_items_);
+    void update_data(update_t<item_id> const* first, update_t<item_id> const* last) final override {
+        update_data_(item_data, first, last, *tile_map_items_);
     }
 
-    void update_entity_data(std::vector<update_t<entity_id>> const& updates) final override {
-        update_data_(entity_data, updates, *tile_map_entities_);
-    }
-
-    void update_item_data(std::vector<update_t<item_id>> const& updates) final override {
-        update_data_(item_data, updates, *tile_map_items_);
+    void clear_data() final override {
+        entity_data.clear();
+        item_data.clear();
     }
 
     void update_tool_tip_text(std::string text) final override;

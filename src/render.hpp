@@ -78,8 +78,6 @@ public:
 
     virtual void update_map_data() = 0;
     virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
-    virtual void update_entity_data() = 0;
-    virtual void update_item_data() = 0;
 
     template <typename T>
     struct update_t {
@@ -88,8 +86,9 @@ public:
         T         id;
     };
 
-    virtual void update_entity_data(std::vector<update_t<entity_id>> const& updates) = 0;
-    virtual void update_item_data(std::vector<update_t<item_id>> const& updates) = 0;
+    virtual void update_data(update_t<entity_id> const* first, update_t<entity_id> const* last) = 0;
+    virtual void update_data(update_t<item_id> const* first, update_t<item_id> const* last) = 0;
+    virtual void clear_data() = 0;
 
     virtual void update_tool_tip_text(std::string text) = 0;
     virtual bool update_tool_tip_visible(bool show) noexcept = 0;

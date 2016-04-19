@@ -1,6 +1,15 @@
 {
   "type": "items",
   "data": {
+    "pile": {
+      "name": "pile",
+      "properties": {
+        "type": "uninstantiable",
+        "sub_type": "uninstantiable",
+        "uninstantiable": true,
+        "tile_index": 236
+      }
+    },
     "coin": {
       "name": "coin",
       "properties": {

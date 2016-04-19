@@ -36,28 +36,34 @@ auto vector_to_range(Container&& c) noexcept {
     return std::make_pair(c.data(), c.data() + c.size());
 }
 
-template <typename Value, typename KeyF, typename PropertyF, typename Scalar>
+struct identity {
+    template <typename T>
+    constexpr auto&& operator()(T&& v) const noexcept {
+        return std::forward<T>(v);
+    }
+};
+
+template <typename Value             //!< The value type stored
+        , typename GetKey = identity //!< GetKey(value) -> key for value
+        , typename Scalar = int      //!< The scalar type for positions
+>
 class spatial_map {
 public:
-    using value_type    = Value;
-    using key_type      = std::result_of_t<KeyF(Value)>;
-    using property_type = std::result_of_t<PropertyF(Value)>;
-    using scalar_type   = Scalar;
-    using point_type    = point2<Scalar>;
+    using value_type  = Value;
+    using key_type    = std::decay_t<std::result_of_t<GetKey (Value)>>;
+    using scalar_type = Scalar;
+    using point_type  = point2<Scalar>;
 
     static_assert(!std::is_void<key_type>::value, "");
-    static_assert(!std::is_void<property_type>::value, "");
 
     spatial_map(
         scalar_type const width
       , scalar_type const height
-      , KeyF      get_key      = KeyF {}
-      , PropertyF get_property = PropertyF {}
+      , GetKey            get_key = GetKey {}
     )
-      : get_key_      {std::move(get_key)}
-      , get_property_ {std::move(get_property)}
-      , width_  {width}
-      , height_ {height}
+      : get_key_ {std::move(get_key)}
+      , width_   {width}
+      , height_  {height}
     {
     }
 
@@ -78,7 +84,6 @@ public:
         auto const offset = find_offset_to_(p);
         if (offset >= 0) {
             *(positions_.begin() + offset) = p;
-            *(properties_.begin() + offset) = get_property_(value);
             *(values_.begin() + offset) = std::move(value);
             return {values_.data() + offset, false};
         }
@@ -140,16 +145,19 @@ public:
         return vector_to_range(positions_);
     }
 
-    auto properties_range() const noexcept {
-        return vector_to_range(properties_);
-    }
-
     auto values_range() const noexcept {
         return vector_to_range(values_);
     }
 
     auto values_range() noexcept {
         return vector_to_range(values_);
+    }
+
+    template <typename F>
+    void for_each(F f) {
+        for (size_t i = 0; i < values_.size(); ++i) {
+            f(values_[i], positions_[i]);
+        }
     }
 private:
     template <typename Key, typename BinaryF>
@@ -180,7 +188,6 @@ private:
 
     std::pair<value_type*, bool> insert_(point_type const p, value_type&& value) {
         positions_.push_back(p);
-        properties_.push_back(get_property_(value));
         values_.push_back(std::move(value));
         return {std::addressof(values_.back()), true};
     }
@@ -195,7 +202,6 @@ private:
         auto const result_key = get_key_(*(values_.begin() + offset));
 
         positions_.erase(positions_.begin() + offset);
-        properties_.erase(properties_.begin() + offset);
         values_.erase(values_.begin() + offset);
 
         return {result_key, true};
@@ -211,12 +217,10 @@ private:
           , [&](value_type const& v) noexcept { return k == get_key_(v); });
     }
 private:
-    KeyF      get_key_;
-    PropertyF get_property_;
+    GetKey get_key_;
 
-    std::vector<point_type>    positions_;
-    std::vector<property_type> properties_;
-    std::vector<value_type>    values_;
+    std::vector<point_type> positions_;
+    std::vector<value_type> values_;
 
     scalar_type width_;
     scalar_type height_;

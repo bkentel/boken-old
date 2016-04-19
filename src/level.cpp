@@ -266,8 +266,8 @@ struct generate_rect_room {
 class level_impl : public level {
 public:
     level_impl(random_state& rng, world& w, sizei32x const width, sizei32y const height, size_t const id)
-      : entities_ {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_entity_instance_id_t {}, get_entity_id_t {w}}
-      , items_    {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height), get_item_instance_id_t {}, get_item_id_t {w}}
+      : entities_ {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height)}
+      , items_    {value_cast_unsafe<int16_t>(width), value_cast_unsafe<int16_t>(height)}
       , bounds_   {point2i32 {}, width, height}
       , data_     {width, height}
       , world_    {w}
@@ -528,26 +528,6 @@ public:
 
     tile_view at(point2i32 const p) const noexcept final override;
 
-    std::pair<point2i16 const*, point2i16 const*>
-    entity_positions() const noexcept final override {
-        return entities_.positions_range();
-    }
-
-    std::pair<entity_id const*, entity_id const*>
-    entity_ids() const noexcept final override {
-        return entities_.properties_range();
-    }
-
-    std::pair<point2i16 const*, point2i16 const*>
-    item_positions() const noexcept final override {
-        return items_.positions_range();
-    }
-
-    std::pair<item_id const*, item_id const*>
-    item_ids() const noexcept final override {
-        return items_.properties_range();
-    }
-
     template <typename Container>
     auto make_range_(recti32 const area, Container const& c) const noexcept {
         auto const b = bounds();
@@ -638,6 +618,14 @@ public:
 
     point2i32 stair_down(int const i) const noexcept final override {
         return stair_down_;
+    }
+
+    void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) final override {
+        items_.for_each(f);
+    }
+
+    void for_each_entity(std::function<void (entity_instance_id, point2i32)> const& f) final override {
+        entities_.for_each(f);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -733,42 +721,14 @@ private:
         return intersects(bounds(), p);
     }
 
-    struct get_entity_instance_id_t {
-        entity_instance_id operator()(entity_instance_id const id) const noexcept {
-            return id;
-        }
-    };
-
-    struct get_entity_id_t {
-        get_entity_id_t(world const& w) noexcept : world_ {w} {}
-
-        entity_id operator()(entity_instance_id const id) const noexcept {
-            return get_id(boken::find(world_, id));
-        }
-
-        world const& world_;
-    };
-
-    struct get_item_instance_id_t {
+    struct first_in_pile {
         item_instance_id operator()(item_pile const& p) const noexcept {
             return p.empty() ? item_instance_id {} : *p.begin();
         }
     };
 
-    struct get_item_id_t {
-        get_item_id_t(world const& w) noexcept : world_ {w} {}
-
-        item_id operator()(item_pile const& p) const noexcept {
-            return p.empty()
-              ? item_id {}
-              : get_id(boken::find(world_, *p.begin()));
-        }
-
-        world const& world_;
-    };
-
-    spatial_map<entity_instance_id, get_entity_instance_id_t, get_entity_id_t, int16_t> entities_;
-    spatial_map<item_pile, get_item_instance_id_t, get_item_id_t, int16_t> items_;
+    spatial_map<entity_instance_id, identity,      int16_t> entities_;
+    spatial_map<item_pile,          first_in_pile, int16_t> items_;
 
     item_deleter   const* item_deleter_   {};
     entity_deleter const* entity_deleter_ {};
@@ -791,7 +751,8 @@ private:
         }
 
         data_t(sizei32x const width, sizei32y const height)
-          : data_t {value_cast_unsafe<size_t>(width) * value_cast_unsafe<size_t>(height)}
+          : data_t {value_cast_unsafe<size_t>(width)
+                  * value_cast_unsafe<size_t>(height)}
         {
         }
 

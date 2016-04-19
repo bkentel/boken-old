@@ -116,6 +116,9 @@ public:
     virtual point2i32 stair_up(int const i) const noexcept = 0;
     virtual point2i32 stair_down(int const i) const noexcept = 0;
 
+    virtual void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) = 0;
+    virtual void for_each_entity(std::function<void (entity_instance_id, point2i32)> const& f) = 0;
+
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
@@ -178,18 +181,6 @@ public:
     //===--------------------------------------------------------------------===
     //                         Block-based data access
     //===--------------------------------------------------------------------===
-    virtual std::pair<point2i16 const*, point2i16 const*>
-        entity_positions() const noexcept = 0;
-
-    virtual std::pair<entity_id const*, entity_id const*>
-        entity_ids() const noexcept = 0;
-
-    virtual std::pair<point2i16 const*, point2i16 const*>
-        item_positions() const noexcept = 0;
-
-    virtual std::pair<item_id const*, item_id const*>
-        item_ids() const noexcept = 0;
-
     virtual const_sub_region_range<tile_id>   tile_ids(recti32 area) const noexcept = 0;
     virtual const_sub_region_range<region_id> region_ids(recti32 area) const noexcept = 0;
 };

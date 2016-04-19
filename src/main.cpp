@@ -504,6 +504,8 @@ struct game_state {
     }
 
     void generate(size_t const id = 0) {
+        BK_ASSERT(!the_world.has_level(id));
+
         if (id == 0) {
             generate_level(nullptr, id);
             generate_player();
@@ -514,19 +516,47 @@ struct game_state {
         generate_entities();
         generate_items();
 
-        set_current_level(id);
+        set_current_level(id, true);
     }
 
-    void set_current_level(size_t const id) {
+    //! get the item id to use for item pile
+    item_id get_pile_id() const {
+        auto const pile_def = find(database, make_id<item_id>("pile"));
+        return pile_def ? pile_def->id : item_id {};
+    }
+
+    //! get the item id to display an item pile
+    item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
+        BK_ASSERT(!pile.empty());
+        return (pile.size() == 1u)
+          ? find(the_world, *pile.begin()).definition()
+          : pile_id;
+    }
+
+    void set_current_level(size_t const id, bool const is_new) {
         BK_ASSERT(the_world.has_level(id));
         renderer.set_level(the_world.change_level(id));
+
+        renderer.update_map_data();
+
+        if (is_new) {
+            return;
+        }
 
         item_updates_.clear();
         entity_updates_.clear();
 
-        renderer.update_map_data();
-        renderer.update_entity_data();
-        renderer.update_item_data();
+        auto& lvl = the_world.current_level();
+
+        lvl.for_each_entity([&](entity_instance_id const id, point2i32 const p) {
+            renderer_add(find(the_world, id).definition(), p);
+        });
+
+        auto const pile_id = get_pile_id();
+
+        lvl.for_each_pile([&](item_pile const& pile, point2i32 const p) {
+            renderer_add(get_pile_id(pile, pile_id), p);
+        });
     }
 
     void reset_view_to_player() {
@@ -1040,7 +1070,10 @@ struct game_state {
     //! Drop one item, or no items from the player's inventory at the player's
     //! current position.
     void do_drop_one() {
-        auto& player_items = get_player().first.items();
+        auto const player_info  = get_player();
+        auto const player_p     = player_info.second;
+        auto&      player       = get_player().first;
+        auto&      player_items = player.items();
 
         if (player_items.size() <= 0) {
             message_window.println("You have nothing to drop.");
@@ -1049,8 +1082,9 @@ struct game_state {
 
         item_list.assign(player_items);
         choose_one_item("Drop which item?"
-          , [&](int const index) {
-                impl_drop_selected_items_(player_items, &index, &index + 1);
+          , [&, player_p](int const index) {
+                move_items(player, the_world.current_level(), player_p
+                         , &index, &index + 1);
             }
           , [&] {
                 message_window.println("Nevermind.");
@@ -1060,7 +1094,10 @@ struct game_state {
     //! Drop 0 or more items from the player's inventory at the player's
     //! current position.
     void do_drop_some() {
-        auto& player_items = get_player().first.items();
+        auto const player_info  = get_player();
+        auto const player_p     = player_info.second;
+        auto&      player       = get_player().first;
+        auto&      player_items = player.items();
 
         if (player_items.size() <= 0) {
             message_window.println("You have nothing to drop.");
@@ -1069,8 +1106,9 @@ struct game_state {
 
         item_list.assign(player_items);
         choose_n_items("Drop which item(s)?"
-          , [&](int const* const first, int const* const last) {
-                impl_drop_selected_items_(player_items, first, last);
+          , [&, player_p](int const* const first, int const* const last) {
+                move_items(player, the_world.current_level(), player_p
+                         , first, last);
             }
           , [&] {
                 message_window.println("Nevermind.");
@@ -1206,6 +1244,47 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
+    // move items from entity to level
+    merge_item_result move_items(
+        entity&         src
+      , level&          dest_lvl
+      , point2i32 const dest_p
+      , int const* const first, int const* const last
+    ) {
+        auto& items = src.items();
+        auto& lvl   = the_world.current_level();
+
+        BK_ASSERT(lvl.can_place_item_at(dest_p) == placement_result::ok);
+
+        auto const pred = [](auto const&) noexcept {
+            return true;
+        };
+
+        static_string_buffer<128> buffer;
+
+        auto const sink = [&](unique_item&& itm) {
+            auto const name = name_of(itm);
+            lvl.add_object_at(std::move(itm), dest_p);
+
+            buffer.clear();
+            buffer.append("You drop the %s on the ground.", name.data());
+            message_window.println(buffer.to_string());
+        };
+
+        items.remove_if(first, last, pred, sink);
+        auto* const pile = lvl.item_at(dest_p);
+        if (!pile) {
+            return merge_item_result::ok_merged_none;
+        }
+
+        renderer_add(get_pile_id(*pile, get_pile_id()), dest_p);
+
+        return items.empty()
+          ? merge_item_result::ok_merged_all
+          : merge_item_result::ok_merged_some;
+    }
+
+    //! move items from level to entity
     merge_item_result move_items(
         level&          src_lvl
       , point2i32 const src_p
@@ -1235,6 +1314,7 @@ struct game_state {
             src_p, dest.items(), first, last, pred, sink);
     }
 
+    //! move items from pile to entity
     merge_item_result move_items(
         item_pile& src
       , entity&    dest
@@ -1526,7 +1606,7 @@ struct game_state {
         if (!the_world.has_level(next_id)) {
             generate(next_id);
         } else {
-            set_current_level(next_id);
+            set_current_level(next_id, false);
         }
 
         // the level has been changed at this point
@@ -1853,19 +1933,22 @@ struct game_state {
         }
 
         if (!entity_updates_.empty()) {
-            renderer.update_entity_data(entity_updates_);
+            auto const n = static_cast<ptrdiff_t>(entity_updates_.size());
+            auto const p = entity_updates_.data();
+            renderer.update_data(p, p + n);
+            entity_updates_.clear();
         }
 
         if (!item_updates_.empty()) {
-            renderer.update_item_data(item_updates_);
+            auto const n = static_cast<ptrdiff_t>(item_updates_.size());
+            auto const p = item_updates_.data();
+            renderer.update_data(p, p + n);
+            item_updates_.clear();
         }
 
         renderer.render(delta, current_view);
 
         last_frame_time = now;
-
-        entity_updates_.clear();
-        item_updates_.clear();
     }
 
     //! The main game loop
