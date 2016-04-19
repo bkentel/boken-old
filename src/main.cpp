@@ -1054,36 +1054,6 @@ struct game_state {
         view_item_pile("Inventory", p.first, p.second, p.first);
     }
 
-    //! Common implementation for do_drop_one and do_drop_some
-    //! @param first Iterator (pointer) to the first index of the item list to
-    //!              remove from the player's inventory.
-    //! @param last  Iterator (pointer) to the last (one past the end) index of
-    //!              the item list to remove from the player's inventory.
-    //! @pre @p first and @p last are non null and point to a contiguous range
-    //!      of indicies.
-    void impl_drop_selected_items_(item_pile& items, int const* const first, int const* const last) {
-        BK_ASSERT(!!first && !!last);
-
-        auto const p = get_player().second;
-
-        static_string_buffer<128> buffer;
-
-        for (auto it = first; it != last; ++it) {
-            auto const  id   = item_list.get().row_data(*it);
-            auto const& itm  = find(the_world, id);
-            auto const  name = name_of(itm);
-
-            buffer.clear();
-            buffer.append("You drop the %s on the ground.", name.data());
-            message_window.println(buffer.to_string());
-
-            add_object_at(items.remove_item(id), p);
-        }
-
-        item_list.get().remove_rows(first, last);
-        item_list.layout();
-    }
-
     void impl_do_drop_n_(int const n) {
         BK_ASSERT(n > 0);
 
