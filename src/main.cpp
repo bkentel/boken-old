@@ -1227,7 +1227,6 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
-
     //! Common implementation for moving items from entity -> level and from
     //! item -> level.
     template <typename Object, typename Predicate, typename Success>
@@ -1675,39 +1674,38 @@ struct game_state {
                && value_cast(abs(v.y)) <= 1
                && v != vec2i32 {});
 
-        auto&      lvl         = the_world.current_level();
-        auto const player_info = get_player();
-        auto const player_id   = player_info.first.definition();
-        auto const player_inst = player_info.first.instance();
-        auto       player_p    = player_info.second;
-
         using namespace std::chrono;
         constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 100;
         constexpr auto timer_name = djb2_hash_32c("run timer");
+
+        auto&      lvl         = the_world.current_level();
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+        auto       p           = player_info.second;
 
         // TODO: this is a bit of a hack; pushing new contexts should return an
         //       identifier of for later use.
         auto const context_index = context_stack.size();
 
         auto const timer_id = timers.add(timer_name, timer::duration {0}
-          , [=, &lvl](timer::duration, timer::timer_data) mutable -> timer::duration {
-                auto const result = lvl.move_by(player_inst, v);
+          , [=, &lvl, &player](timer::duration, timer::timer_data) mutable -> timer::duration {
+                auto const result = impl_player_move_by_(lvl, player, p, v);
+
+                // continue running
                 if (result == placement_result::ok) {
-                    auto const p_cur = player_p;
-                    player_p = player_p + v;
-                    renderer_update(player_id, p_cur, player_p);
-                    advance(1);
-                } else {
-                    // TODO: see the above TODO
-                    auto const where = context_stack.begin()
-                        + static_cast<ptrdiff_t>(context_index);
-
-                    context_stack.erase(where);
-
-                    return timer::duration {};
+                    p += v;
+                    return delay;
                 }
 
-                return delay;
+                // some sort of obstacle has been hit -- stop running
+
+                // TODO: see the above TODO
+                auto const where = context_stack.begin()
+                    + static_cast<ptrdiff_t>(context_index);
+
+                context_stack.erase(where);
+
+                return timer::duration {};
           });
 
         // add an input context that automatically terminates the run on
@@ -1727,6 +1725,55 @@ struct game_state {
         context_stack.push_back(std::move(c));
     }
 
+    void adjust_view_to_player(point2i32 const p) noexcept {
+        auto const& tile_map = database.get_tile_map(tile_map_type::base);
+        auto const tw = value_cast(tile_map.tile_width());
+        auto const th = value_cast(tile_map.tile_height());
+
+        auto const win_r = os.render_get_client_rect();
+        auto const win_w = value_cast(win_r.width());
+        auto const win_h = value_cast(win_r.height());
+
+        auto const px = static_cast<float>((value_cast(p.x) + 0.5) * tw);
+        auto const py = static_cast<float>((value_cast(p.y) + 0.5) * th);
+
+        auto const q = current_view.world_to_window(point2f {px, py});
+
+        auto const left   = value_cast(q.x);
+        auto const right  = win_w - value_cast(q.x);
+        auto const top    = value_cast(q.y);
+        auto const bottom = win_h - value_cast(q.y);
+
+        auto const x_limit = 3 * tw * current_view.scale_x;
+        auto const y_limit = 3 * th * current_view.scale_y;
+
+        if (left < x_limit) {
+            current_view.x_off += x_limit - left;
+        } else if (right < x_limit) {
+            current_view.x_off -= x_limit - right;
+        }
+
+        if (top < y_limit) {
+            current_view.y_off += y_limit - top;
+        } else if (bottom < y_limit) {
+            current_view.y_off -= y_limit - bottom;
+        }
+    }
+
+    placement_result impl_player_move_by_(level& lvl, entity& player, point2i32 const p, vec2i32 const v) {
+        auto const result = lvl.move_by(player.instance(), v);
+        if (result != placement_result::ok) {
+            return result;
+        }
+
+        adjust_view_to_player(p + v);
+
+        renderer_update(player.definition(), p, p + v);
+        advance(1);
+
+        return result;
+    }
+
     placement_result do_player_move_by(vec2i32 const v) {
         BK_ASSERT(value_cast(abs(v.x)) <= 1
                && value_cast(abs(v.y)) <= 1
@@ -1738,12 +1785,10 @@ struct game_state {
         auto const p_cur       = player_info.second;
         auto const p_dst       = p_cur + v;
 
-        auto const result = lvl.move_by(player.instance(), v);
+        auto const result = impl_player_move_by_(lvl, player, p_cur, v);
 
         switch (result) {
         case placement_result::ok:
-            renderer_update(player, p_cur, p_dst);
-            advance(1);
             break;
         case placement_result::failed_entity:
             do_combat(p_cur, p_dst);
