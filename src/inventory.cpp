@@ -342,8 +342,8 @@ public:
         auto const last  = end(rows);
         auto       it    = first;
 
-        for (size_t i = 0; i < row_data_.size() && it != last; ++i) {
-            if (*it == i) {
+        for (size_t i = 0; i < row_data_.size(); ++i) {
+            if (it != last && *it == i) {
                 row_data_[i].selected = true;
                 ++it;
             } else {
