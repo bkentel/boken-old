@@ -168,28 +168,36 @@ bool can_gen_tunnel_at(point2<T> const p, Read read, Check check) noexcept {
 
 namespace {
 
-template <typename Read, typename Check>
-boken::tile_id tile_type_to_id_at(boken::point2i32 const p, Read read, Check check) noexcept {
+template <typename ReadType, typename ReadId, typename Check>
+boken::tile_id tile_type_to_id_at(boken::point2i32 const p, ReadType read_type, ReadId read_id, Check check) noexcept {
     using namespace boken;
 
-    static_assert(noexcept(read(p)), "");
+    static_assert(noexcept(read_type(p)), "");
     static_assert(noexcept(check(p)), "");
 
     using ti = tile_id;
     using tt = tile_type;
 
-    switch (read(p)) {
-    default         : break;
+    switch (read_type(p)) {
     case tt::empty  : return ti::empty;
     case tt::floor  : return ti::floor;
     case tt::tunnel : return ti::tunnel;
     case tt::door   : break;
     case tt::stair  : break;
-    case tt::wall   : return wall_type_from_neighbors(
-        fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
-            auto const type = read(q);
-            return type == tt::wall || type == tt::door;
-        }));
+    case tt::wall   :
+        {
+            auto const id = read_id(p);
+            if (id != ti::invalid) {
+                return id;
+            }
+        }
+
+        return wall_type_from_neighbors(
+            fold_neighbors4(p, check, [&](point2i32 const q) noexcept {
+                auto const type = read_type(q);
+                return type == tt::wall || type == tt::door;
+            }));
+    default : break;
     }
 
     return ti::invalid;
@@ -819,11 +827,13 @@ void level_impl::merge_walls_at(random_state& rng, recti32 const area) {
 }
 
 void level_impl::update_tile_ids(random_state& rng, recti32 const area) {
-    auto const read = make_data_reader_(data_.types);
+    auto const read    = make_data_reader_(data_.types);
+    auto const read_id = make_data_reader_(data_.ids);
+
     transform_xy(area, bounds_, make_bounds_checker_()
       , [&](point2i32 const p, auto check) noexcept {
             // TODO: explicit 'this' due to a GCC bug (5.2.1)
-            auto const id = tile_type_to_id_at(p, read, check);
+            auto const id = tile_type_to_id_at(p, read, read_id, check);
             if (id != tile_id::invalid) {
                 this->data_at_(data_.ids, p) = id;
             }
@@ -1031,9 +1041,15 @@ void level_impl::generate(random_state& rng) {
     }
 
     merge_walls_at(rng, bounds_);
+
+    // do a first pass so that natural wall ids are chosen
+    update_tile_ids(rng, bounds_);
+
     generate_make_connections(rng);
     place_stairs(rng, bounds_);
     place_doors(rng, bounds_);
+
+    // do a final pass to update anything changed by corridors, etc.
     update_tile_ids(rng, bounds_);
 }
 
