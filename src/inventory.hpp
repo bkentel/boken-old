@@ -94,6 +94,12 @@ public:
     virtual size_t cols() const noexcept = 0;
 
     //--------------------------------------------------------------------------
+    virtual void scroll_by(sizei32y dy) noexcept = 0;
+    virtual void scroll_by(sizei32x dx) noexcept = 0;
+
+    virtual void scroll_into_view(int c, int r) noexcept = 0;
+
+    //--------------------------------------------------------------------------
     virtual void resize_to(sizei32x w, sizei32y h) noexcept = 0;
     virtual void resize_by(sizei32x dw, sizei32y dh, int side_x, int side_y) noexcept = 0;
 

@@ -92,10 +92,6 @@ public:
         return bounds + v;
     }
 
-    vec2i32 scroll_offset() const noexcept final override {
-        return {0, 0};
-    }
-
     //--------------------------------------------------------------------------
     bool show() noexcept final override {
         bool const result = is_visible_;
@@ -137,6 +133,62 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    void scroll_by(sizei32y const dy) noexcept final override {
+        auto const h = metrics_.client_frame.height();
+
+        if (content_h_ <= h) {
+            scroll_pos_.y = 0;
+            return;
+        }
+
+        auto const excess = content_h_ - h;
+        scroll_pos_.y = min(dy + scroll_pos_.y, excess);
+    }
+
+    void scroll_by(sizei32x const dx) noexcept final override {
+        auto const w = metrics_.client_frame.width();
+
+        if (content_w_ <= w) {
+            scroll_pos_.x = 0;
+            return;
+        }
+
+        auto const excess = content_w_ - w;
+        scroll_pos_.x = min(dx + scroll_pos_.x, excess);
+    }
+
+    void scroll_into_view(int const c, int const r) noexcept final override {
+        BK_ASSERT(check_col_(c) && check_row_(r));
+
+        auto const frame = metrics_.client_frame;
+
+        // translate the cell into screen space
+        auto const cell = rows_[r][c].extent()
+            + (frame.top_left() - point2i32 {})
+            - scroll_offset();
+
+        if (cell.x0 < frame.x0) {
+            scroll_by(cell.x0 - frame.x0);
+        } else if (cell.x1 > frame.x1) {
+            scroll_by(cell.x1 - frame.x1);
+        }
+
+        if (cell.y0 < frame.y0) {
+            if (r == 0) {
+                scroll_pos_.y = 0;
+            } else {
+                scroll_by(cell.y0 - frame.y0);
+            }
+        } else if (cell.y1 > frame.y1) {
+            scroll_by(cell.y1 - frame.y1);
+        }
+    }
+
+    vec2i32 scroll_offset() const noexcept final override {
+        return scroll_pos_;
+    }
+
+    //--------------------------------------------------------------------------
     void resize_to(sizei32x const w, sizei32y const h) noexcept final override {
         auto&       m = metrics_;
         auto const& c = config_;
@@ -170,6 +222,14 @@ public:
         m.client_frame.x1 = m.frame.x1 - c.frame_w;
         m.client_frame.y0 = m.title.y1 + c.client_off_y;
         m.client_frame.y1 = m.frame.y1 - c.frame_h;
+
+        if (m.client_frame.width() >= content_w_) {
+            scroll_pos_.x = 0;
+        }
+
+        if (m.client_frame.height() >= content_h_) {
+            scroll_pos_.y = 0;
+        }
     }
 
     void resize_by(sizei32x const dw, sizei32y const dh, int const side_x, int const side_y) noexcept final override {
@@ -321,12 +381,14 @@ public:
     }
 
     void clear_rows() noexcept final override {
+        scroll_pos_.y = 0;
         rows_.clear();
         row_data_.clear();
         indicated_ = 0;
     }
 
     void clear() noexcept final override {
+        scroll_pos_.x = 0;
         clear_rows();
         cols_.clear();
     }
@@ -459,6 +521,10 @@ private:
 
     layout_config  config_;
     layout_metrics metrics_;
+
+    vec2i32  scroll_pos_ {};
+    sizei32x content_w_  {};
+    sizei32y content_h_  {};
 
     text_layout title_;
 
@@ -644,6 +710,8 @@ void inventory_list_impl::layout() noexcept {
         header_h = std::max(header_h, value_cast(h));
     }
 
+    content_w_ = x;
+
     metrics_.header_h = header_h;
     int32_t y = header_h;
 
@@ -665,6 +733,8 @@ void inventory_list_impl::layout() noexcept {
 
         y += max_h;
     }
+
+    content_h_ = y;
 }
 
 } //namespace boken

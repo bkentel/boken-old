@@ -472,7 +472,8 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
         os_.render_clear_clip_rect();
     };
 
-    auto const v = m.client_frame.top_left() - point2i32 {};
+    auto const v = (m.client_frame.top_left() - point2i32 {})
+                 - inv_window.scroll_offset();
 
     for (size_t i = 0; i < inv_window.cols(); ++i) {
         auto const info = inv_window.col(static_cast<int>(i));

@@ -211,7 +211,21 @@ bool item_list_controller::on_mouse_wheel(int const wy, int const wx, kb_modifie
     auto& il = *list_;
 
     if (!is_visible()) {
-        return !is_modal();
+        return true;
+    }
+
+    if (!is_modal() && !il.hit_test(last_mouse_)) {
+        return true;
+    }
+
+    if (wy > 0) {
+        il.indicate_prev(wy);
+        il.scroll_into_view(0, il.indicated());
+        return false;
+    } else if (wy < 0) {
+        il.indicate_next(-wy);
+        il.scroll_into_view(0, il.indicated());
+        return false;
     }
 
     return true;
@@ -265,9 +279,11 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
 
         if (type == ct::move_n) {
             il.indicate_prev();
+            il.scroll_into_view(0, il.indicated());
             return event_result::filter;
         } else if (type == ct::move_s) {
             il.indicate_next();
+            il.scroll_into_view(0, il.indicated());
             return event_result::filter;
         } else if (type == ct::toggle) {
             if (is_multi_select_) {
