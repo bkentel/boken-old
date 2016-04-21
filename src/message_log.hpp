@@ -1,52 +1,32 @@
 #pragma once
 
-#include "circular_buffer.hpp"
-#include "text.hpp"
+#include "math_types.hpp"
+
 #include <string>
+#include <memory>
+
+namespace boken { class text_renderer; }
+namespace boken { class text_layout; }
 
 namespace boken {
 
 //!
 class message_log {
 public:
-    explicit message_log(text_renderer& trender)
-      : trender_ {trender}
-    {
-    }
+    virtual void print(std::string msg) = 0;
+    virtual void println(std::string msg) = 0;
 
-    void print(std::string msg) {
-    }
+    virtual recti32 bounds() const noexcept = 0;
+    virtual recti32 client_bounds() const noexcept = 0;
 
-    void println(std::string msg) {
-        visible_lines_.push(text_layout {trender_, msg});
-        messages_.push(std::move(msg));
+    virtual int visible_size() const noexcept = 0;
 
-        auto const line_h = trender_.line_gap();
-        auto x = int {0};
-        auto y = int {0};
+    using ref = std::reference_wrapper<text_layout const>;
 
-        for (auto& line : visible_lines_) {
-            line.move_to(x, y);
-            y += line_h;
-        }
-    }
-
-    auto visible_begin() const noexcept {
-        return visible_lines_.begin();
-    }
-
-    auto visible_end() const noexcept {
-        return visible_lines_.end();
-    }
-
-    auto max_visible() const noexcept {
-        return visible_lines_.size();
-    }
-private:
-    text_renderer& trender_;
-
-    simple_circular_buffer<text_layout> visible_lines_ {10};
-    simple_circular_buffer<std::string> messages_      {50};
+    virtual ref const* visible_begin() const noexcept = 0;
+    virtual ref const* visible_end() const noexcept = 0;
 };
+
+std::unique_ptr<message_log> make_message_log(text_renderer& trender);
 
 } //namespace boken

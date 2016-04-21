@@ -56,6 +56,7 @@ set(SOURCES
     src/item_list.cpp
     src/level.cpp
     src/main.cpp
+    src/message_log.cpp
     src/random.cpp
     src/render.cpp
     src/serialize.cpp

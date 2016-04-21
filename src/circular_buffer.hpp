@@ -175,12 +175,12 @@ private:
 };
 
 template <typename T>
-auto begin(simple_circular_buffer<T>&& buffer) noexcept {
+auto begin(simple_circular_buffer<T> const& buffer) noexcept {
     return buffer.begin();
 }
 
 template <typename T>
-auto end(simple_circular_buffer<T>&& buffer) noexcept {
+auto end(simple_circular_buffer<T> const& buffer) noexcept {
     return buffer.end();
 }
 

@@ -401,18 +401,29 @@ void game_renderer_impl::render_message_log_() const noexcept {
 
     auto const& log_window = *message_log_;
 
-    recti32 const r {
-        point2i32 {}
-      , sizei32x {500}
-      , sizei32y {static_cast<int32_t>(log_window.max_visible()) * trender_.line_gap()}
-    };
+    auto const r        = log_window.bounds();
+    auto const client_r = log_window.client_bounds();
+
+    auto const v = [&]() noexcept {
+        auto const ch = client_r.height();
+        auto const rh = r.height();
+
+        return (ch <= rh)
+          ? vec2i32 {}
+          : vec2i32 {0, rh - ch};
+    }();
 
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
     os_.render_fill_rect(r, 0xDF666666u);
 
-    auto const v = vec2i32 {};
     std::for_each(log_window.visible_begin(), log_window.visible_end()
-      , [&](text_layout const& line) noexcept { render_text_(line, v); });
+      , [&](text_layout const& line) noexcept {
+            if (line.extent().y1 + v.y <= r.y0) {
+                return;
+            }
+
+            render_text_(line, v);
+        });
 }
 
 void game_renderer_impl::render_inventory_list_() const noexcept {

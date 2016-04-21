@@ -105,6 +105,7 @@
     <ClCompile Include="src\item_list.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\message_log.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

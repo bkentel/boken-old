@@ -2105,6 +2105,7 @@ struct game_state {
         up<text_renderer>      trender_ptr         = make_text_renderer();
         up<game_renderer>      renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
         up<command_translator> cmd_translator_ptr  = make_command_translator();
+        up<message_log>        messsage_window_ptr = make_message_log(*trender_ptr);
     } state {};
 
     system&             os              = *state.system_ptr;
@@ -2115,6 +2116,7 @@ struct game_state {
     game_renderer&      renderer        = *state.renderer_ptr;
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
+    message_log&        message_window  = *state.messsage_window_ptr;
 
     timer timers;
 
@@ -2131,8 +2133,6 @@ struct game_state {
     std::vector<game_renderer::update_t<entity_id>> entity_updates_;
 
     timepoint_t last_frame_time {};
-
-    message_log message_window {trender};
 };
 
 } // namespace boken
