@@ -39,6 +39,16 @@
 
 namespace boken {
 
+template <typename T>
+inline T make_id(string_view const s) noexcept {
+    return T {djb2_hash_32(s.begin(), s.end())};
+}
+
+template <typename T, size_t N>
+inline constexpr T make_id(char const (&s)[N]) noexcept {
+    return T {djb2_hash_32c(s)};
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item&&)> const& f) {
@@ -127,14 +137,61 @@ string_view name_of(world const& w, game_database const& db, entity_instance_id 
     return name_of(db, w.find(id));
 }
 
-template <typename T>
-inline T make_id(string_view const s) noexcept {
-    return T {djb2_hash_32(s.begin(), s.end())};
+///
+
+//! get the item id to use for the display of item piles.
+item_id get_pile_id(game_database const& db) noexcept;
+
+//! get the item id to display an item pile
+//! @pre @p pile is not empty
+item_id get_pile_id(world const& w, item_pile const& pile, item_id pile_id) noexcept;
+
+//! get the weight of an item exclusive of any of its possible contents.
+int32_t weight_of_exclusive(game_database const& db, item const& itm) noexcept;
+
+//! get the weight of an item inclusive of any contents it may have.
+int32_t weight_of_inclusive(world const& w, game_database const& db, item const& itm) noexcept;
+
+int32_t weight_of_inclusive(world const& w, game_database const& db, item_instance_id id) noexcept;
+
+item_id get_pile_id(game_database const& db) noexcept {
+    auto const pile_def = find(db, make_id<item_id>("pile"));
+    return pile_def ? pile_def->id : item_id {};
 }
 
-template <typename T, size_t N>
-inline constexpr T make_id(char const (&s)[N]) noexcept {
-    return T {djb2_hash_32c(s)};
+item_id get_pile_id(world const& w, item_pile const& pile, item_id const pile_id) noexcept {
+    BK_ASSERT(!pile.empty());
+
+    return (pile.size() == 1u)
+      ? find(w, *pile.begin()).definition()
+      : pile_id;
+}
+
+int32_t weight_of_exclusive(game_database const& db, item const& itm) noexcept {
+    constexpr auto prop_weight = property(item_property::weight);
+    constexpr auto prop_stack  = property(item_property::current_stack_size);
+
+    auto const weight = get_property_value_or(db, itm, prop_weight, 0);
+    auto const stack  = get_property_value_or(db, itm, prop_stack,  1);
+
+    return weight * stack;
+}
+
+int32_t weight_of_inclusive(world const& w, game_database const& db, item const& itm) noexcept {
+    auto const first = begin(itm.items());
+    auto const last  = end(itm.items());
+
+    auto const w0 = weight_of_exclusive(db, itm);
+    auto const w1 = std::accumulate(first, last, int32_t {0}
+        , [&](int32_t const sum, item_instance_id const id) {
+            return sum + weight_of_inclusive(w, db, id);
+        });
+
+    return w0 + w1;
+}
+
+int32_t weight_of_inclusive(world const& w, game_database const& db, item_instance_id const id) noexcept {
+    return weight_of_inclusive(w, db, find(w, id));
 }
 
 //! Game input sink
@@ -186,6 +243,62 @@ public:
 
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Convenience functions
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    string_view name_of(item_id const id) noexcept {
+        return boken::name_of(database, id);
+    }
+
+    string_view name_of(item const& i) noexcept {
+        return boken::name_of(database, i.definition());
+    }
+
+    string_view name_of(unique_item const& i) noexcept {
+        return name_of(i.get());
+    }
+
+    string_view name_of(item_instance_id const id) noexcept {
+        return boken::name_of(the_world, database, id);
+    }
+
+    string_view name_of(entity_id const id) noexcept {
+        return boken::name_of(database, id);
+    }
+
+    string_view name_of(entity const& e) noexcept {
+        return boken::name_of(database, e.definition());
+    }
+
+    string_view name_of(unique_entity const& e) noexcept {
+        return name_of(e.get());
+    }
+
+    string_view name_of(entity_instance_id const id) noexcept {
+        return boken::name_of(the_world, database, id);
+    }
+
+    item_id get_pile_id() const {
+        return boken::get_pile_id(database);
+    }
+
+    item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
+        return boken::get_pile_id(the_world, pile, pile_id);
+    }
+
+    int32_t weight_of_exclusive(item const& itm) const noexcept {
+        return boken::weight_of_exclusive(database, itm);
+    }
+
+    int32_t weight_of_inclusive(item const& itm) const noexcept {
+        return boken::weight_of_inclusive(the_world, database, itm);
+    }
+
+    int32_t weight_of_inclusive(item_instance_id const id) const noexcept {
+        return boken::weight_of_inclusive(the_world, database, id);
+    }
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     using clock_t     = std::chrono::high_resolution_clock;
@@ -215,17 +328,12 @@ struct game_state {
             return std::string {as_string.data()};
         });
 
-        item_list.add_column("Name"
-            , [&](item const& itm) { return name_of(itm).to_string(); });
+        item_list.add_column("Name", [&](item const& itm) {
+            return name_of(itm).to_string();
+        });
 
         item_list.add_column("Weight", [&](item const& itm) {
-            auto const weight = get_property_value_or(database, itm
-                , property(item_property::weight), 0);
-
-            auto const stack = get_property_value_or(database, itm
-                , property(item_property::current_stack_size), 1);
-
-            return std::to_string(weight * stack);
+            return std::to_string(weight_of_inclusive(itm));
         });
 
         item_list.add_column("Count", [&](item const& itm) {
@@ -517,20 +625,6 @@ struct game_state {
         generate_items();
 
         set_current_level(id, true);
-    }
-
-    //! get the item id to use for item pile
-    item_id get_pile_id() const {
-        auto const pile_def = find(database, make_id<item_id>("pile"));
-        return pile_def ? pile_def->id : item_id {};
-    }
-
-    //! get the item id to display an item pile
-    item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
-        BK_ASSERT(!pile.empty());
-        return (pile.size() == 1u)
-          ? find(the_world, *pile.begin()).definition()
-          : pile_id;
     }
 
     void set_current_level(size_t const id, bool const is_new) {
@@ -860,39 +954,6 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    string_view name_of(item_id const id) noexcept {
-        return boken::name_of(database, id);
-    }
-
-    string_view name_of(item const& i) noexcept {
-        return boken::name_of(database, i.definition());
-    }
-
-    string_view name_of(unique_item const& i) noexcept {
-        return name_of(i.get());
-    }
-
-    string_view name_of(item_instance_id const id) noexcept {
-        return boken::name_of(the_world, database, id);
-    }
-
-    string_view name_of(entity_id const id) noexcept {
-        return boken::name_of(database, id);
-    }
-
-    string_view name_of(entity const& e) noexcept {
-        return boken::name_of(database, e.definition());
-    }
-
-    string_view name_of(unique_entity const& e) noexcept {
-        return name_of(e.get());
-    }
-
-    string_view name_of(entity_instance_id const id) noexcept {
-        return boken::name_of(the_world, database, id);
-    }
-
-    /////
 
     std::pair<entity&, point2i32> get_player() noexcept {
         constexpr auto player_id = entity_instance_id {1u};
