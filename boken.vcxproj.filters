@@ -81,6 +81,9 @@
       <Filter>data</Filter>
     </ClCompile>
     <ClCompile Include="src\message_log.cpp" />
+    <ClCompile Include="src\test\graph.t.cpp">
+      <Filter>test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />

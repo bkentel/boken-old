@@ -116,6 +116,7 @@
     <ClCompile Include="src\test\bsp_generator.t.cpp" />
     <ClCompile Include="src\test\circular_buffer.t.cpp" />
     <ClCompile Include="src\test\entity.t.cpp" />
+    <ClCompile Include="src\test\graph.t.cpp" />
     <ClCompile Include="src\test\hash.t.cpp" />
     <ClCompile Include="src\test\level.t.cpp" />
     <ClCompile Include="src\test\math.t.cpp" />
