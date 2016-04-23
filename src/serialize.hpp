@@ -39,7 +39,7 @@ void load_entity_definitions(
   , on_add_new_entity_property  const& on_property
 );
 
-uint32_t to_property(nullptr_t n) noexcept;
+uint32_t to_property(std::nullptr_t n) noexcept;
 uint32_t to_property(bool n) noexcept;
 uint32_t to_property(int32_t n) noexcept;
 uint32_t to_property(uint32_t n) noexcept;

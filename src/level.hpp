@@ -41,6 +41,7 @@ struct region_info {
     int32_t entity_count;
     int32_t item_count;
     int32_t tile_count;
+    int32_t id;
 };
 
 //====---

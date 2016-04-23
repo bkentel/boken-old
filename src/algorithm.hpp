@@ -21,6 +21,42 @@ struct always_false {
     }
 };
 
+template <typename FwdIt, typename Count, typename Value>
+auto find_nth(FwdIt const first, FwdIt const last, Count const n, Value const& value) noexcept {
+    static_assert(noexcept(value == value), "");
+    static_assert(std::is_integral<Count>::value, "");
+
+    return std::find_if(first, last
+      , [&value, n, i = Count {0}](auto const& v) mutable noexcept {
+            return (v == value) && (++i > n);
+        });
+}
+
+template <typename Container, typename Count, typename Value>
+auto find_nth(Container&& c, Count const n, Value const& value) noexcept {
+    using std::begin;
+    using std::end;
+    return find_nth(begin(c), end(c), n, value);
+}
+
+template <typename Container, typename Value>
+void fill(Container& c, Value const& v) {
+    using std::begin;
+    using std::end;
+
+    std::fill(begin(c), end(c), v);
+}
+
+template <typename FwdIt, typename Index, typename Out, typename Predicate>
+void fill_with_index_if(FwdIt first, FwdIt last, Index i, Out out, Predicate pred) {
+    for (auto it = first; it != last; ++it) {
+        if (pred(*it)) {
+            *out = i++;
+            ++out;
+        }
+    }
+}
+
 template <typename Container, typename T, typename U>
 auto&& at_xy(Container&& c, T const x, T const y, U const w) noexcept {
     using type = typename std::decay_t<Container>::iterator::iterator_category;

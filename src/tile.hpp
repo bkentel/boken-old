@@ -77,6 +77,11 @@ public:
     constexpr bool test(flag_t<Bit>) const noexcept {
         return bits_.test(Bit - 1);
     }
+
+    template <size_t Bit>
+    void clear(flag_t<Bit>) noexcept {
+        bits_.reset(Bit - 1);
+    }
 private:
     std::bitset<32> bits_;
 };

@@ -151,6 +151,7 @@
     <ClInclude Include="src\serialize.hpp">
       <Filter>data</Filter>
     </ClInclude>
+    <ClInclude Include="src\graph.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

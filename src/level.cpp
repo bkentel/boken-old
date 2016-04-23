@@ -9,6 +9,7 @@
 #include "item_pile.hpp"
 #include "spatial_map.hpp"
 #include "rect.hpp"
+#include "graph.hpp"
 
 #include "forward_declarations.hpp"
 
@@ -125,43 +126,70 @@ tile_id try_place_door_at(point2<T> const p, Read read, Check check) noexcept {
          : tile_id::invalid;
 }
 
-template <typename T, typename Read, typename Check>
-bool can_gen_tunnel_at_wall(point2<T> const p, Read read, Check check) noexcept {
-    auto const is_wall = [&](point2<T> const q) noexcept {
-        return read(q) == tile_type::wall;
-    };
+enum class tribool {
+    no, maybe, yes
+};
 
-    auto const is_not_wall = [&](point2<T> const q) noexcept {
-        return read(q) != tile_type::wall;
-    };
-
-    auto const wall_type  = fold_neighbors4(p, check, is_wall);
-    auto const other_type = fold_neighbors4(p, check, is_not_wall);
-
-    return (wall_type == 0b1001 && other_type == 0b0110)
-        || (wall_type == 0b0110 && other_type == 0b1001);
+//! @note neighbors is the result of fold_neighbors4
+bool can_gen_tunnel_at_wall(uint32_t const neighbors) noexcept {
+    //                     NWES
+    return (neighbors == 0b1001u)
+        || (neighbors == 0b0110u);
 }
 
 template <typename T, typename Read, typename Check>
-bool can_gen_tunnel_at(point2<T> const p, Read read, Check check) noexcept {
-    if (!check(p)) {
-        return false;
-    }
+bool can_gen_tunnel_at_wall(point2<T> const p, Read read, Check check) noexcept {
+    return can_gen_tunnel_at_wall(fold_neighbors4(p, check
+      , [&](point2<T> const q) noexcept {
+            return read(q) == tile_type::wall;
+        }));
+}
 
-    switch (read(p)) {
+tribool can_gen_tunnel(tile_type const type) noexcept {
+    switch (type) {
     case tile_type::empty  :
     case tile_type::floor  :
     case tile_type::tunnel :
     case tile_type::door   :
     case tile_type::stair  :
-        return true;
+        return tribool::yes;
     case tile_type::wall :
-        return can_gen_tunnel_at_wall(p, read, check);
+        return tribool::maybe;
     default :
         break;
     }
 
-    return false;
+    return tribool::no;
+}
+
+template <typename T, typename Read, typename Check>
+tribool can_gen_tunnel_at(point2<T> const p, Read read, Check check) noexcept {
+    BK_ASSERT(check(p));
+
+    auto const type   = read(p);
+    auto const result = can_gen_tunnel(type);
+
+    if (result != tribool::maybe) {
+        return result;
+    }
+
+    switch (type) {
+    case tile_type::wall :
+        if (can_gen_tunnel_at_wall(p, read, check)) {
+            return tribool::yes;
+        }
+        break;
+    case tile_type::empty  :
+    case tile_type::floor  :
+    case tile_type::tunnel :
+    case tile_type::door   :
+    case tile_type::stair  :
+    default :
+        BK_ASSERT(false);
+        break;
+    }
+
+    return tribool::no;
 }
 
 } // namespace boken
@@ -241,7 +269,7 @@ struct generate_rect_room {
     {
     }
 
-    int32_t operator()(random_state& rng, recti32 const area, std::vector<tile_data_set>& out) {
+    int32_t operator()(random_state& rng, recti32 const area, std::vector<tile_data_set>& out) const {
         auto const r = random_sub_rect(rng, move_to_origin(area)
           , room_min_w_, room_max_w_
           , room_min_h_, room_max_h_);
@@ -526,7 +554,7 @@ public:
     }
 
     size_t region_count() const noexcept final override {
-        return bsp_gen_->size();
+        return regions_.size();
     }
 
     region_info region(size_t const i) const noexcept final override {
@@ -693,6 +721,26 @@ public:
     const_sub_region_range<tile_id> update_tile_rect(random_state& rng, recti32 const area, std::vector<tile_data_set> const& data) {
         return update_tile_rect(rng, area, data.data());
     }
+
+    /////
+
+    template <typename Predicate, typename UnaryF>
+    point2i32 dig_segment(point2i32 p, region_id src_id, vec2i32 dir, int len
+                        , Predicate pred, UnaryF on_connect) noexcept;
+
+    // dig a one point of a path at 'p'; 'src_id' is the id of the region where
+    // the path originated. The point 'p' must be in bounds and diggable.
+    region_id dig_at(point2i32 p, region_id src_id) noexcept;
+
+    // find, randomly, a good point to start or end a path within the area
+    // given by 'bounds'.
+    std::pair<point2i32, bool>
+    find_path_end_point(random_state& rng
+                      , recti32 region_bounds) const noexcept;
+
+    template <typename UnaryF>
+    void dig_random(random_state& rng, recti32 region_bounds
+                  , UnaryF on_connect) noexcept;
 private:
     template <typename Container>
     auto make_data_reader_(Container const& c) const noexcept {
@@ -772,6 +820,95 @@ private:
 
     world& world_;
     size_t id_;
+//////
+
+    template <typename UnaryF, typename Read, typename Check>
+    point2i32 dig_path_segment_impl(
+        point2i32 p
+      , region_id const src_id
+      , vec2i32 const dir
+      , int const len
+      , UnaryF on_connect
+      , Read read
+      , Check check
+    ) {
+        auto const must_stop = [&](point2i32 const p_cur, point2i32 const p_nxt, int const i) {
+            // walls are a special case; look ahead by one tile to prevent
+            // segments from stopping abruptly at a wall
+
+            if (read(p_cur) != tile_type::wall) {
+                return false;
+            }
+
+            auto const next_ok =
+                check(p_nxt)
+             && (can_gen_tunnel_at(p_nxt, read, check) == tribool::yes);
+
+            auto const is_last = (i == len - 1);
+
+            if (next_ok && is_last) {
+                return data_at_(data_.flags, p_nxt).test(tile_flags::f_solid);
+            } else if (next_ok && !is_last) {
+                return false;
+            }
+
+            return true;
+        };
+
+        auto last_p = p;
+
+        for (int i = 0; i < len; ++i) {
+            // out of bounds
+            if (!check(p)) {
+                break;
+            }
+
+            auto const result = can_gen_tunnel_at(p, read, check);
+
+            // hit a barrier
+            if (result == tribool::no) {
+                break;
+            }
+
+            auto const q = p + dir;
+
+            if (must_stop(p, q, i)) {
+                break;
+            }
+
+            // otherwise, just dig
+            on_connect(dig_at(p, src_id));
+
+            last_p = p;
+            p = q;
+        }
+
+        return last_p;
+    }
+
+    template <typename UnaryF>
+    point2i32 dig_path_segment(
+        point2i32 const p
+      , region_id const src_id
+      , vec2i32 const dir
+      , int const len
+      , UnaryF on_connect
+    ) {
+        // segment end point; 1 extra for the lookahead
+        auto const p_end = p + dir * (len + 1);
+
+        auto const read = make_data_reader_(data_.types);
+
+        auto const no_check = intersects(p,     shrink_rect(bounds(), 1))
+                           && intersects(p_end, shrink_rect(bounds(), 2));
+
+        return no_check
+          // no need to check bounds
+          ? dig_path_segment_impl(p, src_id, dir, len, on_connect, read, always_true {})
+          // have to check bounds
+          : dig_path_segment_impl(p, src_id, dir, len, on_connect, read, make_bounds_checker_());
+    }
+
 };
 
 tile_view level_impl::at(point2i32 const p) const noexcept {
@@ -798,6 +935,10 @@ tile_view level_impl::at(point2i32 const p) const noexcept {
       , data_at_(data_.region_ids, p)
       , nullptr
     };
+
+    ////////////////////
+
+
 }
 
 std::unique_ptr<level> make_level(
@@ -918,126 +1059,306 @@ void level_impl::place_stairs(random_state& rng, recti32 const area) {
                               , tile_id::stair_down);
 }
 
-void level_impl::generate_make_connections(random_state& rng) {
-    auto const region_has_room = [](region_info const& info) noexcept {
-        return info.tile_count > 0;
+region_id level_impl::dig_at(
+    point2i32 const p
+  , region_id const src_id
+) noexcept {
+    auto& to_type  = data_at_(data_.types,      p);
+    auto& to_flags = data_at_(data_.flags,      p);
+    auto& to_id    = data_at_(data_.region_ids, p);
+
+    auto const result = (to_type != tile_type::empty)
+      ? to_id
+      : src_id;
+
+    if (to_type == tile_type::empty) {
+        to_type = tile_type::tunnel;
+        to_flags.clear(tile_flags::f_solid);
+    } else if (to_type == tile_type::wall) {
+        to_type = tile_type::floor;
+        to_flags.clear(tile_flags::f_solid);
+    }
+
+    to_id = src_id;
+
+    return result;
+}
+
+template <typename Predicate, typename UnaryF>
+point2i32 level_impl::dig_segment(
+    point2i32       p
+  , region_id const src_id
+  , vec2i32   const dir
+  , int       const len
+  , Predicate       pred
+  , UnaryF          on_connect
+) noexcept {
+    BK_ASSERT(is_cardinal_dir(dir) && len > 0 && intersects(bounds(), p));
+
+    int n = 0;
+    for (int i = 0; i < len; ++i) {
+        auto const q = p + dir;
+        if (!pred(q, n)) {
+            break;
+        }
+
+        p = q;
+
+        auto const id = dig_at(p, src_id);
+        if (on_connect(id)) {
+            ++n;
+        }
+    }
+
+    return p;
+}
+
+std::pair<point2i32, bool>
+level_impl::find_path_end_point(
+    random_state& rng
+  , recti32 const region_bounds
+) const noexcept {
+    auto const is_valid_start_point = [&](point2i32 const p) noexcept {
+        return data_at_(data_.types, p) == tile_type::floor;
     };
 
-    auto const find_path_start = [&](region_info const& info) noexcept {
-        auto const is_valid_start_point = [&](point2i32 const p) noexcept {
+    return find_if_random(rng, region_bounds
+      , [&](point2i32 const p) noexcept {
             return data_at_(data_.types, p) == tile_type::floor;
-        };
+        });
+}
 
-        auto const p = find_if_random(rng, info.bounds, is_valid_start_point);
-        BK_ASSERT(p.second);
-        return p.first;
-    };
+template <typename UnaryF>
+void level_impl::dig_random(
+    random_state& rng
+  , recti32 const region_bounds
+  , UnaryF        on_connect
+) noexcept {
+    auto const end_point_pair = find_path_end_point(rng, region_bounds);
+    if (!end_point_pair.second) {
+        BK_ASSERT(false); // TODO
+        return;
+    }
 
-    auto const level_bounds = bounds();
-    auto       read         = make_data_reader_(data_.types);
-    auto       check        = make_bounds_checker_();
+    auto       p        = end_point_pair.first;
+    auto const src_id   = data_at_(data_.region_ids, p);
+    auto const segments = random_uniform_int(rng, 1, 10);
 
-    for (auto const& region : regions_) {
-        if (!region_has_room(region)) {
-            continue;
-        }
+    for (int s = 0; s < segments; ++s) {
+        auto const dir = random_dir4(rng);
+        auto const len = random_uniform_int(rng, 3, 10);
 
-        bool const must_check = intersects_edge(region.bounds, level_bounds);
-
-        auto p = find_path_start(region);
-        auto const segments = random_uniform_int(rng, 0, 10);
-
-        for (int s = 0; s < segments; ++s) {
-            auto const dir = random_dir4(rng);
-            auto const len = random_uniform_int(rng, 3, 10);
-
-            for (int i = 0; i < len; ++i) {
-                auto const p0 = p + dir;
-                auto const ok = must_check
-                  ? can_gen_tunnel_at(p0, read, check)
-                  : can_gen_tunnel_at(p0, read, always_true {});
-
-                if (!ok) {
-                    break;
-                }
-
-                p = p0;
-
-                auto& type = data_at_(data_.types, p);
-                if (type == tile_type::empty) {
-                    type = tile_type::tunnel;
-                    data_at_(data_.flags, p) = tile_flags {0};
-                } else if (type == tile_type::wall) {
-                    type = tile_type::floor;
-                    data_at_(data_.flags, p) = tile_flags {0};
-                }
-            }
-        }
+        p = dig_path_segment(p, src_id, dir, len, on_connect);
     }
 }
 
+void level_impl::generate_make_connections(random_state& rng) {
+    auto const region_count = static_cast<int>(regions_.size());
+
+    using vertex_t     = int16_t;
+    using graph_data_t = int8_t;
+
+    auto graph      = adjacency_matrix<vertex_t> {region_count};
+    auto graph_data = vertex_data<graph_data_t>  {region_count};
+
+    auto component_sizes    = std::vector<vertex_t> {};
+    auto component_indicies = std::vector<vertex_t> {};
+
+    component_sizes.reserve(region_count);
+    component_indicies.reserve(region_count);
+
+    // fill 'component_indicies', in random order, with the indicies of the
+    // components which have 'n' components; the first such index is at 'first_i'.
+    auto const get_component_indicies = [&](size_t const first_i, vertex_t const n) noexcept {
+        component_indicies.clear();
+
+        auto const first = next(
+            begin(component_sizes), static_cast<ptrdiff_t>(first_i));
+        auto const last = end(component_sizes);
+
+        auto const i = static_cast<vertex_t>(first_i);
+
+        fill_with_index_if(first, last, i, back_inserter(component_indicies)
+          , [n](vertex_t const m) noexcept { return m == n; });
+
+        shuffle(begin(component_indicies), end(component_indicies), rng);
+    };
+
+    // return 'to' if an edge between from<->to is added to graph, otherwise
+    // return 'from'.
+    auto const add_connection = [&](region_id const from, region_id const to) noexcept {
+        BK_ASSERT(value_cast(to)   > 0
+               && value_cast(from) > 0);
+
+        // no self connections
+        if (from == to) {
+            return from;
+        }
+
+        // valid region ids are >= 1; correct for this fact
+        auto const v0 = value_cast(from) - 1;
+        auto const v1 = value_cast(to)   - 1;
+
+        // already connected
+        if (graph(v0, v1)) {
+            BK_ASSERT(graph(v1, v0)); // the connection should be reciprocal
+            return from;
+        }
+
+        graph.add_mutual_edge(v0, v1);
+        return to;
+    };
+
+    auto const read_type = make_data_reader_(data_.types);
+
+    auto const find_nth_random = [&](auto&& c, auto const n, auto const& value) {
+        using std::begin;
+        using std::end;
+
+        auto const first = begin(c);
+        auto const last  = end(c);
+
+        auto const which =
+            random_uniform_int(rng, 0, static_cast<int32_t>(n - 1));
+
+        return std::distance(first, find_nth(first, last, which, value));
+    };
+
+    connect_components(graph, graph_data, [&](int const n) {
+        BK_ASSERT(n <= region_count && n > 1);
+
+        size_t   min_component_i = 0;
+        vertex_t min_component_n = 0;
+
+        std::tie(min_component_i, std::ignore, min_component_n, std::ignore) =
+            count_components(graph_data, component_sizes);
+
+        BK_ASSERT(min_component_n > 0);
+
+        get_component_indicies(min_component_i, min_component_n);
+        BK_ASSERT(component_indicies.size() > 0);
+
+        for (vertex_t const i : component_indicies) {
+           // components are 1-based
+           auto const c     = static_cast<vertex_t>(i + 1);
+           auto const off   = find_nth_random(graph_data, min_component_n, c);
+           auto const index = static_cast<size_t>(off);
+
+           region_id const src_id = static_cast<region_id::type>(c);
+
+           dig_random(rng, region(index).bounds
+             , [&](region_id const id) noexcept {
+                   add_connection(src_id, id);
+               }
+            );
+        }
+
+        return true;
+    });
+}
+
 void level_impl::generate(random_state& rng) {
-    std::fill(begin(data_.types), end(data_.types), tile_type::empty);
-    std::fill(begin(data_.flags), end(data_.flags), tile_flags {tile_flags::f_solid});
+    fill(data_.ids,        tile_id::invalid);
+    fill(data_.region_ids, region_id {});
+    fill(data_.types,      tile_type::empty);
+    fill(data_.flags,      tile_flags {tile_flags::f_solid});
 
-    auto& bsp = *bsp_gen_;
+    auto&       bsp = *bsp_gen_;
+    auto const& p   = bsp.params();
 
-    auto const& p = bsp.params();
+    // generate a bsp-based layout, populate regions_ with the result, and
+    // return the min and max region areas generated.
+    auto const generate_regions = [&] {
+        bsp.clear();
+        bsp.generate(rng);
 
-    bsp.clear();
-    bsp.generate(rng);
+        regions_.clear();
+        regions_.reserve(bsp.size());
 
-    regions_.clear();
-    regions_.reserve(bsp.size());
-    std::transform(std::begin(bsp), std::end(bsp), back_inserter(regions_)
-      , [](auto const& node) noexcept {
-          return region_info {node.rect, 0, 0, 0};
-      });
+        auto max_area = std::numeric_limits<int32_t>::min();
+        auto min_area = std::numeric_limits<int32_t>::max();
 
-    // reserve enough space for the largest region
+        for (auto const& node : bsp) {
+            auto const area = value_cast(node.rect.area());
+            BK_ASSERT(area >= 0);
+
+            max_area = std::max(max_area, area);
+            min_area = std::min(min_area, area);
+
+            regions_.push_back({node.rect, 0, 0, 0, 0});
+        }
+
+        BK_ASSERT(max_area >= min_area
+               && min_area >= 0);
+
+        return std::make_pair(min_area, max_area);
+    };
+
+    // generate a random room-sized rect
+    auto const generate_rect =
+        generate_rect_room {p.min_room_size, p.max_room_size};
+
+    // roll whether to generate a room or not
+    auto const roll_room_chance = [
+        &rng
+      , lo = value_cast(p.room_chance_num)
+      , hi = value_cast(p.room_chance_den)
+    ]() noexcept {
+        return random_chance_in_x(rng, lo, hi);
+    };
+
+    // min and max region sizes
+    auto const region_area_range = generate_regions();
+
+    // a buffer to use for room generation
     std::vector<tile_data_set> buffer;
-    {
-        auto const size = std::max_element(std::begin(bsp), std::end(bsp)
-          , [](auto const& node_a, auto const& node_b) noexcept {
-              return node_a.rect.area() < node_b.rect.area();
-          })->rect.area();
-
-        buffer.reserve(static_cast<size_t>(std::max(0, value_cast(size))));
-    }
-
-    auto next_rid = region_id::type {0};
+    buffer.reserve(static_cast<size_t>(region_area_range.second));
 
     tile_data_set default_tile {
         tile_data  {}
       , tile_flags {tile_flags::f_solid}
       , tile_id    {}
       , tile_type  {tile_type::empty}
-      , next_rid
+      , region_id  {}
     };
 
-    auto gen_rect = generate_rect_room {p.min_room_size, p.max_room_size};
+    // region id for the next room generated; 0 is for unused regions only.
+    auto next_rid = value_cast(default_tile.rid);
 
-    auto const roll_room_chance = [&]() noexcept {
-        return random_chance_in_x(rng, value_cast(p.room_chance_num)
-                                     , value_cast(p.room_chance_den));
-    };
-
+    // for each region generated, generate a room (or not)
     for (auto& region : regions_) {
-        auto const rect = region.bounds;
-        fill_rect(data_.region_ids, width(), rect, (default_tile.rid = next_rid++));
-
         if (!roll_room_chance()) {
             continue;
         }
 
-        buffer.resize(static_cast<size_t>(std::max(0, value_cast(rect.area()))), default_tile);
-        region.tile_count = gen_rect(rng, rect, buffer);
+        // ok, generate a room with the next id.
+        default_tile.rid = ++next_rid;
+        region.id = next_rid;
 
+        auto const rect = region.bounds;
+
+        // resize the buffer to match the size of the region and fill it with
+        // the default tile values
+        buffer.resize(value_cast_unsafe<size_t>(rect.area()), default_tile);
+
+        // generate a random sized room
+        region.tile_count = generate_rect(rng, rect, buffer);
+
+        copy_region(buffer.data(), &tile_data_set::rid,   rect, data_.region_ids);
         copy_region(buffer.data(), &tile_data_set::id,    rect, data_.ids);
         copy_region(buffer.data(), &tile_data_set::type,  rect, data_.types);
         copy_region(buffer.data(), &tile_data_set::flags, rect, data_.flags);
 
-        buffer.resize(0);
+        buffer.clear();
+    }
+
+    // remove unused regions
+    {
+        auto const first = begin(regions_);
+        auto const last  = end(regions_);
+        auto const it    = std::remove_if(first, last
+          , [](auto const& info) noexcept { return info.tile_count <= 0; });
+        regions_.erase(it, last);
     }
 
     merge_walls_at(rng, bounds_);
@@ -1045,8 +1366,8 @@ void level_impl::generate(random_state& rng) {
     // do a first pass so that natural wall ids are chosen
     update_tile_ids(rng, bounds_);
 
-    generate_make_connections(rng);
     place_stairs(rng, bounds_);
+    generate_make_connections(rng);
     place_doors(rng, bounds_);
 
     // do a final pass to update anything changed by corridors, etc.

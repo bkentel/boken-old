@@ -110,6 +110,30 @@ inline constexpr T clamp(T const n, U const lo, V const hi) noexcept {
       : (hi < n ? hi : n);
 }
 
+template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+constexpr T signof(T const n) noexcept {
+    return (n < T {0}) ? T {-1}
+         : (n > T {0}) ? T { 1}
+                       : T { 0};
+}
+
+template <typename T, typename TagAxis, typename TagType>
+basic_1_tuple<T, TagAxis, TagType>
+signof(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {
+    return {signof(value_cast(n))};
+}
+
+template <typename T>
+constexpr vec2<T> signof(vec2<T> const v) noexcept {
+    return {signof(v.x), signof(v.y)};
+}
+
+template <typename T>
+constexpr point2<T> center_of(axis_aligned_rect<T> const r) noexcept {
+    return r.top_left()
+         + vec2<T> {r.width() / T {2}, r.height() / T {2}};
+}
+
 //
 template <typename T, typename U, typename V, typename TagAxis, typename TagType>
 inline constexpr basic_1_tuple<T, TagAxis, TagType> clamp(
@@ -148,6 +172,27 @@ template <typename T, typename TagAxis, typename TagType>
 constexpr basic_1_tuple<T, TagAxis, TagType>
 abs(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {
     return {value_cast(n) < T {0} ? -value_cast(n) : value_cast(n)};
+}
+
+template <typename T, typename TagType>
+constexpr basic_2_tuple<T, TagType>
+abs(basic_2_tuple<T, TagType> const n) noexcept {
+    return {abs(n.x), abs(n.y)};
+}
+
+namespace detail {
+
+template <typename T>
+constexpr bool is_cardinal_dir_impl(vec2<T> const v) noexcept {
+    return v == vec2<T> {T {0}, T {1}}
+        || v == vec2<T> {T {1}, T {0}};
+}
+
+} // namespace detail
+
+template <typename T>
+constexpr bool is_cardinal_dir(vec2<T> const v) noexcept {
+    return detail::is_cardinal_dir_impl(boken::abs(v));
 }
 
 //! type-casted ceil

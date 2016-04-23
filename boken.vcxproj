@@ -147,6 +147,7 @@
     <ClInclude Include="src\entity.hpp" />
     <ClInclude Include="src\entity_def.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
+    <ClInclude Include="src\graph.hpp" />
     <ClInclude Include="src\hash.hpp" />
     <ClInclude Include="src\inventory.hpp" />
     <ClInclude Include="src\item.hpp" />

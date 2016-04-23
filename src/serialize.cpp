@@ -18,7 +18,7 @@
 
 namespace boken {
 
-uint32_t to_property(nullptr_t) noexcept {
+uint32_t to_property(std::nullptr_t) noexcept {
     return 0u;
 }
 
