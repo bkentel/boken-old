@@ -152,6 +152,7 @@
       <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="src\graph.hpp" />
+    <ClInclude Include="src\level_details.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

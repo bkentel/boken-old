@@ -1,14 +1,16 @@
 #pragma once
 
-#include "math.hpp"   // for point2i32, recti, vec2i, axis_aligned_rect, etc
-#include "types.hpp"  // for entity_instance_id, item_instance_id, sizeix, etc
+#include "math_types.hpp"
+#include "types.hpp"
 #include "utility.hpp"
 
-#include <memory>     // for unique_ptr
-#include <utility>    // for pair
-#include <vector>     // for vector
-#include <cstdint>    // for uint16_t, int32_t
+#include <memory>
+#include <utility>
 #include <functional>
+
+#include <cstdint>
+#include <cstddef>
+
 
 namespace boken { class entity; }
 namespace boken { class item; }
@@ -71,8 +73,11 @@ public:
     //! Otherwise return {nullptr, {0, 0}}
     //! @note A failure to find the entity could, for example, be because it
     //! has died or been moved to another level.
-    virtual std::pair<entity*, point2i32> find(entity_instance_id id) noexcept = 0;
-    virtual std::pair<entity const*, point2i32> find(entity_instance_id id) const noexcept = 0;
+    virtual std::pair<entity*, point2i32>
+        find(entity_instance_id id) noexcept = 0;
+
+    virtual std::pair<entity const*, point2i32>
+        find(entity_instance_id id) const noexcept = 0;
 
     //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
     //! is at the given position.
@@ -109,6 +114,7 @@ public:
 
     //! Return all information about the tile at the given position.
     virtual tile_view at(point2i32 p) const noexcept = 0;
+
     tile_view at(int x, int y) const noexcept {
         return at(point2i32 {x, y});
     }
@@ -117,8 +123,11 @@ public:
     virtual point2i32 stair_up(int const i) const noexcept = 0;
     virtual point2i32 stair_down(int const i) const noexcept = 0;
 
-    virtual void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) = 0;
-    virtual void for_each_entity(std::function<void (entity_instance_id, point2i32)> const& f) = 0;
+    virtual void for_each_pile(
+        std::function<void (item_pile const&, point2i32)> const& f) = 0;
+
+    virtual void for_each_entity(
+        std::function<void (entity_instance_id, point2i32)> const& f) = 0;
 
     //===--------------------------------------------------------------------===
     //                          State Mutation
@@ -149,43 +158,52 @@ public:
     //! @returns The actual position that item was placed. Otherwise {0, 0} and
     //! the reason why placement failed.
     virtual std::pair<point2i32, placement_result>
-        add_object_nearest_random(random_state& rng, unique_item&& i, point2i32 p, int max_distance) = 0;
-    virtual std::pair<point2i32, placement_result>
-        add_object_nearest_random(random_state& rng, unique_entity&& e, point2i32 p, int max_distance) = 0;
+        add_object_nearest_random(random_state& rng, unique_item&& i
+                                , point2i32 p, int max_distance) = 0;
 
     virtual std::pair<point2i32, placement_result>
-        find_valid_item_placement_neareast(random_state& rng, point2i32 p, int max_distance) const noexcept = 0;
+        add_object_nearest_random(random_state& rng, unique_entity&& e
+                                , point2i32 p, int max_distance) = 0;
 
     virtual std::pair<point2i32, placement_result>
-        find_valid_entity_placement_neareast(random_state& rng, point2i32 p, int max_distance) const noexcept = 0;
+        find_valid_item_placement_neareast(random_state& rng, point2i32 p
+                                         , int max_distance) const noexcept = 0;
 
-    virtual placement_result move_by(item_instance_id   id, vec2i32 v) noexcept = 0;
-    virtual placement_result move_by(entity_instance_id id, vec2i32 v) noexcept = 0;
+    virtual std::pair<point2i32, placement_result>
+        find_valid_entity_placement_neareast(random_state& rng, point2i32 p
+                                           , int max_distance) const noexcept = 0;
+
+    virtual placement_result
+        move_by(item_instance_id id, vec2i32 v) noexcept = 0;
+
+    virtual placement_result
+        move_by(entity_instance_id id, vec2i32 v) noexcept = 0;
 
     virtual const_sub_region_range<tile_id>
-        update_tile_at(random_state& rng, point2i32 p, tile_data_set const& data) noexcept = 0;
+        update_tile_at(random_state& rng, point2i32 p
+                     , tile_data_set const& data) noexcept = 0;
 
-    virtual merge_item_result move_items(
-        point2i32 from
-      , item_pile& to
-      , std::function<bool (item_instance_id)>          const& pred
+    virtual merge_item_result move_items(point2i32 from, item_pile& to
+      , std::function<bool (item_instance_id)> const& pred
       , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
 
     virtual merge_item_result move_items(
-        point2i32 from
-      , item_pile& to
-      , int const* first
-      , int const* last
-      , std::function<bool (item_instance_id)>          const& pred
+        point2i32 from, item_pile& to, int const* first, int const* last
+      , std::function<bool (item_instance_id)> const& pred
       , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access
     //===--------------------------------------------------------------------===
-    virtual const_sub_region_range<tile_id>   tile_ids(recti32 area) const noexcept = 0;
-    virtual const_sub_region_range<region_id> region_ids(recti32 area) const noexcept = 0;
+    virtual const_sub_region_range<tile_id>
+        tile_ids(recti32 area) const noexcept = 0;
+
+    virtual const_sub_region_range<region_id>
+        region_ids(recti32 area) const noexcept = 0;
 };
 
-std::unique_ptr<level> make_level(random_state& rng, world& w, sizei32x width, sizei32y height, size_t id);
+std::unique_ptr<level>
+make_level(random_state& rng, world& w, sizei32x width, sizei32y height
+         , size_t id);
 
 } //namespace boken
