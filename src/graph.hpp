@@ -225,7 +225,7 @@ void connect_components(
 template <typename T, typename Container>
 auto count_components(vertex_data<T> const& data, Container& out) {
     using iterator = typename std::decay_t<Container>::iterator;
-    using tag = std::iterator_traits<iterator>::iterator_category;
+    using tag = typename std::iterator_traits<iterator>::iterator_category;
     static_assert(std::is_same<tag, std::random_access_iterator_tag>::value, "");
 
     out.clear();
