@@ -158,6 +158,11 @@ public:
     }
 
     void scroll_into_view(int const c, int const r) noexcept final override {
+        if (empty()) {
+            BK_ASSERT(c == 0 && r == 0);
+            return;
+        }
+
         BK_ASSERT(check_col_(c) && check_row_(r));
 
         auto const frame = metrics_.client_frame;
@@ -281,8 +286,6 @@ public:
     }
 
     void indicate_change_(int const n) noexcept {
-        BK_ASSERT(check_row_(indicated_));
-
         auto const n_rows = rows();
         auto const i = static_cast<size_t>(indicated_);
 
