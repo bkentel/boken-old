@@ -4,13 +4,23 @@
 #include "math.hpp"
 #include <algorithm>    // for move, max, swap
 
-namespace {
-inline uint32_t next_code_point(char const*& p, char const* const last) noexcept {
-    return p != last ? static_cast<uint8_t>(*p++) : 0u;
-}
-} //namespace anonymous
-
 namespace boken {
+
+namespace {
+
+template <typename FwdIt>
+uint32_t next_code_point(FwdIt& it, FwdIt const last) noexcept {
+    if (it == last) {
+        return 0u;
+    }
+
+    auto result = *it;
+    ++it;
+
+    return static_cast<uint8_t>(result);
+}
+
+} //namespace anonymous
 
 //===------------------------------------------------------------------------===
 //                             text_renderer
@@ -98,77 +108,166 @@ void text_layout::layout(text_renderer& trender, std::string text) {
 void text_layout::layout(text_renderer& trender) {
     data_.clear();
 
-    auto const line_gap = int32_t {trender.line_gap()};
-    auto const max_w    = int32_t {value_cast(max_width_)};
-    auto const max_h    = int32_t {value_cast(max_height_)};
-
-    auto     it       = text_.data();
-    auto     last     = text_.data() + text_.size();
-    uint32_t prev_cp  = 0;
-    int32_t  line_h   = 0;
-    int32_t  x        = 0;
-    int32_t  y        = 0;
-    int32_t  actual_w = 0;
-
-    auto const next_line = [&] {
-        actual_w =  std::max(actual_w, x);
-        y        += line_gap;
-
-        if (y >= max_h) {
-            return false;
-        }
-        x      =  0;
-        line_h =  line_gap;
-
-        return true;
+    enum class state_t {
+        read, proccess, skip, stop, escape, markup
     };
 
-    while (it != last) {
-        auto const cp = next_code_point(it, last);
+    int16_t const line_gap = static_cast<int16_t>(trender.line_gap()); // gap between successive lines
+    int16_t const max_w    = value_cast(max_width_);
+    int16_t const max_h    = value_cast(max_height_);
 
-        if (cp == '\n') {
-            next_line();
-            continue; // consume the newline
+    int32_t x        = 0; // current x position
+    int32_t y        = 0; // current y position
+    int32_t line_h   = 0; // real line height
+    int32_t actual_w = 0; // the width of the longest line
+
+    size_t line_start_pos = 0; // index of the element where this line started
+    size_t line_break_pos = 0; // index of the last candidate for a line break
+
+    uint32_t color = 0xFF'FFFFFFu; // opaque white
+
+    auto const break_line = [&](uint32_t const cp) noexcept {
+        auto const next_line = [&]() noexcept {
+            actual_w  = std::max(actual_w, x);
+            x         = 0;
+
+            if (y + line_gap > max_h) {
+                return false;
+            }
+
+            y += line_gap;
+            return true;
+        };
+
+        if (!next_line()) {
+            return state_t::stop;
         }
 
-        auto const metrics = trender.load_metrics(prev_cp, cp);
-        auto const glyph_w = int32_t {value_cast(metrics.size.x)};
-        auto const glyph_h = int32_t {value_cast(metrics.size.y)};
+        if (cp == '\n') {
+            return state_t::skip;
+        } else if (line_break_pos == line_start_pos) {
+            return state_t::proccess;
+        } else if (line_break_pos + 1 >= data_.size()) {
+            return state_t::proccess;
+        }
 
-        if ((x + glyph_w > max_w) && !next_line()) {
+        auto const first = begin(data_) + static_cast<ptrdiff_t>(line_break_pos + 1);
+        auto const last  = end(data_);
+
+        auto const dx = static_cast<int16_t>(-value_cast(first->position.x));
+        auto const dy = line_gap;
+        auto const v  = vec2i16 {dx, dy};
+
+        std::for_each(first, last, [&](data_t& glyph) noexcept {
+            glyph.position += v;
+        });
+
+        auto const& last_glyph = data_.back();
+        x = value_cast(last_glyph.position.x) + value_cast(last_glyph.size.x);
+
+        return state_t::proccess;
+    };
+
+    auto const process_escape_seq = [&](uint32_t const cp) noexcept {
+        return state_t::proccess;
+    };
+
+    auto const process_markup = [&](uint32_t const cp) noexcept {
+        return state_t::proccess;
+    };
+
+    auto const process_cp = [&](uint32_t const cp) noexcept {
+        switch (cp) {
+        case '\\':
+            return state_t::escape;
+        case '\n':
+            return break_line(cp);
+        case '%' :
+            return state_t::markup;
+        default :
             break;
         }
 
-        data_.push_back(data_t {
-            underlying_cast_unsafe<int16_t>(point2i32 {x, y})
-          , metrics.texture
-          , metrics.size
-          , 0xFFFFFFFFu
-        });
+        return state_t::proccess;
+    };
 
-        line_h =  std::max(line_h, glyph_h);
+    auto const load_glyph = [&](uint32_t const prev_cp, uint32_t const cp) {
+        auto    const m       = trender.load_metrics(prev_cp, cp);
+        int32_t const glyph_w = value_cast(m.size.x);
+        int32_t const glyph_h = value_cast(m.size.y);
+
+        if (x + glyph_w > max_w) {
+            auto const result = break_line(cp);
+            if (result != state_t::proccess) {
+                return result;
+            }
+
+            line_start_pos = data_.size();
+        }
+
+        if (cp == ' ') {
+            line_break_pos = data_.size();
+        }
+
+        auto const p = point2i16 {
+            static_cast<int16_t>(x)
+          , static_cast<int16_t>(y)
+        };
+
+        data_.push_back({p, m.texture, m.size, color, cp});
+
         x      += glyph_w;
+        line_h =  std::max(line_h, glyph_h);
+
+        return state_t::read;
+    };
+
+    // for each codepoint ...
+    uint32_t prev_cp = 0;
+    uint32_t cp      = 0;
+
+    auto       it   = text_.data();
+    auto const last = text_.data() + static_cast<ptrdiff_t>(text_.size());
+
+    for (auto state = state_t::read; ; ) {
+        switch (state) {
+        case state_t::read :
+            if (it == last) {
+                state = state_t::stop;
+                break;
+            }
+
+            prev_cp = cp;
+            cp      = next_code_point(it, last);
+
+            state = process_cp(cp);
+            break;
+        case state_t::proccess :
+            state = load_glyph(prev_cp, cp);
+            break;
+        case state_t::skip :
+            state = state_t::read;
+            break;
+        case state_t::escape :
+            state = process_escape_seq(cp);
+            break;
+        case state_t::markup :
+            state = process_markup(cp);
+            break;
+        case state_t::stop :
+            actual_width_  = static_cast<int16_t>(std::max(actual_w, x));
+            actual_height_ = static_cast<int16_t>(y + (x ? line_h : 0));
+            return;
+        default :
+            BK_ASSERT(false);
+            break;
+        }
     }
-
-    actual_w = std::max(actual_w, x);
-
-    actual_width_  = size_type_x<int16_t> {static_cast<int16_t>(actual_w)};
-    actual_height_ = size_type_y<int16_t> {static_cast<int16_t>(y + (x ? line_h : 0))};
 }
 
 void text_layout::update(text_renderer& trender) const noexcept {
-    auto it   = text_.data();
-    auto last = text_.data() + text_.size();
-
-    size_t i = 0;
-    while (it != last) {
-        auto const cp = next_code_point(it, last);
-
-        if (cp == '\n') {
-            continue;
-        }
-
-        data_[i++].texture = trender.load_metrics(cp).texture;
+    for (auto& glyph : data_) {
+        glyph.texture = trender.load_metrics(glyph.codepoint).texture;
     }
 }
 

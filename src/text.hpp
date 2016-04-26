@@ -39,6 +39,7 @@ public:
         point2i16 texture;
         point2i16 size;
         uint32_t  color;
+        uint32_t  codepoint;
     };
 
     text_layout() noexcept;
