@@ -15,6 +15,7 @@ enum class tribool {
 
 namespace detail {
 using tile_type_reader = std::integral_constant<int, 0>;
+using tile_id_reader   = std::integral_constant<int, 1>;
 
 } // namespace detail
 
@@ -24,6 +25,14 @@ using tile_type_reader = std::integral_constant<int, 0>;
 template <typename Reader>
 auto make_simple_reader(detail::tile_type_reader, Reader read) noexcept {
     return [=](point2i32 const p) noexcept { return read.tile_type_at(p); };
+}
+
+//!
+//!
+//!
+template <typename Reader>
+auto make_simple_reader(detail::tile_id_reader, Reader read) noexcept {
+    return [=](point2i32 const p) noexcept { return read.tile_id_at(p); };
 }
 
 //!
@@ -43,6 +52,17 @@ auto match_any_of(Reader reader) noexcept {
     auto const read = make_simple_reader(detail::tile_type_reader {}, reader);
     return [read](point2i32 const p) noexcept {
         return match_any_of<tile_type, T0, Ts...>(read(p));
+    };
+}
+
+//!
+//!
+//!
+template <tile_id T0, tile_id... Ts, typename Reader>
+auto match_any_of(Reader reader) noexcept {
+    auto const read = make_simple_reader(detail::tile_id_reader {}, reader);
+    return [read](point2i32 const p) noexcept {
+        return match_any_of<tile_id, T0, Ts...>(read(p));
     };
 }
 
@@ -177,19 +197,36 @@ tile_id try_place_door_at(point2i32 const p, Reader read, Checker check) noexcep
     BK_ASSERT(check(p));
 
     using tt = tile_type;
+    using ti = tile_id;
 
     auto const type = read.tile_type_at(p);
     if (!is_door_candidate(type)) {
-        return tile_id::invalid;
+        return ti::invalid;
     }
 
     auto const walls  = fold_neighbors4(p, check, match_any_of<tt::wall>(read));
     auto const spaces = fold_neighbors4(p, check
         , match_any_of<tt::floor, tt::tunnel, tt::stair>(read));
 
-    return (walls == 0b1001 && spaces == 0b0110) ? tile_id::door_ns_closed
-         : (walls == 0b0110 && spaces == 0b1001) ? tile_id::door_ew_closed
-         : tile_id::invalid;
+    if (walls == 0b1001 && spaces == 0b0110) {
+        // NS door
+        auto const matcher = match_any_of<
+            ti::wall_1001, ti::wall_1011, ti::wall_1101, ti::wall_1111>(read);
+
+        if (matcher(p + vec2i32 {0, -1}) && matcher(p + vec2i32 {0, 1})) {
+            return ti::door_ns_closed;
+        }
+    } else if (walls == 0b0110 && spaces == 0b1001) {
+        // EW door
+        auto const matcher = match_any_of<
+            ti::wall_0110, ti::wall_0111, ti::wall_1110, ti::wall_1111>(read);
+
+        if (matcher(p + vec2i32 {-1, 0}) && matcher(p + vec2i32 {1, 0})) {
+            return ti::door_ew_closed;
+        }
+    }
+
+    return ti::invalid;
 }
 
 //!
