@@ -1077,8 +1077,14 @@ struct game_state {
 
         item_list.set_on_command([=, &src, &items, &dst](ct const cmd, int const* const first, int const* const last) {
             if (cmd == ct::alt_drop_some) {
+                // the inventory list is not modal, so the player could have
+                // moved since the time view_item_pile was first called.
+                auto const p = (type == pile_type::inventory)
+                  ? get_player().second
+                  : src_p;
+
                 update_list(move_items(
-                    src, the_world.current_level(), src_p, first, last));
+                    src, the_world.current_level(), p, first, last));
 
                 return event_result::filter;
             } else if (cmd == ct::alt_get_items) {
@@ -1103,7 +1109,7 @@ struct game_state {
     }
 
     void do_toggle_inventory() {
-        if (!item_list.toogle_visible()) {
+        if (!item_list.toggle_visible()) {
             return;
         }
 

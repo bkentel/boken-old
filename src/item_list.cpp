@@ -401,7 +401,7 @@ void item_list_controller::hide() noexcept {
 }
 
 //! @returns the visible state of the list after toggling.
-bool item_list_controller::toogle_visible() noexcept {
+bool item_list_controller::toggle_visible() noexcept {
     bool const is_visible = list_->is_visible();
     set_visible_(!is_visible);
     return !is_visible;

@@ -91,7 +91,7 @@ public:
     void hide() noexcept;
 
     //! @returns the visible state of the list after toggling.
-    bool toogle_visible() noexcept;
+    bool toggle_visible() noexcept;
 
     bool is_visible() const noexcept;
 
