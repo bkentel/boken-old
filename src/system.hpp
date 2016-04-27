@@ -512,6 +512,8 @@ enum class kb_keycode : uint32_t {
 };
 
 struct kb_modifiers {
+    using bits_t = std::bitset<16>;
+
     template <size_t Bit>
     using flag_t = std::integral_constant<size_t, Bit>;
 
@@ -523,7 +525,7 @@ struct kb_modifiers {
     static constexpr flag_t<7>  m_left_ctrl   = flag_t<7>  {};
     static constexpr flag_t<8>  m_right_ctrl  = flag_t<8>  {};
     static constexpr flag_t<9>  m_left_alt    = flag_t<9>  {};
-    static constexpr flag_t<10>  m_right_alt   = flag_t<10>  {};
+    static constexpr flag_t<10> m_right_alt   = flag_t<10>  {};
     static constexpr flag_t<11> m_left_gui    = flag_t<11> {};
     static constexpr flag_t<12> m_right_gui   = flag_t<12> {};
     static constexpr flag_t<13> m_num         = flag_t<13> {};
@@ -554,7 +556,27 @@ struct kb_modifiers {
         return bits_.test(Bit0 - 1) || bits_.test(Bit1 - 1);
     }
 
-    std::bitset<16> bits_;
+    template <size_t Bit>
+    constexpr bool operator==(flag_t<Bit>) const noexcept {
+        return bits_ == bits_t {}.set(Bit - 1);
+    }
+
+    template <size_t Bit0, size_t Bit1>
+    constexpr bool operator==(flags_t<Bit0, Bit1>) const noexcept {
+        return bits_ == bits_t {}.set(Bit0 - 1).set(Bit1 - 1);
+    }
+
+    template <size_t Bit>
+    constexpr bool operator!=(flag_t<Bit>) const noexcept {
+        return !(*this == flag_t<Bit> {});
+    }
+
+    template <size_t Bit0, size_t Bit1>
+    constexpr bool operator!=(flags_t<Bit0, Bit1>) const noexcept {
+        return !(*this == flags_t<Bit0, Bit1> {});
+    }
+
+    bits_t bits_;
 };
 
 struct kb_event {

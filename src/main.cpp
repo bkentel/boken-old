@@ -392,15 +392,8 @@ struct game_state {
         return {tx, ty};
     }
 
-    // @param p Position in world coordinates
-    void update_tile_at(point2i32 const p) {
-        auto& lvl = the_world.current_level();
-
-        if (!intersects(lvl.bounds(), p)) {
-            return;
-        }
-
-        if (lvl.at(p).type == tile_type::tunnel) {
+    void debug_create_corridor_at(point2i32 const p) {
+        if (!intersects(p, the_world.current_level().bounds())) {
             return;
         }
 
@@ -411,6 +404,15 @@ struct game_state {
           , tile_type::tunnel
           , region_id {}
         };
+
+        update_tile_at(p, data);
+    }
+
+    // @param p Position in world coordinates
+    void update_tile_at(point2i32 const p, tile_data_set const& data) {
+        auto& lvl = the_world.current_level();
+
+        BK_ASSERT(intersects(lvl.bounds(), p));
 
         renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
     }
@@ -825,14 +827,23 @@ struct game_state {
     }
 
     void on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
+        using mbc = mouse_event::button_change_t;
+
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
             break;
         case 0b0001 :
             // left mouse button only
-            if (event.button_change[0] == mouse_event::button_change_t::went_down) {
-                update_tile_at(window_to_world({event.x, event.y}));
+
+            if (event.button_change[0] == mbc::went_down) {
+                if (kmods == kb_modifiers::m_left_alt
+                 || kmods == kb_modifiers::m_right_alt
+                 || kmods == kb_modifiers::m_alt
+                ) {
+                    debug_create_corridor_at(
+                        window_to_world({event.x, event.y}));
+                }
             }
 
             break;
@@ -1969,24 +1980,33 @@ struct game_state {
     //
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    void interact_door(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
+        auto& lvl = the_world.current_level();
+        auto const tile = lvl.at(obstacle_pos);
+
+        BK_ASSERT(tile.type == tile_type::door);
+
+        auto const id = (tile.id == tile_id::door_ns_closed)
+            ? tile_id::door_ns_open
+            : tile_id::door_ew_open;
+
+        tile_data_set const data {
+            tile_data {}
+          , tile_flags {0}
+          , id
+          , tile.type
+          , region_id {}
+        };
+
+        update_tile_at(obstacle_pos, data);
+    }
+
     void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
         auto& lvl = the_world.current_level();
 
         auto const tile = lvl.at(obstacle_pos);
         if (tile.type == tile_type::door) {
-            auto const id = (tile.id == tile_id::door_ns_closed)
-                ? tile_id::door_ns_open
-                : tile_id::door_ew_open;
-
-            tile_data_set const data {
-                tile_data {}
-                , tile_flags {0}
-                , id
-                , tile.type
-                , region_id {}
-            };
-
-            renderer.update_map_data(lvl.update_tile_at(rng_superficial, obstacle_pos, data));
+            interact_door(e, cur_pos, obstacle_pos);
         }
     }
 
