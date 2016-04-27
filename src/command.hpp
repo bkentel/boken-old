@@ -48,6 +48,7 @@ enum class command_type : uint32_t {
   , drop_one      = djb2_hash_32c("drop_one")
   , drop_some     = djb2_hash_32c("drop_some")
   , open          = djb2_hash_32c("open")
+  , view          = djb2_hash_32c("view")
 
   , alt_get_items = djb2_hash_32c("alt_get_items")
   , alt_drop_some = djb2_hash_32c("alt_drop_some")
