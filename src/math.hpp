@@ -168,6 +168,13 @@ axis_aligned_rect<T> clamp(
           , offset_type_y<T> {clamp(r.y1, bounds.y0, bounds.y1)}};
 }
 
+template <typename T, typename TagType>
+constexpr basic_2_tuple<T, TagType> clamp(axis_aligned_rect<T> const r, basic_2_tuple<T, TagType> const p) noexcept {
+    return {
+        clamp(value_cast(p.x), value_cast(r.x0), static_cast<T>(value_cast(r.x1) - 1))
+      , clamp(value_cast(p.y), value_cast(r.y0), static_cast<T>(value_cast(r.y1) - 1))};
+}
+
 template <typename T, typename TagAxis, typename TagType>
 constexpr basic_1_tuple<T, TagAxis, TagType>
 abs(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {

@@ -556,6 +556,10 @@ struct kb_modifiers {
         return bits_.test(Bit0 - 1) || bits_.test(Bit1 - 1);
     }
 
+    bool operator==(kb_modifiers const other) const noexcept {
+        return bits_ == other.bits_;
+    }
+
     template <size_t Bit>
     constexpr bool operator==(flag_t<Bit>) const noexcept {
         return bits_ == bits_t {}.set(Bit - 1);

@@ -33,7 +33,7 @@ public:
     }
 
     template <typename T>
-    point2f world_to_window(vec2<T> const v) const noexcept {
+    vec2f world_to_window(vec2<T> const v) const noexcept {
         return {scale_x * value_cast_unsafe<float>(v.x)
               , scale_y * value_cast_unsafe<float>(v.y)};
     }

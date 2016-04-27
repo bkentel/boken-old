@@ -392,6 +392,34 @@ struct game_state {
         return {tx, ty};
     }
 
+    point2i32 world_to_window(point2i32 const p) const noexcept {
+        auto const& tmap = database.get_tile_map(tile_map_type::base);
+        auto const  tw   = value_cast(tmap.tile_width());
+        auto const  th   = value_cast(tmap.tile_height());
+
+        return underlying_cast_unsafe<int32_t>(
+            current_view.world_to_window(point2i32 {p.x * tw, p.y * th}));
+    }
+
+    void update_view_scale(float const sx, float const sy) {
+        update_view(sx, sy, current_view.x_off, current_view.y_off);
+    }
+
+    void update_view_trans(float const dx, float const dy) {
+        update_view(current_view.scale_x, current_view.scale_y, dx, dy);
+    }
+
+    void update_view(float const sx, float const sy, float const dx, float const dy) {
+        BK_ASSERT(sx == sy && sx > 0.0f && sy > 0.0f);
+
+        current_view.scale_x = sx;
+        current_view.scale_y = sy;
+        current_view.x_off   = dx;
+        current_view.y_off   = dy;
+
+        update_highlight_tile();
+    }
+
     void debug_create_corridor_at(point2i32 const p) {
         if (!intersects(p, the_world.current_level().bounds())) {
             return;
@@ -417,8 +445,57 @@ struct game_state {
         renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
     }
 
+    //! @param p Position in wolrd coordinates
+    void show_view_tool_tip(point2i32 const p) {
+        auto const& lvl  = the_world.current_level();
+        auto const& tile = lvl.at(p);
+
+        static_string_buffer<256> buffer;
+
+        auto const print_entity = [&]() noexcept {
+            auto* const entity = lvl.entity_at(p);
+            if (!entity) {
+                return true;
+            }
+
+            return buffer.append("%s\n", name_of(*entity).data());
+        };
+
+        auto const print_items = [&]() noexcept {
+            auto* const pile = lvl.item_at(p);
+            if (!pile) {
+                return true;
+            }
+
+            auto const size = pile->size();
+            BK_ASSERT(size >= 1u);
+
+            size_t i = 0;
+            for (auto const& id : *pile) {
+                auto const sep = (i++ == size - 1) ? "" : ", ";
+
+                auto const result = buffer.append("%s%s"
+                  , name_of(id).data(), sep);
+
+                if (!result) {
+                    return false;
+                }
+            }
+
+            return buffer.append("\n");
+        };
+
+        auto const result =
+            buffer.append("You see here: %s\n"
+              , enum_to_string(lvl.at(p).id).data())
+         && print_entity()
+         && print_items();
+
+        renderer.update_tool_tip_text(buffer.to_string());
+    }
+
     //! @param p Position in window coordinates
-    void show_tool_tip(point2i32 const p) {
+    void debug_show_tool_tip(point2i32 const p) {
         auto const p0 = window_to_world(p);
         auto const q  = window_to_world({last_mouse_x, last_mouse_y});
 
@@ -668,10 +745,9 @@ struct game_state {
         auto const px = value_cast(p.x);
         auto const py = value_cast(p.y);
 
-        current_view.x_off = static_cast<float>((win_w * 0.5) - tw * (px + 0.5));
-        current_view.y_off = static_cast<float>((win_h * 0.5) - th * (py + 0.5));
-        current_view.scale_x = 1.0f;
-        current_view.scale_y = 1.0f;
+        update_view(1.0f, 1.0f
+                  , static_cast<float>((win_w * 0.5) - tw * (px + 0.5))
+                  , static_cast<float>((win_h * 0.5) - th * (py + 0.5)));
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -809,15 +885,15 @@ struct game_state {
     }
 
     void on_key(kb_event const event, kb_modifiers const kmods) {
-        if (event.went_down) {
-            if (!kmods.test(kb_modifiers::m_shift)
-               && (event.scancode == kb_scancode::k_lshift
-                || event.scancode == kb_scancode::k_rshift)
-            ) {
-                show_tool_tip({last_mouse_x, last_mouse_y});
-            }
-        } else {
-            if (!kmods.test(kb_modifiers::m_shift)) {
+        auto const is_shift =
+            (!kmods.test(kb_modifiers::m_shift))
+         && ((event.scancode == kb_scancode::k_lshift)
+          || (event.scancode == kb_scancode::k_rshift));
+
+        if (is_shift) {
+            if (event.went_down) {
+                debug_show_tool_tip({last_mouse_x, last_mouse_y});
+            } else {
                 renderer.update_tool_tip_visible(false);
             }
         }
@@ -866,7 +942,7 @@ struct game_state {
         case 0b0000 :
             // no buttons down
             if (kmods.test(kb_modifiers::m_shift)) {
-                show_tool_tip({event.x, event.y});
+                debug_show_tool_tip({event.x, event.y});
             }
             break;
         case 0b0001 :
@@ -878,8 +954,9 @@ struct game_state {
         case 0b0100 :
             // right mouse button only
             if (kmods.none()) {
-                current_view.x_off += static_cast<float>(event.dx);
-                current_view.y_off += static_cast<float>(event.dy);
+                update_view_trans(
+                    current_view.x_off + static_cast<float>(event.dx)
+                  , current_view.y_off + static_cast<float>(event.dy));
             }
             break;
         case 0b1000 :
@@ -894,13 +971,17 @@ struct game_state {
         auto const p_window = point2i32 {last_mouse_x, last_mouse_y};
         auto const p_world  = current_view.window_to_world(p_window);
 
-        current_view.scale_x *= (wy > 0 ? 1.1f : 0.9f);
-        current_view.scale_y  = current_view.scale_x;
+        auto const scale = current_view.scale_x * (wy > 0 ? 1.1f : 0.9f);
+        update_view_scale(scale, scale);
 
         auto const p_window_new = current_view.world_to_window(p_world);
 
-        current_view.x_off += value_cast_unsafe<float>(p_window.x) - value_cast(p_window_new.x);
-        current_view.y_off += value_cast_unsafe<float>(p_window.y) - value_cast(p_window_new.y);
+        auto const dx = current_view.x_off
+            + value_cast_unsafe<float>(p_window.x) - value_cast(p_window_new.x);
+        auto const dy = current_view.y_off
+            + value_cast_unsafe<float>(p_window.y) - value_cast(p_window_new.y);
+
+        update_view_trans(dx, dy);
     }
 
     void on_command(command_type const type, uint64_t const data) {
@@ -938,8 +1019,7 @@ struct game_state {
 
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
-            current_view.scale_x = 1.0f;
-            current_view.scale_y = 1.0f;
+            BK_ASSERT(false); // TODO
             break;
         case ct::debug_toggle_regions :
             renderer.debug_toggle_show_regions();
@@ -952,6 +1032,7 @@ struct game_state {
         case ct::drop_one : do_drop_one(); break;
         case ct::drop_some : do_drop_some(); break;
         case ct::open : do_open(); break;
+        case ct::view : do_view(); break;
 
         case ct::alt_get_items : break;
         case ct::alt_drop_some : break;
@@ -982,6 +1063,85 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //! updates the window space position of the tooltip associated with the
+    //! view command.
+    void update_highlight_tile() {
+        auto const p = highlighted_tile;
+        if (p == point2i32 {-1, -1}) {
+            return;
+        }
+
+        auto const q = world_to_window(p + vec2i32 {1, 0});
+        renderer.update_tool_tip_position(q);
+    }
+
+    void set_highlighted_tile(point2i32 const p) {
+        auto const bounds = the_world.current_level().bounds();
+        auto const q      = clamp(bounds, p);
+
+        highlighted_tile = q;
+        renderer.set_tile_highlight(q);
+        show_view_tool_tip(q);
+
+        update_highlight_tile();
+        renderer.update_tool_tip_visible(true);
+    }
+
+    void update_highlighted_tile(vec2i32 const v) {
+        set_highlighted_tile(highlighted_tile + v);
+    }
+
+    void do_view() {
+        set_highlighted_tile(get_player().second);
+
+        input_context c;
+
+        c.on_mouse_button_handler =
+            [&](mouse_event const event, kb_modifiers const kmods) {
+                using mbc = mouse_event::button_change_t;
+
+                auto const ok =
+                    (event.button_change[0] == mbc::went_down)
+                 && (kmods.none());
+
+                if (ok) {
+                    set_highlighted_tile(
+                        window_to_world({event.x, event.y}));
+                }
+
+                return event_result::filter;
+            };
+
+        c.on_command_handler =
+            [&](command_type const type, uint64_t) {
+                using ct = command_type;
+
+                switch (type) {
+                case ct::reset_view : BK_ATTRIBUTE_FALLTHROUGH;
+                case ct::reset_zoom :
+                    return event_result::pass_through;
+                case ct::cancel :
+                    highlighted_tile = point2i32 {-1, -1};
+                    renderer.clear_tile_highlight();
+                    renderer.update_tool_tip_visible(false);
+                    return event_result::filter_detach;
+                case ct::move_n  : update_highlighted_tile({ 0, -1}); break;
+                case ct::move_ne : update_highlighted_tile({ 1, -1}); break;
+                case ct::move_e  : update_highlighted_tile({ 1,  0}); break;
+                case ct::move_se : update_highlighted_tile({ 1,  1}); break;
+                case ct::move_s  : update_highlighted_tile({ 0,  1}); break;
+                case ct::move_sw : update_highlighted_tile({-1,  1}); break;
+                case ct::move_w  : update_highlighted_tile({-1,  0}); break;
+                case ct::move_nw : update_highlighted_tile({-1, -1}); break;
+                default:
+                    break;
+                }
+
+                return event_result::filter;
+            };
+
+        context_stack.push_back(std::move(c));
+    }
 
     //! common implementation for choose_one_item and choose_n_items.
     template <typename Confirm, typename Cancel>
@@ -1825,17 +1985,17 @@ struct game_state {
         auto const x_limit = 3 * tw * current_view.scale_x;
         auto const y_limit = 3 * th * current_view.scale_y;
 
-        if (left < x_limit) {
-            current_view.x_off += x_limit - left;
-        } else if (right < x_limit) {
-            current_view.x_off -= x_limit - right;
-        }
+        auto const dx =
+            (left  < x_limit) ? (current_view.x_off + (x_limit - left))
+          : (right < x_limit) ? (current_view.x_off - (x_limit - right))
+          : current_view.x_off;
 
-        if (top < y_limit) {
-            current_view.y_off += y_limit - top;
-        } else if (bottom < y_limit) {
-            current_view.y_off -= y_limit - bottom;
-        }
+        auto const dy =
+            (top    < y_limit) ? (current_view.y_off + (y_limit - top))
+          : (bottom < y_limit) ? (current_view.y_off - (y_limit - bottom))
+          : current_view.y_off;
+
+        update_view_trans(dx, dy);
     }
 
     placement_result impl_player_move_by_(level& lvl, entity& player, point2i32 const p, vec2i32 const v) {
@@ -2154,6 +2314,8 @@ struct game_state {
 
     int last_mouse_x = 0;
     int last_mouse_y = 0;
+
+    point2i32 highlighted_tile {};
 
     std::vector<game_renderer::update_t<item_id>>   item_updates_;
     std::vector<game_renderer::update_t<entity_id>> entity_updates_;
