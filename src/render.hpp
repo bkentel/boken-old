@@ -79,6 +79,9 @@ public:
     virtual void update_map_data() = 0;
     virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
 
+    virtual void set_tile_highlight(point2i32 p) noexcept = 0;
+    virtual void clear_tile_highlight() noexcept = 0;
+
     template <typename T>
     struct update_t {
         point2i32 prev_pos;

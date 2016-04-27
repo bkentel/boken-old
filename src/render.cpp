@@ -104,6 +104,14 @@ public:
     void update_map_data() final override;
     void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
 
+    void set_tile_highlight(point2i32 const p) noexcept final override {
+        tile_highlight_ = p;
+    }
+
+    void clear_tile_highlight() noexcept final override {
+        tile_highlight_ = point2i32 {-1, -1};
+    }
+
     void update_data(update_t<entity_id> const* first, update_t<entity_id> const* last) final override {
         update_data_(entity_data, first, last, *tile_map_entities_);
     }
@@ -165,6 +173,9 @@ private:
     message_log const* message_log_ {};
 
     inventory_list const* inventory_list_ {};
+
+    point2i32 tile_highlight_ {-1, -1};
+
     bool inventory_list_focus_ {false};
 
     bool debug_show_regions_ = false;
@@ -333,6 +344,22 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     os_.render_data_n(entity_data.size());
 
     //
+    // tile highlight
+    //
+    if (value_cast(tile_highlight_.x) >= 0 && value_cast(tile_highlight_.y) >= 0) {
+        auto const w = tmap_base.tile_width();
+        auto const h = tmap_base.tile_height();
+
+        auto const r = recti32 {
+            tile_highlight_.x * value_cast(w)
+          , tile_highlight_.y * value_cast(h)
+          , w
+          , h};
+
+        os_.render_draw_rect(r, 2, 0xD000FFFFu);
+    }
+
+    //
     // text
     //
     os_.render_set_tile_size(tmap_base.tile_width(), tmap_base.tile_height());
@@ -379,6 +406,8 @@ void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off
     os_.render_set_data(render_data_type::color
       , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, color)});
     os_.render_data_n(glyph_data.size());
+
+    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
 }
 
 void game_renderer_impl::render_tool_tip_() const noexcept {
