@@ -414,10 +414,13 @@ public:
         auto const rw = value_cast(r.width());
         auto const rh = value_cast(r.height());
 
-        auto const x0 = value_cast(r.x0);
-        auto const y0 = value_cast(r.y0);
-        auto const x1 = value_cast(r.x1);
-        auto const y1 = value_cast(r.y1);
+        auto const tx = ceil_as<int>(tx_ / sx_);
+        auto const ty = ceil_as<int>(ty_ / sy_);
+
+        auto const x0 = value_cast(r.x0) + tx;
+        auto const y0 = value_cast(r.y0) + ty;
+        auto const x1 = value_cast(r.x1) + tx;
+        auto const y1 = value_cast(r.y1) + ty;
 
         constexpr int count = 4;
         SDL_Rect const rects[count] {
