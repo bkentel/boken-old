@@ -1,6 +1,7 @@
 #include "render.hpp"
 #include "level.hpp"
 #include "math.hpp"
+#include "rect.hpp"
 #include "message_log.hpp"
 #include "system.hpp"
 #include "text.hpp"
@@ -415,12 +416,21 @@ void game_renderer_impl::render_tool_tip_() const noexcept {
         return;
     }
 
-    auto const r = tool_tip_.extent();
+    auto const border_w = 2;
+    auto const window_r = os_.render_get_client_rect();
+    auto const text_r   = tool_tip_.extent();
+    auto const border_r = grow_rect(text_r, border_w);
+
+    auto const v = vec2i32 {
+        (border_r.x1 > window_r.x1) ? value_cast(window_r.x1 - border_r.x1) : 0
+      , (border_r.y1 > window_r.y1) ? value_cast(window_r.y1 - border_r.y1) : 0};
+
 
     os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-    os_.render_fill_rect(r, 0xDF666666u);
+    os_.render_fill_rect(text_r + v, 0xDF666666u);
+    os_.render_draw_rect(border_r + v, border_w, 0xDF66DDDDu);
 
-    render_text_(tool_tip_, vec2i32 {});
+    render_text_(tool_tip_, v);
 }
 
 void game_renderer_impl::render_message_log_() const noexcept {

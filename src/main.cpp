@@ -890,11 +890,11 @@ struct game_state {
          && ((event.scancode == kb_scancode::k_lshift)
           || (event.scancode == kb_scancode::k_rshift));
 
-        if (is_shift) {
-            if (event.went_down) {
-                debug_show_tool_tip({last_mouse_x, last_mouse_y});
-            } else {
+        if (is_shift&& !event.went_down) {
+            if (highlighted_tile == point2i32 {-1, -1}) {
                 renderer.update_tool_tip_visible(false);
+            } else {
+                update_highlighted_tile({});
             }
         }
     }
@@ -2312,7 +2312,7 @@ struct game_state {
     int last_mouse_x = 0;
     int last_mouse_y = 0;
 
-    point2i32 highlighted_tile {};
+    point2i32 highlighted_tile {-1, -1};
 
     std::vector<game_renderer::update_t<item_id>>   item_updates_;
     std::vector<game_renderer::update_t<entity_id>> entity_updates_;
