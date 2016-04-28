@@ -4,6 +4,7 @@
 #include "hash.hpp"
 #include "math_types.hpp"
 #include "types.hpp"
+#include "flag_set.hpp"
 
 #include <bitset>
 #include <type_traits>
@@ -13,11 +14,18 @@
 
 namespace boken {
 
+//===------------------------------------------------------------------------===
+//                                  tile_id
+//===------------------------------------------------------------------------===
+
+//! The sub-type of a tile which is directly tied to its graphical tile.
 enum class tile_id : uint32_t {
     invalid = 0
+
   , empty  = djb2_hash_32c("empty")
   , floor  = djb2_hash_32c("floor")
   , tunnel = djb2_hash_32c("tunnel")
+
   , wall_0000 = djb2_hash_32c("wall_0000") //!< ____
   , wall_0001 = djb2_hash_32c("wall_0001") //!< ___S
   , wall_0010 = djb2_hash_32c("wall_0010") //!< __E_
@@ -34,10 +42,12 @@ enum class tile_id : uint32_t {
   , wall_1101 = djb2_hash_32c("wall_1101") //!< NW_S
   , wall_1110 = djb2_hash_32c("wall_1110") //!< NWE_
   , wall_1111 = djb2_hash_32c("wall_1111") //!< NWES
+
   , door_ns_closed = djb2_hash_32c("door_ns_closed")
   , door_ns_open   = djb2_hash_32c("door_ns_open")
   , door_ew_closed = djb2_hash_32c("door_ew_closed")
   , door_ew_open   = djb2_hash_32c("door_ew_open")
+
   , stair_down = djb2_hash_32c("stair_down")
   , stair_up   = djb2_hash_32c("stair_up")
 };
@@ -47,50 +57,40 @@ Enum string_to_enum(string_view str) noexcept;
 
 string_view enum_to_string(tile_id id) noexcept;
 
+//===------------------------------------------------------------------------===
+//                                  tile_type
+//===------------------------------------------------------------------------===
+
+//! The basic category for a tile.
 enum class tile_type : uint16_t {
     empty, wall, floor, tunnel, door, stair
 };
 
-class tile_flags {
-public:
-    template <size_t Bit>
-    using flag_t = std::integral_constant<size_t, Bit>;
+//===------------------------------------------------------------------------===
+//                                  tile_flags
+//===------------------------------------------------------------------------===
 
-    static constexpr flag_t<1> f_solid = flag_t<1> {};
+namespace detail {
 
-    constexpr explicit tile_flags(uint32_t const n = 0) noexcept
-      : bits_ {n}
-    {
-    }
-
-    template <size_t Bit>
-    constexpr explicit tile_flags(flag_t<Bit>) noexcept
-      : tile_flags {Bit}
-    {
-    }
-
-    bool none() const noexcept {
-        return bits_.none();
-    }
-
-    template <size_t Bit>
-    constexpr bool test(flag_t<Bit>) const noexcept {
-        return bits_.test(Bit - 1);
-    }
-
-    template <size_t Bit>
-    void clear(flag_t<Bit>) noexcept {
-        bits_.reset(Bit - 1);
-    }
-private:
-    std::bitset<32> bits_;
+struct tag_tile_flags {
+    static constexpr size_t size = 32;
+    using type = uint32_t;
 };
+
+} //namespace detail
+
+using tile_flags = flag_set<detail::tag_tile_flags>;
+
+namespace tile_flag {
+
+constexpr flag_t<detail::tag_tile_flags, 0> solid {};
+
+} // namespace tile_flag
 
 struct tile_data {
     uint64_t data;
 };
 
-//should be sorted by alignment for packing
 struct tile_data_set {
     tile_data  data;
     tile_flags flags;

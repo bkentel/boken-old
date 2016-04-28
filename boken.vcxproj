@@ -116,6 +116,7 @@
     <ClCompile Include="src\test\bsp_generator.t.cpp" />
     <ClCompile Include="src\test\circular_buffer.t.cpp" />
     <ClCompile Include="src\test\entity.t.cpp" />
+    <ClCompile Include="src\test\flag_set.t.cpp" />
     <ClCompile Include="src\test\graph.t.cpp" />
     <ClCompile Include="src\test\hash.t.cpp" />
     <ClCompile Include="src\test\level.t.cpp" />
@@ -146,6 +147,7 @@
     <ClInclude Include="src\definition.hpp" />
     <ClInclude Include="src\entity.hpp" />
     <ClInclude Include="src\entity_def.hpp" />
+    <ClInclude Include="src\flag_set.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
     <ClInclude Include="src\graph.hpp" />
     <ClInclude Include="src\hash.hpp" />
@@ -171,6 +173,7 @@
     <ClInclude Include="src\serialize.hpp" />
     <ClInclude Include="src\spatial_map.hpp" />
     <ClInclude Include="src\system.hpp" />
+    <ClInclude Include="src\system_input.hpp" />
     <ClInclude Include="src\text.hpp" />
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\timer.hpp" />

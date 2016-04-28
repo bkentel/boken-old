@@ -1,5 +1,5 @@
 #include "command.hpp"
-#include "system.hpp" // kb_event
+#include "system_input.hpp" // kb_event
 #include "unicode.hpp"
 
 namespace boken {
@@ -70,19 +70,23 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
         return;
     }
 
+    auto const event_kmods = kb_modifiers {event.mods};
+
     switch (event.keycode) {
     case kb_keycode::k_d :
-        if (km {event.mods}.test(km::m_ctrl)) {
+        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
             handler_(command_type::alt_drop_some, 0);
             return;
         }
+        break;
     case kb_keycode::k_g :
-        if (km {event.mods}.test(km::m_ctrl)) {
+        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
             handler_(command_type::alt_get_items, 0);
             return;
         }
+        break;
     case kb_keycode::k_t :
-        if (km {event.mods}.test(km::m_ctrl)) {
+        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
             handler_(command_type::debug_teleport_self, 0);
             return;
         }
@@ -105,34 +109,34 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
         break;
     case kb_scancode::k_right : BK_ATTRIBUTE_FALLTHROUGH;
     case kb_scancode::k_kp_6  :
-        handler_(kmods.test(km::m_shift) ? ct::run_e : ct::move_e, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_e : ct::move_e, 0);
         break;
     case kb_scancode::k_left : BK_ATTRIBUTE_FALLTHROUGH;
     case kb_scancode::k_kp_4 :
-        handler_(kmods.test(km::m_shift) ? ct::run_w : ct::move_w, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_w : ct::move_w, 0);
         break;
     case kb_scancode::k_down : BK_ATTRIBUTE_FALLTHROUGH;
     case kb_scancode::k_kp_2 :
-        handler_(kmods.test(km::m_shift) ? ct::run_s : ct::move_s, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_s : ct::move_s, 0);
         break;
     case kb_scancode::k_up   : BK_ATTRIBUTE_FALLTHROUGH;
     case kb_scancode::k_kp_8 :
-        handler_(kmods.test(km::m_shift) ? ct::run_n : ct::move_n, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_n : ct::move_n, 0);
         break;
     case kb_scancode::k_kp_1 :
-        handler_(kmods.test(km::m_shift) ? ct::run_sw : ct::move_sw, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_sw : ct::move_sw, 0);
         break;
     case kb_scancode::k_kp_3 :
-        handler_(kmods.test(km::m_shift) ? ct::run_se : ct::move_se, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_se : ct::move_se, 0);
         break;
     case kb_scancode::k_kp_5 :
         handler_(command_type::move_here, 0);
         break;
     case kb_scancode::k_kp_7 :
-        handler_(kmods.test(km::m_shift) ? ct::run_nw : ct::move_nw, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_nw : ct::move_nw, 0);
         break;
     case kb_scancode::k_kp_9 :
-        handler_(kmods.test(km::m_shift) ? ct::run_ne : ct::move_ne, 0);
+        handler_(kmods.exclusive_any(kb_mod::shift) ? ct::run_ne : ct::move_ne, 0);
         break;
     case kb_scancode::k_home :
         handler_(command_type::reset_view, 0);

@@ -115,7 +115,7 @@ struct generate_rect_room {
 
             if (on_edge) {
                 data.type  = tile_type::wall;
-                data.flags = tile_flags {tile_flags::f_solid};
+                data.flags = tile_flag::solid;
             } else {
                 data.type  = tile_type::floor;
                 data.flags = tile_flags {};
@@ -137,7 +137,7 @@ struct level_data_t {
     explicit level_data_t(size_t const size)
       : ids(size, tile_id::invalid)
       , types(size, tile_type::empty)
-      , flags(size, tile_flags {tile_flags::f_solid})
+      , flags(size, tile_flag::solid)
       , region_ids(size, region_id {})
     {
     }
@@ -217,7 +217,7 @@ public:
     placement_result can_place_entity_at(point2i32 const p) const noexcept final override {
         return !check_bounds_(p)
                  ? placement_result::failed_bounds
-             : data_at_(data_.flags, p).test(tile_flags::f_solid)
+             : data_at_(data_.flags, p).test(tile_flag::solid)
                  ? placement_result::failed_obstacle
              : is_entity_at(p)
                  ? placement_result::failed_entity
@@ -227,7 +227,7 @@ public:
     placement_result can_place_item_at(point2i32 const p) const noexcept final override {
         return !check_bounds_(p)
                  ? placement_result::failed_bounds
-             : data_at_(data_.flags, p).test(tile_flags::f_solid)
+             : data_at_(data_.flags, p).test(tile_flag::solid)
                  ? placement_result::failed_obstacle
                  : placement_result::ok;
     }
@@ -773,7 +773,7 @@ void level_impl::place_doors(random_state& rng, recti32 const area) {
 
             data.set_tile_type_at(p, tile_type::door);
             data.set_tile_id_at(p, id);
-            data.set_tile_flags_at(p, tile_flags {tile_flags::f_solid});
+            data.set_tile_flags_at(p, tile_flag::solid);
         }
     );
 }
@@ -852,10 +852,10 @@ region_id level_impl::dig_at(
 
     if (to_type == tile_type::empty) {
         to_type = tile_type::tunnel;
-        to_flags.clear(tile_flags::f_solid);
+        to_flags.clear(tile_flag::solid);
     } else if (to_type == tile_type::wall) {
         to_type = tile_type::floor;
-        to_flags.clear(tile_flags::f_solid);
+        to_flags.clear(tile_flag::solid);
     }
 
     to_id = src_id;
@@ -888,7 +888,7 @@ point2i32 level_impl::dig_path_segment_impl(
         auto const is_last = (i == len - 1);
 
         if (next_ok && is_last) {
-            return data_at_(data_.flags, p_nxt).test(tile_flags::f_solid);
+            return data_at_(data_.flags, p_nxt).test(tile_flag::solid);
         } else if (next_ok && !is_last) {
             return false;
         }
@@ -1140,7 +1140,7 @@ void level_impl::generate(random_state& rng) {
 
     tile_data_set default_tile {
         tile_data  {}
-      , tile_flags {tile_flags::f_solid}
+      , tile_flags {tile_flag::solid}
       , tile_id    {}
       , tile_type  {tile_type::empty}
       , region_id  {}

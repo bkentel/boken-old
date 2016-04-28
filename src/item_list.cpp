@@ -1,5 +1,5 @@
 #include "item_list.hpp"
-#include "system.hpp"
+#include "system_input.hpp"
 #include "scope_guard.hpp"
 #include "command.hpp"
 #include "item_pile.hpp"
@@ -136,7 +136,7 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
                 return !is_visible();
             }
 
-            if (kmods.test(kb_modifiers::m_shift)) {
+            if (kmods.exclusive_any(kb_mod::shift)) {
                 il.selection_toggle(hit_test.y);
             } else {
                 il.selection_set({hit_test.y});

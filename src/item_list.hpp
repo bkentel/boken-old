@@ -14,10 +14,15 @@
 namespace boken { class game_database; }
 namespace boken { class item_pile; }
 namespace boken { struct kb_event; }
-namespace boken { struct kb_modifiers; }
 namespace boken { struct text_input_event; }
 namespace boken { struct mouse_event; }
 namespace boken { enum class command_type : uint32_t; }
+
+namespace boken {
+    namespace detail { struct tag_kb_modifiers; }
+    template <typename T> class flag_set;
+    using kb_modifiers = flag_set<detail::tag_kb_modifiers>;
+}
 
 namespace boken {
 

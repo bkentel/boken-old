@@ -886,7 +886,7 @@ struct game_state {
 
     void on_key(kb_event const event, kb_modifiers const kmods) {
         auto const is_shift =
-            (!kmods.test(kb_modifiers::m_shift))
+            (!kmods.any(kb_mod::shift))
          && ((event.scancode == kb_scancode::k_lshift)
           || (event.scancode == kb_scancode::k_rshift));
 
@@ -913,10 +913,7 @@ struct game_state {
             // left mouse button only
 
             if (event.button_change[0] == mbc::went_down) {
-                if (kmods == kb_modifiers::m_left_alt
-                 || kmods == kb_modifiers::m_right_alt
-                 || kmods == kb_modifiers::m_alt
-                ) {
+                if (kmods.exclusive_any(kb_mod::alt)) {
                     debug_create_corridor_at(
                         window_to_world({event.x, event.y}));
                 }
@@ -941,7 +938,7 @@ struct game_state {
         switch (event.button_state_bits()) {
         case 0b0000 :
             // no buttons down
-            if (kmods.test(kb_modifiers::m_shift)) {
+            if (kmods.exclusive_any(kb_mod::shift)) {
                 debug_show_tool_tip({event.x, event.y});
             }
             break;
