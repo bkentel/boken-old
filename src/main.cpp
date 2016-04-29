@@ -26,6 +26,7 @@
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
+#include <deque>
 #include <functional>       // for function
 #include <memory>           // for unique_ptr, allocator
 #include <ratio>            // for ratio
@@ -57,6 +58,12 @@ int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item
 //! Game input sink
 class input_context {
 public:
+    input_context() = default;
+    input_context(char const* const name)
+      : debug_name {name}
+    {
+    }
+
     event_result on_key(kb_event const event, kb_modifiers const kmods) {
         return on_key_handler
           ? on_key_handler(event, kmods)
@@ -99,6 +106,96 @@ public:
     std::function<event_result (mouse_event, kb_modifiers)> on_mouse_move_handler;
     std::function<event_result (int, int, kb_modifiers)>    on_mouse_wheel_handler;
     std::function<event_result (command_type, uintptr_t)>   on_command_handler;
+
+    char const* debug_name = "{anonymous}";
+};
+
+class input_context_stack {
+public:
+    using id_t = uint32_t;
+
+    size_t size() const noexcept {
+        return contexts_.size();
+    }
+
+    id_t push(input_context context) {
+        auto const id = get_next_id_();
+        contexts_.push_back({std::move(context), id});
+        return id;
+    }
+
+    void pop(id_t const id) {
+        BK_ASSERT(!contexts_.empty());
+
+        auto const first = contexts_.rbegin();
+        auto const last  = contexts_.rend();
+
+        auto const it = std::find_if(first, last
+          , [id](pair_t const& p) noexcept {
+                return id == p.second;
+            });
+
+        BK_ASSERT((it != last) && (it->second == id));
+
+        if (id == next_id_ - 1) {
+            --next_id_;
+        } else {
+            free_ids_.push_back(id);
+        }
+
+        contexts_.erase(std::next(it).base());
+    }
+
+    //! @returns true if the event has not been filtered, false otherwise.
+    template <typename... Args0, typename... Args1>
+    bool process(
+        event_result (input_context::* handler)(Args0...)
+      , Args1&&... args
+    ) {
+        // as a stack: back to front
+        for (auto i = size(); i > 0; --i) {
+            auto const where   = i - 1u; // size == 1 ~> index == 0
+            auto&      context = contexts_[where].first;
+            auto const id      = contexts_[where].second;
+
+            auto const result =
+                (context.*handler)(std::forward<Args1>(args)...);
+
+            switch (result) {
+            case event_result::filter_detach :
+                pop(id);
+                BK_ATTRIBUTE_FALLTHROUGH;
+            case event_result::filter :
+                return false;
+            case event_result::pass_through_detach :
+                pop(id);
+                BK_ATTRIBUTE_FALLTHROUGH;
+            case event_result::pass_through :
+                break;
+            default:
+                BK_ASSERT(false);
+                break;
+            }
+        }
+
+        return true;
+    }
+private:
+    using pair_t = std::pair<input_context, id_t>;
+
+    id_t get_next_id_() {
+        if (!free_ids_.empty()) {
+            auto const result = free_ids_.front();
+            free_ids_.pop_front();
+            return result;
+        }
+
+        return ++next_id_;
+    }
+
+    std::deque<id_t>    free_ids_;
+    std::vector<pair_t> contexts_;
+    id_t                next_id_ {};
 };
 
 struct game_state {
@@ -604,41 +701,6 @@ struct game_state {
 
     //! @returns true if the event has not been filtered, false otherwise.
     template <typename... Args0, typename... Args1>
-    bool process_context_stack(
-        event_result (input_context::* handler)(Args0...)
-      , Args1&&... args
-    ) {
-        // as a stack: back to front
-        for (auto i = context_stack.size(); i > 0; --i) {
-            // size == 1 ~> index == 0
-            auto const where = i - 1u;
-            auto const r =
-                (context_stack[where].*handler)(std::forward<Args1>(args)...);
-
-            switch (r) {
-            case event_result::filter_detach :
-                context_stack.erase(
-                    begin(context_stack) + static_cast<ptrdiff_t>(where));
-                BK_ATTRIBUTE_FALLTHROUGH;
-            case event_result::filter :
-                return false;
-            case event_result::pass_through_detach :
-                context_stack.erase(
-                    begin(context_stack) + static_cast<ptrdiff_t>(where));
-                BK_ATTRIBUTE_FALLTHROUGH;
-            case event_result::pass_through :
-                break;
-            default:
-                BK_ASSERT(false);
-                break;
-            }
-        }
-
-        return true;
-    }
-
-    //! @returns true if the event has not been filtered, false otherwise.
-    template <typename... Args0, typename... Args1>
     void process_event(
         bool (game_state::* ui_handler)(Args0...)
       , event_result (input_context::* ctx_handler)(Args0...)
@@ -651,7 +713,7 @@ struct game_state {
         }
 
         // then allow the input contexts a chance to process the event
-        if (!process_context_stack(ctx_handler, std::forward<Args1>(args)...)) {
+        if (!context_stack.process(ctx_handler, std::forward<Args1>(args)...)) {
             return; // an input context filtered the event
         }
 
@@ -989,7 +1051,7 @@ struct game_state {
                 return event_result::filter;
             };
 
-        context_stack.push_back(std::move(c));
+        context_stack.push(std::move(c));
     }
 
     //! common implementation for choose_one_item and choose_n_items.
@@ -1311,7 +1373,7 @@ struct game_state {
                 return event_result::filter;
             };
 
-        context_stack.push_back(std::move(c));
+        context_stack.push(std::move(c));
     }
 
     //! Common implementation for moving items from entity -> level and from
@@ -1761,22 +1823,33 @@ struct game_state {
                && value_cast(abs(v.y)) <= 1
                && v != vec2i32 {});
 
-        using namespace std::chrono;
-        constexpr auto delay      = duration_cast<nanoseconds>(seconds {1}) / 100;
         constexpr auto timer_name = djb2_hash_32c("run timer");
+
+        // add an input context that automatically terminates the run on
+        // player input
+        input_context c {__func__};
+
+        c.on_mouse_button_handler = [=](auto, auto) {
+            timers.remove(timer_name);
+            return event_result::filter_detach;
+        };
+
+        c.on_command_handler = [=](auto, auto) {
+            timers.remove(timer_name);
+            return event_result::filter_detach;
+        };
+
+        auto const context_id = context_stack.push(std::move(c));
+
+        using namespace std::chrono;
+        constexpr auto delay = duration_cast<nanoseconds>(seconds {1}) / 100;
 
         auto&      lvl         = the_world.current_level();
         auto const player_info = get_player();
         auto&      player      = player_info.first;
         auto       p           = player_info.second;
 
-        // TODO: this is a bit of a hack; pushing new contexts should return an
-        //       identifier of for later use. Using the index like this could
-        //       run afoul of something before it begin removed not just after
-        //       it as this assumes.
-        auto const context_index = context_stack.size();
-
-        auto const timer_id = timers.add(timer_name, timer::duration {0}
+        timers.add(timer_name, timer::duration {0}
           , [=, &lvl, &player, count = 0]
             (timer::duration, timer::timer_data) mutable -> timer::duration {
                 auto const result = impl_player_move_by_(lvl, player, p, v);
@@ -1788,8 +1861,6 @@ struct game_state {
                     return delay;
                 }
 
-                // some sort of obstacle has been hit -- stop running
-
                 // hit something before even moving one tile
                 if (result == placement_result::failed_obstacle && count == 0) {
                     auto const q = p + v;
@@ -1798,30 +1869,9 @@ struct game_state {
                     }
                 }
 
-                // TODO: see the above TODO
-                auto const where = context_stack.begin()
-                    + static_cast<ptrdiff_t>(context_index);
-
-                context_stack.erase(where);
-
+                context_stack.pop(context_id);
                 return timer::duration {};
           });
-
-        // add an input context that automatically terminates the run on
-        // player input
-        input_context c;
-
-        c.on_mouse_button_handler = [=](auto, auto) {
-            timers.remove(timer_id);
-            return event_result::filter_detach;
-        };
-
-        c.on_command_handler = [=](auto, auto) {
-            timers.remove(timer_id);
-            return event_result::filter_detach;
-        };
-
-        context_stack.push_back(std::move(c));
     }
 
     void adjust_view_to_player(point2i32 const p) noexcept {
@@ -2167,7 +2217,7 @@ struct game_state {
 
     item_list_controller item_list;
 
-    std::vector<input_context> context_stack;
+    input_context_stack context_stack;
 
     view current_view;
 
