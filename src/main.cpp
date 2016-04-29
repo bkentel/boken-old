@@ -1771,20 +1771,32 @@ struct game_state {
         auto       p           = player_info.second;
 
         // TODO: this is a bit of a hack; pushing new contexts should return an
-        //       identifier of for later use.
+        //       identifier of for later use. Using the index like this could
+        //       run afoul of something before it begin removed not just after
+        //       it as this assumes.
         auto const context_index = context_stack.size();
 
         auto const timer_id = timers.add(timer_name, timer::duration {0}
-          , [=, &lvl, &player](timer::duration, timer::timer_data) mutable -> timer::duration {
+          , [=, &lvl, &player, count = 0]
+            (timer::duration, timer::timer_data) mutable -> timer::duration {
                 auto const result = impl_player_move_by_(lvl, player, p, v);
 
                 // continue running
                 if (result == placement_result::ok) {
+                    ++count;
                     p += v;
                     return delay;
                 }
 
                 // some sort of obstacle has been hit -- stop running
+
+                // hit something before even moving one tile
+                if (result == placement_result::failed_obstacle && count == 0) {
+                    auto const q = p + v;
+                    if (lvl.at(q).type == tile_type::door) {
+                        interact_door(player, p, q);
+                    }
+                }
 
                 // TODO: see the above TODO
                 auto const where = context_stack.begin()

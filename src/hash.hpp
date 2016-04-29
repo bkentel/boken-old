@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.hpp" // string_view
+
 #include <cstdint>
 #include <cstddef>
 
