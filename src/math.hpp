@@ -187,6 +187,18 @@ abs(basic_2_tuple<T, TagType> const n) noexcept {
     return {abs(n.x), abs(n.y)};
 }
 
+template <typename T, typename TagAxis, typename TagType>
+constexpr basic_1_tuple<T, TagAxis, TagType>
+floor(basic_1_tuple<T, TagAxis, TagType> const n) noexcept {
+    return {std::floor(value_cast(n))};
+}
+
+template <typename T, typename TagType>
+constexpr basic_2_tuple<T, TagType>
+floor(basic_2_tuple<T, TagType> const n) noexcept {
+    return {floor(n.x), floor(n.y)};
+}
+
 namespace detail {
 
 template <typename T>

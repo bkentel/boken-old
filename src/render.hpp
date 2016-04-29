@@ -45,6 +45,21 @@ public:
     }
 
     template <typename T>
+    point2f window_to_world(point2<T> const p, size_type_x<T> const tile_w, size_type_y<T> const tile_h) const noexcept {
+        auto const tw = value_cast_unsafe<float>(tile_w);
+        auto const th = value_cast_unsafe<float>(tile_h);
+        auto const q  = window_to_world(p);
+        return {value_cast(q.x) / tw, value_cast(q.y) / th};
+    }
+
+    template <typename T>
+    point2f world_to_window(point2<T> const p, size_type_x<T> const tile_w, size_type_y<T> const tile_h) const noexcept {
+        auto const tw = value_cast(tile_w);
+        auto const th = value_cast(tile_h);
+        return world_to_window(point2i32 {p.x * tw, p.y * th});
+    }
+
+    template <typename T>
     vec2f window_to_world(vec2<T> const v) const noexcept {
         return {(1.0f / scale_x) * value_cast_unsafe<float>(v.x)
               , (1.0f / scale_y) * value_cast_unsafe<float>(v.y)};
@@ -52,6 +67,23 @@ public:
 
     template <typename T>
     void center_on_world(T const wx, T const wy) const noexcept {
+    }
+
+    template <typename T>
+    point2f center_window_on_world(
+        point2<T> const p
+      , size_type_x<T> const tile_w, size_type_y<T> const tile_h
+      , size_type_x<T> const win_w,  size_type_y<T> const win_h
+    ) const noexcept {
+        auto const tw = value_cast(tile_w);
+        auto const th = value_cast(tile_h);
+        auto const ww = value_cast(win_w);
+        auto const wh = value_cast(win_h);
+        auto const px = value_cast(p.x);
+        auto const py = value_cast(p.y);
+
+        return {static_cast<float>((ww * 0.5) - tw * (px + 0.5))
+              , static_cast<float>((wh * 0.5) - th * (py + 0.5))};
     }
 
     float x_off   = 0.0f;

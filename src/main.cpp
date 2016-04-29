@@ -241,24 +241,19 @@ struct game_state {
     // Utility / Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     point2i32 window_to_world(point2i32 const p) const noexcept {
-        auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast_unsafe<float>(tile_map.tile_width());
-        auto const th = value_cast_unsafe<float>(tile_map.tile_height());
+        auto const& tmap = database.get_tile_map(tile_map_type::base);
 
-        auto const q  = current_view.window_to_world(p);
-        auto const tx = floor_as<int32_t>(value_cast(q.x) / tw);
-        auto const ty = floor_as<int32_t>(value_cast(q.y) / th);
-
-        return {tx, ty};
+        return underlying_cast_unsafe<int32_t>(
+            floor(current_view.window_to_world(
+                p, tmap.tile_width(), tmap.tile_height())));
     }
 
     point2i32 world_to_window(point2i32 const p) const noexcept {
         auto const& tmap = database.get_tile_map(tile_map_type::base);
-        auto const  tw   = value_cast(tmap.tile_width());
-        auto const  th   = value_cast(tmap.tile_height());
 
-        return underlying_cast_unsafe<int32_t>(
-            current_view.world_to_window(point2i32 {p.x * tw, p.y * th}));
+        //TODO: round?
+        return underlying_cast_unsafe<int32_t>(current_view.world_to_window(
+            p, tmap.tile_width(), tmap.tile_height()));
     }
 
     void update_view_scale(float const sx, float const sy) {
@@ -593,21 +588,14 @@ struct game_state {
     }
 
     void reset_view_to_player() {
-        auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast(tile_map.tile_width());
-        auto const th = value_cast(tile_map.tile_height());
+        auto const& tmap  = database.get_tile_map(tile_map_type::base);
+        auto const  win_r = os.render_get_client_rect();
 
-        auto const win_r = os.render_get_client_rect();
-        auto const win_w = value_cast(win_r.width());
-        auto const win_h = value_cast(win_r.height());
+        auto const q = current_view.center_window_on_world(
+            get_player().second, tmap.tile_width(), tmap.tile_height()
+          , win_r.width(), win_r.height());
 
-        auto const p  = get_player().second;
-        auto const px = value_cast(p.x);
-        auto const py = value_cast(p.y);
-
-        update_view(1.0f, 1.0f
-                  , static_cast<float>((win_w * 0.5) - tw * (px + 0.5))
-                  , static_cast<float>((win_h * 0.5) - th * (py + 0.5)));
+        update_view(1.0f, 1.0f, value_cast(q.x), value_cast(q.y));
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
