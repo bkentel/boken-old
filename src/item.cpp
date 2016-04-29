@@ -6,12 +6,120 @@
 #include "bkassert/assert.hpp"
 
 #include <tuple>
+#include <numeric>
 
 namespace boken {
 
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+item_id get_pile_id(game_database const& db) noexcept {
+    auto const pile_def = find(db, make_id<item_id>("pile"));
+    return pile_def
+      ? pile_def->id
+      : item_id {};
+}
+
+item_id get_pile_id(
+    world     const& w
+  , item_pile const& pile
+  , item_id   const  pile_id
+) noexcept {
+    BK_ASSERT(!pile.empty());
+
+    return (pile.size() == 1u)
+      ? find(w, *pile.begin()).definition()
+      : pile_id;
+}
+
+int32_t weight_of_exclusive(
+    game_database const& db
+  , item          const& itm
+) noexcept {
+    constexpr auto prop_weight = property(item_property::weight);
+    constexpr auto prop_stack  = property(item_property::current_stack_size);
+
+    auto const weight = get_property_value_or(db, itm, prop_weight, 0);
+    auto const stack  = get_property_value_or(db, itm, prop_stack,  1);
+
+    return weight * stack;
+}
+
+int32_t weight_of_exclusive(
+    world            const& w
+  , game_database    const& db
+  , item_instance_id const  id
+) noexcept {
+    return weight_of_exclusive(db, find(w, id));
+}
+
+int32_t weight_of_inclusive(
+    world         const& w
+  , game_database const& db
+  , item          const& itm
+) noexcept {
+    auto const first = begin(itm.items());
+    auto const last  = end(itm.items());
+
+    auto const w0 = weight_of_exclusive(db, itm);
+    auto const w1 = std::accumulate(first, last, int32_t {0}
+        , [&](int32_t const sum, item_instance_id const id) {
+            return sum + weight_of_inclusive(w, db, id);
+        });
+
+    return w0 + w1;
+}
+
+int32_t weight_of_inclusive(
+    world            const& w
+  , game_database    const& db
+  , item_instance_id const  id
+) noexcept {
+    return weight_of_inclusive(w, db, find(w, id));
+}
+
+string_view name_of(game_database const& db, item const& i) noexcept {
+    return name_of(db, i.definition());
+}
+
+bool can_add_item(
+    game_database const& db
+  , item          const& dest
+  , item          const& itm
+) noexcept {
+    auto const dest_capacity =
+        get_property_value_or(db, dest, property(item_property::capacity), 0);
+
+    // the destination is not a container
+    if (dest_capacity <= 0) {
+        return false;
+    }
+
+    // the destination is full
+    if (dest.items().size() + 1 > dest_capacity) {
+        return false;
+    }
+
+    auto const itm_capacity =
+        get_property_value_or(db, itm, property(item_property::capacity), 0);
+
+    // the item to add is itself a container
+    if (itm_capacity > 0) {
+        return false;
+    }
+
+    return true;
+}
+
+bool can_add_item(
+    game_database   const& db
+  , item            const& dest
+  , item_definition const& def
+) noexcept {
+    return can_add_item(
+        db, dest, item {item_instance_id {}, def.id});
+}
+
 item_property_value get_property_value_or(
     game_database const&      db
   , item const&               i

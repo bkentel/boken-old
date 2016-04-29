@@ -45,4 +45,14 @@ inline uint32_t djb2_hash_32(char const* s) noexcept {
       , [&](char const* const it) noexcept { return !!*it; });
 }
 
+template <typename T>
+T make_id(string_view const s) noexcept {
+    return T {djb2_hash_32(s.begin(), s.end())};
+}
+
+template <typename T, size_t N>
+constexpr T make_id(char const (&s)[N]) noexcept {
+    return T {djb2_hash_32c(s)};
+}
+
 } //namespace boken

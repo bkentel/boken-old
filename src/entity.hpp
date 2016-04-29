@@ -23,4 +23,7 @@ private:
     int16_t cur_health_;
 };
 
+bool can_add_item(game_database const& db, entity const& dest, item const& itm) noexcept;
+bool can_add_item(game_database const& db, entity const& dest, item_definition const& def) noexcept;
+
 } //namespace boken

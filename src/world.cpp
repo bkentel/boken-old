@@ -146,4 +146,12 @@ unique_entity create_object(world& w, std::function<entity (entity_instance_id)>
     return w.create_object(f);
 }
 
+string_view name_of(world const& w, game_database const& db, item_instance_id const id) noexcept {
+    return name_of(db, w.find(id));
+}
+
+string_view name_of(world const& w, game_database const& db, entity_instance_id const id) noexcept {
+    return name_of(db, w.find(id));
+}
+
 } //namespace boken

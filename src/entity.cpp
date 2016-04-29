@@ -7,6 +7,26 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+string_view name_of(game_database const& db, entity const& e) noexcept {
+    return name_of(db, e.definition());
+}
+
+bool can_add_item(
+    game_database const& db
+  , entity        const& dest
+  , item          const& itm
+) noexcept {
+    return true;
+}
+
+bool can_add_item(
+    game_database   const& db
+  , entity          const& dest
+  , item_definition const& def
+) noexcept {
+    return true;
+}
+
 entity_instance_id get_instance(entity const& e) noexcept {
     return e.instance();
 }
