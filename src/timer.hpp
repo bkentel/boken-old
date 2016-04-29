@@ -3,6 +3,8 @@
 #include "allocator.hpp"
 #include "scope_guard.hpp"
 
+#include "bkassert/assert.hpp"
+
 #include <chrono>
 #include <vector>
 #include <algorithm>
@@ -50,7 +52,10 @@ public:
       , timer_data const data     //!< timer specific, user-defined data
       , callback_t       callback //!< the timer action
     ) {
-        BK_ASSERT(!updating_ && period.count() >= 0 && !!callback);
+        BK_ASSERT(!updating_
+               && period.count() >= 0
+               && !!callback
+               && !!hash);
 
         auto const result = callbacks_.allocate(std::move(callback));
         auto const key    = key_t {static_cast<uint32_t>(result.second), hash};
@@ -88,6 +93,29 @@ public:
         }
 
         return true;
+    }
+
+    //! remove the first timer with a matching hash
+    bool remove(uint32_t const hash) noexcept {
+        auto const first = begin(timers_);
+        auto const last  = end(timers_);
+
+        auto const next = [&](auto const it) noexcept {
+            return std::find_if(it, last, [&](data_t const& data) noexcept {
+                return data.key.hash == hash;
+            });
+        };
+
+        auto const it = next(first);
+        if (it == last) {
+            return false;
+        }
+
+        auto const key = it->key;
+
+        BK_ASSERT(next(std::next(it)) == last);
+
+        return remove(key);
     }
 
     //! Trigger any ready timers.

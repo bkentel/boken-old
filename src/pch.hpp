@@ -6,6 +6,7 @@
 #include <array>
 #include <bitset>
 #include <chrono>
+#include <deque>
 #include <functional>
 #include <initializer_list>
 #include <iterator>
