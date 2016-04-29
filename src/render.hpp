@@ -52,11 +52,12 @@ public:
         return {value_cast(q.x) / tw, value_cast(q.y) / th};
     }
 
-    template <typename T>
-    point2f world_to_window(point2<T> const p, size_type_x<T> const tile_w, size_type_y<T> const tile_h) const noexcept {
-        auto const tw = value_cast(tile_w);
-        auto const th = value_cast(tile_h);
-        return world_to_window(point2i32 {p.x * tw, p.y * th});
+    template <typename T, typename U, typename V>
+    point2f world_to_window(point2<T> const p, size_type_x<U> const tile_w, size_type_y<V> const tile_h) const noexcept {
+        auto const tw = value_cast_unsafe<float>(tile_w);
+        auto const th = value_cast_unsafe<float>(tile_h);
+        auto const q  = underlying_cast_unsafe<float>(p);
+        return world_to_window(point2f {q.x * tw, q.y * th});
     }
 
     template <typename T>

@@ -1810,38 +1810,36 @@ struct game_state {
     }
 
     void adjust_view_to_player(point2i32 const p) noexcept {
-        auto const& tile_map = database.get_tile_map(tile_map_type::base);
-        auto const tw = value_cast(tile_map.tile_width());
-        auto const th = value_cast(tile_map.tile_height());
+        constexpr int tile_distance_x = 5;
+        constexpr int tile_distance_y = 5;
 
-        auto const win_r = os.render_get_client_rect();
-        auto const win_w = value_cast(win_r.width());
-        auto const win_h = value_cast(win_r.height());
+        auto const& tmap = database.get_tile_map(tile_map_type::base);
+        auto const tw = tmap.tile_width();
+        auto const th = tmap.tile_height();
 
-        auto const px = static_cast<float>((value_cast(p.x) + 0.5) * tw);
-        auto const py = static_cast<float>((value_cast(p.y) + 0.5) * th);
+        auto const win_r = underlying_cast_unsafe<float>(
+            os.render_get_client_rect());
 
-        auto const q = current_view.world_to_window(point2f {px, py});
+        auto const q = current_view.world_to_window(
+            underlying_cast_unsafe<float>(p) + vec2f {0.5f, 0.5f}, tw, th);
 
-        auto const left   = value_cast(q.x);
-        auto const right  = win_w - value_cast(q.x);
-        auto const top    = value_cast(q.y);
-        auto const bottom = win_h - value_cast(q.y);
+        auto const left   = q.x - win_r.x0;
+        auto const top    = q.y - win_r.y0;
+        auto const right  = win_r.x1 - q.x;
+        auto const bottom = win_r.y1 - q.y;
 
-        auto const x_limit = 3 * tw * current_view.scale_x;
-        auto const y_limit = 3 * th * current_view.scale_y;
+        auto const limit = current_view.world_to_window(
+            vec2i32 {tile_distance_x * tw, tile_distance_y * th});
 
-        auto const dx =
-            (left  < x_limit) ? (current_view.x_off + (x_limit - left))
-          : (right < x_limit) ? (current_view.x_off - (x_limit - right))
-          : current_view.x_off;
+        auto const dx = (left  < limit.x) ? value_cast(limit.x - left)
+                      : (right < limit.x) ? value_cast(right - limit.x)
+                      : 0.0f;
 
-        auto const dy =
-            (top    < y_limit) ? (current_view.y_off + (y_limit - top))
-          : (bottom < y_limit) ? (current_view.y_off - (y_limit - bottom))
-          : current_view.y_off;
+        auto const dy = (top    < limit.y) ? value_cast(limit.y - top)
+                      : (bottom < limit.y) ? value_cast(bottom - limit.y)
+                      : 0.0f;
 
-        update_view_trans(dx, dy);
+        update_view_trans(current_view.x_off + dx, current_view.y_off + dy);
     }
 
     placement_result impl_player_move_by_(level& lvl, entity& player, point2i32 const p, vec2i32 const v) {

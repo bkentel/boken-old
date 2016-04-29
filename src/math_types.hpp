@@ -493,11 +493,11 @@ underlying_cast_unsafe(basic_2_tuple<From, TagType> const p) noexcept {
     return {value_cast_unsafe<To>(p.x), value_cast_unsafe<To>(p.y)};
 }
 
-template <typename To, typename From, typename TagType>
+template <typename To, typename From>
 constexpr axis_aligned_rect<To>
 underlying_cast_unsafe(axis_aligned_rect<From> const r) noexcept {
-    return {value_cast_unsafe<To>(r.upper_left())
-          , value_cast_unsafe<To>(r.bottom_right())};
+    return {underlying_cast_unsafe<To>(r.top_left())
+          , underlying_cast_unsafe<To>(r.bottom_right())};
 }
 
 //=====--------------------------------------------------------------------=====
