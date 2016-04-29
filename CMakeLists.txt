@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.3)
 project(boken CXX)
 
 #
@@ -113,6 +113,18 @@ endif()
 
 add_executable(boken ${SOURCES} ${SOURCES_EXTERNAL} ${SOURCES_TEST})
 set_property(TARGET boken PROPERTY CXX_STANDARD 14)
+
+#
+#
+#
+#find_program(iwyu_path NAMES include-what-you-use iwyu)
+#if (iwyu_path)
+#    set(iwyu_path_and_options
+#        ${iwyu_path}
+#        -Xiwyu
+#        --check_also="*.hpp")
+#    set_property(TARGET boken PROPERTY CXX_INCLUDE_WHAT_YOU_USE ${iwyu_path})
+#endif()
 
 target_link_libraries(boken SDL2)
 
