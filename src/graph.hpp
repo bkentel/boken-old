@@ -6,13 +6,14 @@
 #include <type_traits>
 #include <limits>
 #include <iterator>
+#include <tuple>
 
 #include <cstdint>
 #include <cstddef>
 
 namespace boken {
 
-//==============================================================================
+//! vertex specific data for use with adjacency_matrix
 template <typename VertexData>
 class vertex_data {
 public:
@@ -59,7 +60,7 @@ auto begin(vertex_data<T> const& v) noexcept { return v.begin(); }
 template <typename T>
 auto end(vertex_data<T> const& v) noexcept { return v.end(); }
 
-//==============================================================================
+//! An adjacency matrix representation of an (un)directed graph.
 template <typename EdgeType>
 class adjacency_matrix {
     static size_t check_size_(int const n) noexcept {
@@ -191,6 +192,8 @@ VertexData connected_components_impl(
 
 } // namespace detail
 
+//! Get the number of connected components in @p graph. The 1-based component
+//! each vertex in the graph belongs to is written to @p v_data.
 template <typename EdgeType, typename VertexData>
 VertexData connected_components(
     adjacency_matrix<EdgeType> const& graph
@@ -200,6 +203,9 @@ VertexData connected_components(
     return detail::connected_components_impl(graph, v_data, buffer);
 }
 
+//! As long as there is more than one connected component in @p graph, invoke
+//! the supplied callback @p on_unconnected with the number of components in the
+//! graph. Control returns to the caller when the graph is fully connected.
 template <typename EdgeType, typename VertexData, typename Callback>
 void connect_components(
     adjacency_matrix<EdgeType> const& graph

@@ -1,3 +1,5 @@
+// This header exists primarily to break dependencies on full class definitions.
+
 #pragma once
 
 #include "types.hpp"

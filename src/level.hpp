@@ -11,15 +11,16 @@
 #include <cstdint>
 #include <cstddef>
 
+namespace boken {
+    namespace detail { struct tag_tile_flags; }
+    template <typename T> class flag_set;
+    using tile_flags = flag_set<detail::tag_tile_flags>;
+}
+
 namespace boken { class entity; }
 namespace boken { class item; }
 namespace boken { class item_pile; }
 namespace boken { class random_state; }
-
-namespace boken { namespace detail { struct tag_tile_flags; } }
-namespace boken { template <typename T> class flag_set; }
-namespace boken { using tile_flags = flag_set<detail::tag_tile_flags>; }
-
 namespace boken { struct tile_data; }
 namespace boken { struct tile_data_set; }
 namespace boken { class world; }

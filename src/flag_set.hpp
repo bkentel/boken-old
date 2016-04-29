@@ -42,6 +42,7 @@ struct flag_t {
         std::integer_sequence<size_t, Bits...> {});
 };
 
+//! A type-safe, tag discriminated flag set very similar to std::bitset.
 template <typename Tag>
 class flag_set {
     template <size_t... Values>

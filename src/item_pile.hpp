@@ -13,6 +13,13 @@ namespace boken { class game_database; }
 
 namespace boken {
 
+//! The container abstraction used to represent a collection of items.
+//! For example, a pile of loot on the ground; the items inside a chest, or the
+//! inventory of some entity.
+//!
+//! Item ownership is wholly managed by item_piles and the world. Namely, the
+//! world briefly has ownership during item creation, but thereafter an
+//! item_pile maintains ownership.
 class item_pile {
 public:
     ~item_pile();
