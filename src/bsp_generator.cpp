@@ -1,7 +1,6 @@
 #include "bsp_generator.hpp"
-#include "random.hpp"   // for random_state (ptr only), random_coin_flip, etc
-#include "types.hpp"    // for value_cast, size_type, offix, offiy
-#include "utility.hpp"  // for sort
+#include "random.hpp"
+#include "utility.hpp"
 #include "rect.hpp"
 
 #include <vector>

@@ -1,11 +1,9 @@
 #pragma once
 
-#include "math_types.hpp" // for axis_aligned_rect
-#include "types.hpp"      // for sizei, sizeix, sizeiy
-#include "utility.hpp"    // for weight_list
+#include "math_types.hpp"  // for recti32
+#include "utility.hpp"     // for weight_list
 
-#include <memory>         // for unique_ptr
-#include <cstdint>        // for uint16_t
+#include <cstdint>         // for int32_t, uint16_t
 
 namespace boken { class random_state; }
 
