@@ -928,6 +928,8 @@ struct game_state {
 
         update_highlight_tile();
         renderer.update_tool_tip_visible(true);
+
+        adjust_view_to_player(q);
     }
 
     void update_highlighted_tile(vec2i32 const v) {
@@ -970,6 +972,7 @@ struct game_state {
                     highlighted_tile = point2i32 {-1, -1};
                     renderer.clear_tile_highlight();
                     renderer.update_tool_tip_visible(false);
+                    adjust_view_to_player(get_player().second);
                     return event_result::filter_detach;
                 case ct::move_n  : update_highlighted_tile({ 0, -1}); break;
                 case ct::move_ne : update_highlighted_tile({ 1, -1}); break;

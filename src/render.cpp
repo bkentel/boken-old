@@ -351,11 +351,11 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
         auto const w = tmap_base.tile_width();
         auto const h = tmap_base.tile_height();
 
-        auto const r = recti32 {
+        auto const r = boken::grow_rect(recti32 {
             tile_highlight_.x * value_cast(w)
           , tile_highlight_.y * value_cast(h)
           , w
-          , h};
+          , h}, 2);
 
         os_.render_draw_rect(r, 2, 0xD000FFFFu);
     }
