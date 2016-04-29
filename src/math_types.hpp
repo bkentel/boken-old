@@ -261,6 +261,13 @@ private:
     T value_ {};
 };
 
+struct identity_hash {
+    template <typename T, typename Tag>
+    constexpr size_t operator()(tagged_value<T, Tag> const id) const noexcept {
+        return value_cast(id);
+    }
+};
+
 //! 1 dimensional quantity
 template <typename T, typename TagAxis, typename TagType>
 class basic_1_tuple {

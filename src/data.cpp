@@ -4,35 +4,13 @@
 #include "tile.hpp"
 #include "serialize.hpp"
 #include "forward_declarations.hpp"
+#include "algorithm.hpp"
 
 #include "bkassert/assert.hpp"
 
 #include <unordered_map>
 
 namespace boken {
-
-namespace {
-
-template<
-    typename AssociativeContainer
-  , typename Key = typename AssociativeContainer::key_type>
-auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
-    using std::end;
-
-    auto const it = c.find(key);
-    return it == end(c)
-      ? nullptr
-      : std::addressof(it->second);
-}
-
-struct identity_hash {
-    template <typename T, typename Tag>
-    size_t operator()(tagged_value<T, Tag> const id) const noexcept {
-        return value_cast(id);
-    }
-};
-
-} //namespace anonymous
 
 game_database::~game_database() = default;
 

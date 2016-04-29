@@ -1,18 +1,19 @@
 #pragma once
 
-#include "math.hpp"          // for axis_aligned_rect
-#include "types.hpp"         // for sizei, sizeix, sizeiy
-#include "utility.hpp"
-#include <memory>            // for unique_ptr
-#include <vector>            // for vector, vector<>::const_iterator
-#include <cstdint>           // for uint16_t
+#include "math_types.hpp" // for axis_aligned_rect
+#include "types.hpp"      // for sizei, sizeix, sizeiy
+#include "utility.hpp"    // for weight_list
+
+#include <memory>         // for unique_ptr
+#include <cstdint>        // for uint16_t
 
 namespace boken { class random_state; }
 
 namespace boken {
 
-//! @note final nodes are sorted first, in descending order, by
-//! min(width, height) and then by area.
+//! Generator for recursively subdivided rectangular regions.
+//! @note The final region nodes are sorted in descending order first by
+//!       min(width, height), and then by area.
 class bsp_generator {
 public:
     struct param_t {
@@ -46,7 +47,7 @@ public:
         uint16_t level;
     };
 
-    using iterator = std::vector<node_t>::const_iterator;
+    using const_iterator = node_t const*;
 
     virtual ~bsp_generator();
 
@@ -61,8 +62,8 @@ public:
     virtual size_t size()  const noexcept = 0;
     virtual bool   empty() const noexcept = 0;
 
-    virtual iterator begin() const noexcept = 0;
-    virtual iterator end()   const noexcept = 0;
+    virtual const_iterator begin() const noexcept = 0;
+    virtual const_iterator end()   const noexcept = 0;
 
     virtual void clear() noexcept = 0;
 

@@ -11,7 +11,7 @@
 namespace boken {
 
 //! fixed size block allocator
-//! TODO: does not conform to the allocator interface
+//! @note this does not conform to the stl allocator interface
 template <typename T>
 class contiguous_fixed_size_block_storage {
     struct block_data_t {

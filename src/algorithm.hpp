@@ -2,7 +2,11 @@
 
 #include "math_types.hpp"
 
+#include <algorithm>
+#include <numeric>
 #include <type_traits>
+#include <memory>
+
 #include <cstddef>
 
 namespace boken {
@@ -21,6 +25,8 @@ struct always_false {
     }
 };
 
+//! Return an iterator to the @p n th value equal to @p value in the range given
+//! by [@p first, @p last). Otherwise, return @p last.
 template <typename FwdIt, typename Count, typename Value>
 auto find_nth(FwdIt const first, FwdIt const last, Count const n, Value const& value) noexcept {
     static_assert(noexcept(value == value), "");
@@ -32,6 +38,7 @@ auto find_nth(FwdIt const first, FwdIt const last, Count const n, Value const& v
         });
 }
 
+//! Container wide version of find_nth.
 template <typename Container, typename Count, typename Value>
 auto find_nth(Container&& c, Count const n, Value const& value) noexcept {
     using std::begin;
@@ -39,6 +46,7 @@ auto find_nth(Container&& c, Count const n, Value const& value) noexcept {
     return find_nth(begin(c), end(c), n, value);
 }
 
+//! Container wide verion of std::fill.
 template <typename Container, typename Value>
 void fill(Container& c, Value const& v) {
     using std::begin;
@@ -47,6 +55,8 @@ void fill(Container& c, Value const& v) {
     std::fill(begin(c), end(c), v);
 }
 
+//! Write to @p out increasing values starting at @p i for each element in the
+//! range given by [first, last) that @p pred returns true for.
 template <typename FwdIt, typename Index, typename Out, typename Predicate>
 void fill_with_index_if(FwdIt first, FwdIt last, Index i, Out out, Predicate pred) {
     for (auto it = first; it != last; ++it) {
@@ -57,6 +67,7 @@ void fill_with_index_if(FwdIt first, FwdIt last, Index i, Out out, Predicate pre
     }
 }
 
+//! A 2d-array adapter for a linear array.
 template <typename Container, typename T, typename U>
 auto&& at_xy(Container&& c, T const x, T const y, U const w) noexcept {
     using type = typename std::decay_t<Container>::iterator::iterator_category;
@@ -74,33 +85,15 @@ auto&& at_xy(Container&& c, point2<T> const p, size_type_x<U> const w) noexcept 
                , value_cast(p.x), value_cast(p.y), value_cast(w));
 }
 
-namespace detail {
+template<typename AssociativeContainer
+       , typename Key = typename AssociativeContainer::key_type>
+auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
+    using std::end;
 
-template <typename Container, typename T>
-struct at_xy_getter {
-    Container&& c_;
-    T const     w_;
-
-    template <typename U>
-    auto&& operator()(U const x, U const y) const noexcept {
-        return at_xy(c_, x, y, w_);
-    }
-
-    template <typename U>
-    auto&& operator()(point2<U> const p) const noexcept {
-        return (*this)(value_cast(p.x), value_cast(p.y));
-    }
-};
-
-} // namespace detail
-
-template <typename Container, typename T>
-auto make_at_xy_getter(Container&& c, T const w) noexcept {
-    static_assert(!std::is_rvalue_reference<Container> {}, "");
-
-    auto const w_value = value_cast(w);
-    return detail::at_xy_getter<Container, decltype(w_value)> {
-        std::forward<Container>(c), w_value};
+    auto const it = c.find(key);
+    return (it == end(c))
+      ? nullptr
+      : std::addressof(it->second);
 }
 
 } //namespace boken

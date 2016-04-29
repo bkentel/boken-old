@@ -4,6 +4,9 @@
 #include "utility.hpp"  // for sort
 #include "rect.hpp"
 
+#include <vector>
+#include <cstddef>
+
 namespace boken {
 
 bsp_generator::~bsp_generator() = default;
@@ -29,12 +32,12 @@ public:
         return leaf_nodes_.empty();
     }
 
-    iterator begin() const noexcept final override {
-        return std::begin(leaf_nodes_);
+    const_iterator begin() const noexcept final override {
+        return leaf_nodes_.data();
     }
 
-    iterator end() const noexcept final override {
-        return std::end(leaf_nodes_);
+    const_iterator end() const noexcept final override {
+        return leaf_nodes_.data() + static_cast<ptrdiff_t>(leaf_nodes_.size());
     }
 
     void clear() noexcept final override {
