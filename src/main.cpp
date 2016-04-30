@@ -1,4 +1,5 @@
 #include "catch.hpp"        // for run_unit_tests
+#include "algorithm.hpp"
 #include "allocator.hpp"
 #include "command.hpp"
 #include "data.hpp"
@@ -1098,10 +1099,12 @@ struct game_state {
                 if (type == ct::confirm) {
                     if (!!first && !!last) {
                         on_confirm(first, last);
+                        renderer.update_tool_tip_visible(false);
                         return event_result::filter_detach;
                     }
                 } else if (type == ct::cancel) {
                     on_cancel();
+                    renderer.update_tool_tip_visible(false);
                     return event_result::filter_detach;
                 }
 
@@ -1131,12 +1134,22 @@ struct game_state {
           , on_cancel);
     }
 
+    //! Display an item list.
+    //! @param title The title to display for the list.
+    //! @param src   The source of the items to view. This could be one of:
+    //!              (1) A pile on the ground.
+    //!              (2) A pile inside another item.
+    //!              (3) A pile held by an entity (the player included).
+    //! @param src_p The world location of the pile, or item / entity that owns
+    //!              the pile.
+    //! @param dst   The destination for items removed from the pile. The same
+    //!              principal for src applies to dst.
     template <typename Source, typename Dest>
     void view_item_pile(
-        std::string title
-      , Source& src
+        std::string     title
+      , Source&         src
       , point2i32 const src_p
-      , Dest& dst
+      , Dest&           dst
     ) {
         enum class pile_type {
             inventory, container, floor, other_inventory, unknown
@@ -1285,92 +1298,193 @@ struct game_state {
         impl_do_drop_n_(2);
     }
 
+    template <typename UnaryF>
+    void do_yes_no(UnaryF callback) {
+        input_context c(__func__);
+
+        c.on_command_handler = [=](command_type const cmd, uint64_t) {
+            auto const done = (cmd == command_type::cancel)
+                           || (cmd == command_type::confirm);
+
+            if (done) {
+                callback(cmd);
+                return event_result::filter_detach;
+            }
+
+            return event_result::filter;
+        };
+
+        c.on_text_input_handler = [=](text_input_event const event) {
+            if (event.text.size() != 1u) {
+                return event_result::filter;
+            }
+
+            auto const c = event.text[0];
+
+            if (c == 'y' || c == 'Y') {
+                callback(command_type::confirm);
+                return event_result::filter_detach;
+            }
+
+            if (c == 'n' || c == 'N') {
+                callback(command_type::cancel);
+                return event_result::filter_detach;
+            }
+
+            return event_result::filter;
+        };
+
+        context_stack.push(std::move(c));
+    }
+
+    void view_container(item_instance_id const id) {
+        auto const p         = get_player();
+        auto&      container = find(the_world, id);
+        auto&      items     = container.items();
+        auto const name      = name_of(container);
+
+        static_string_buffer<128> buffer;
+        buffer.append("You open the %s.", name.data());
+        message_window.println(buffer.to_string());
+
+        view_item_pile(name.to_string(), container, p.second, p.first);
+    }
+
     void do_open() {
         auto const  player_info = get_player();
         auto&       player      = player_info.first;
         auto const  player_p    = player_info.second;
         auto&       lvl         = the_world.current_level();
 
-        //
-        // check for containers at the players position
-        //
-
-        // no items whatsoever here
-        auto* const pile = lvl.item_at(player_p);
-        if (!pile) {
-            message_window.println("There is nothing here to open.");
-            return;
-        }
-
-        // is the item given by id a container
         auto const is_container = [&](item_instance_id const id) noexcept {
-            auto const& itm = find(the_world, id);
-            auto const capacity = get_property_value_or(
-                database, itm, property(item_property::capacity), 0);
-            return capacity;
+            return boken::is_container(database, find(the_world, id)) > 0;
         };
 
-        // find items which are containers
-        auto const find_container = [&](auto const first, auto const last) {
-            return std::find_if(first, last, is_container);
-        };
+        // check for containers at the players position
+        auto const find_containers = [=](item_pile const* const pile) noexcept {
+            using it_t = decltype(begin(*pile));
 
-        auto const last = pile->end();
-        auto       it   = find_container(pile->begin(), last);
+            // find items which are containers
+            auto const find_container = [=](it_t const first, it_t const last) noexcept {
+                return std::find_if(first, last, is_container);
+            };
 
-        // no containers here
-        if (it == last) {
-            message_window.println("There is nothing here to open.");
-            return;
-        }
-
-        //
-        // There is at least one container to consider here
-        //
-
-        // view the contents of the container give by id
-        auto const show_container = [&, player_p](item_instance_id const id) {
-            auto&      container = find(the_world, id);
-            auto&      items     = container.items();
-            auto const name      = name_of(container);
-
-            static_string_buffer<128> buffer;
-            buffer.append("You open the %s.", name.data());
-            message_window.println(buffer.to_string());
-
-            view_item_pile(name.to_string(), container, player_p, player);
-        };
-
-        auto const container0 = it;
-        auto const container1 = find_container(++it, last);
-
-        // there is only one container here; show its contents
-        if (container1 == last) {
-            show_container(*container0);
-            return;
-        }
-
-        // there are at least two containers here; build a list and let the
-        // player decide which to inspect
-        auto& il = item_list;
-        il.clear();
-        il.append(*container0);
-
-        it = container1;
-        for ( ; it != last; it = find_container(++it, last)) {
-            il.append(*it);
-        }
-
-        il.layout();
-
-        choose_one_item("Open which container?"
-          , [=](int const index) {
-                auto const id = (*pile)[static_cast<size_t>(index)];
-                show_container(id);
+            // empty pile
+            if (!pile) {
+                return std::make_tuple(0, it_t {}, it_t {}, it_t {});
             }
-          , [&] {
-                message_window.println("Nevermind.");
+
+            auto const last        = end(*pile);
+            auto const first_match = find_container(begin(*pile), last);
+
+            // no matches
+            if (first_match == last) {
+                return std::make_tuple(0, it_t {}, it_t {}, it_t {});
+            }
+
+            auto const second_match =
+                find_container(std::next(first_match), last);
+
+            // one match
+            if (second_match == last) {
+                return std::make_tuple(1, first_match, first_match, last);
+            }
+
+            // at least two matches
+            return std::make_tuple(2, first_match, second_match, last);
+        };
+
+        // choose between multiple container choices
+        auto const choose_container = [=](item_pile const& pile, auto const result) {
+            // there are at least two containers here; build a list and let the
+            // player decide which to inspect
+            BK_ASSERT(std::get<0>(result) == 2);
+
+            auto const it_1st_match = std::get<1>(result);
+            auto const it_2nd_match = std::get<2>(result);
+            auto const last         = std::get<3>(result);
+
+            auto& il = item_list;
+
+            il.clear();
+            il.append(*it_1st_match);
+            il.append(*it_2nd_match);
+
+            for_each_matching(std::next(it_2nd_match), last, is_container
+              , [&](item_instance_id const id) { il.append(id); });
+
+            il.layout();
+
+            choose_one_item("Open which container?"
+              , [this, &pile](int const i) {
+                    view_container(pile[static_cast<size_t>(i)]);
+                }
+              , [this] {
+                    message_window.println("Nevermind.");
+                });
+        };
+
+        //
+        // first check for containers on the ground at the player's position
+        //
+
+        auto const pile    = lvl.item_at(player_p);
+        auto const result  = find_containers(pile);
+        auto const matches = std::get<0>(result);
+
+        if (matches == 1) {
+            view_container(*std::get<1>(result));
+            return;
+        }
+
+        if (matches == 2) {
+            choose_container(*pile, result);
+            return;
+        }
+
+        //
+        // failing that, check if the player is holding any containers
+        //
+
+        BK_ASSERT(matches == 0);
+        message_window.println("There is nothing here to open.");
+
+        auto const& items     = player.items();
+        auto const  p_result  = find_containers(&items);
+        auto const  p_matches = std::get<0>(p_result);
+
+        if (p_matches <= 0) {
+            return;
+        }
+
+        //
+        // the player has at least one container; ask whether they want to open
+        // one of those instead.
+        //
+
+        if (p_matches == 2) {
+            message_window.println("Open a container in your inventory? y/n");
+            do_yes_no([=, &items](command_type const cmd) {
+                if (cmd == command_type::confirm) {
+                    choose_container(items, p_result);
+                }
             });
+            return;
+        }
+
+        BK_ASSERT(p_matches == 1);
+        auto const container_id = *std::get<1>(p_result);
+
+        static_string_buffer<128> buffer;
+        buffer.append("Open the %s in your inventory? y/n"
+            , name_of(container_id).data());
+        message_window.println(buffer.to_string());
+
+        do_yes_no([=](command_type const cmd) {
+            if (cmd == command_type::confirm) {
+                view_container(container_id);;
+            }
+        });
     }
 
     void do_debug_teleport_self() {
