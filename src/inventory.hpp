@@ -111,9 +111,18 @@ public:
 
     //--------------------------------------------------------------------------
     virtual int  indicated() const noexcept = 0;
-    virtual void indicate(int n) noexcept = 0;
-    virtual void indicate_next(int n = 1) noexcept = 0;
-    virtual void indicate_prev(int n = 1) noexcept = 0;
+
+    //! sets the indicator to @p n and returns the index of the previously
+    //! indicated item.
+    virtual int indicate(int n) noexcept = 0;
+
+    //! sets the indicator to the next item and returns the index of the
+    //! previously indicated item.
+    virtual int indicate_next(int n = 1) noexcept = 0;
+
+    //! sets the indicator to the previous item and returns the index of the
+    //! previously indicated item.
+    virtual int indicate_prev(int n = 1) noexcept = 0;
 
     //--------------------------------------------------------------------------
     virtual void reserve(size_t cols, size_t rows) = 0;

@@ -280,18 +280,22 @@ public:
         return indicated_;
     }
 
-    void indicate(int const n) noexcept final override {
+    int indicate(int const n) noexcept final override {
         BK_ASSERT(check_row_(n));
+        auto const result = indicated_;
         indicated_ = n;
+        return result;
     }
 
-    void indicate_change_(int const n) noexcept {
+    int indicate_change_(int const n) noexcept {
+        auto const result = indicated_;
+
         auto const n_rows = rows();
         auto const i = static_cast<size_t>(indicated_);
 
         if (n_rows <= 0) {
             indicated_ = 0;
-            return;
+            return result;
         }
 
         auto const m = n < 0
@@ -299,14 +303,16 @@ public:
             : (static_cast<size_t>(n) % n_rows);
 
         indicated_ = static_cast<int>((i + m) % n_rows);
+
+        return result;
     }
 
-    void indicate_next(int const n) noexcept final override {
-        indicate_change_(n);
+    int indicate_next(int const n) noexcept final override {
+        return indicate_change_(n);
     }
 
-    void indicate_prev(int const n) noexcept final override {
-        indicate_change_(-n);
+    int indicate_prev(int const n) noexcept final override {
+        return indicate_change_(-n);
     }
 
     //--------------------------------------------------------------------------
