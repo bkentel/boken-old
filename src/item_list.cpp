@@ -51,10 +51,25 @@ void item_list_controller::set_on_selection_change(on_selection_change_t handler
 }
 
 void item_list_controller::set_on_selection_change() {
-    on_selection_change_ = [](auto, auto) noexcept {};
+    on_selection_change_ = [](auto) noexcept {};
 }
 
 //--------------------------------------------------------------------------
+
+void item_list_controller::do_on_selection_change_(int const prev_sel) {
+    auto& il = *list_;
+
+    auto const i = il.indicated();
+    if (i == prev_sel) {
+        return;
+    }
+
+    il.scroll_into_view(0, i);
+    on_selection_change_(i);
+}
+
+//--------------------------------------------------------------------------
+
 bool item_list_controller::on_key(kb_event const& event, kb_modifiers const& kmods) {
     auto& il = *list_;
 
@@ -194,14 +209,7 @@ bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers 
 
     // indicate the row the mouse is over
     if (hit_test.what == type::cell && event.button_state_bits() == 0) {
-        auto const before = il.indicated();
-        il.indicate(hit_test.y);
-        auto const after = il.indicated();
-
-        if (before != after) {
-            auto const id = il.row_data(after);
-            on_selection_change_(id, {event.x + 32, event.y});
-        }
+        do_on_selection_change_(il.indicate(hit_test.y));
     }
 
     return false;
@@ -219,12 +227,10 @@ bool item_list_controller::on_mouse_wheel(int const wy, int const wx, kb_modifie
     }
 
     if (wy > 0) {
-        il.indicate_prev(wy);
-        il.scroll_into_view(0, il.indicated());
+        do_on_selection_change_(il.indicate_prev(wy));
         return false;
     } else if (wy < 0) {
-        il.indicate_next(-wy);
-        il.scroll_into_view(0, il.indicated());
+        do_on_selection_change_(il.indicate_next(-wy));
         return false;
     }
 
@@ -278,12 +284,10 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
         using ct = command_type;
 
         if (type == ct::move_n) {
-            il.indicate_prev();
-            il.scroll_into_view(0, il.indicated());
+            do_on_selection_change_(il.indicate_prev());
             return event_result::filter;
         } else if (type == ct::move_s) {
-            il.indicate_next();
-            il.scroll_into_view(0, il.indicated());
+            do_on_selection_change_(il.indicate_next());
             return event_result::filter;
         } else if (type == ct::toggle) {
             if (is_multi_select_) {

@@ -37,7 +37,7 @@ class item_list_controller {
 public:
     using on_command_t = std::function<event_result (command_type type, int const* first, int const* last)>;
     using on_focus_change_t = std::function<void (bool)>;
-    using on_selection_change_t = std::function<void (item_instance_id, point2i32)>;
+    using on_selection_change_t = std::function<void (int)>;
 
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
@@ -109,6 +109,8 @@ private:
     void resize_(point2i32 p, vec2i32 v);
 
     event_result do_on_command_(command_type type, int const* first, int const* last);
+
+    void do_on_selection_change_(int prev_sel);
 private:
     std::unique_ptr<inventory_list> list_;
 
