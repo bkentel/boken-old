@@ -96,4 +96,18 @@ auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
       : std::addressof(it->second);
 }
 
+template <typename FwdIt, typename Predicate, typename UnaryF>
+void for_each_matching(
+    FwdIt const first
+  , FwdIt const last
+  , Predicate   pred
+  , UnaryF      callback
+) {
+    std::for_each(first, last, [&](auto const& element) {
+        if (pred(element)) {
+            callback(element);
+        }
+    });
+}
+
 } //namespace boken
