@@ -1176,10 +1176,21 @@ struct game_state {
 
                 return event_result::filter;
             } else if (cmd == ct::cancel) {
+                renderer.update_tool_tip_visible(false);
                 return event_result::filter_detach;
             }
 
             return event_result::filter;
+        });
+
+        item_list.set_on_selection_change([&](int const i) {
+            auto const instance = item_list.get().row_data(i);
+            auto const bounds   = item_list.get().metrics().frame;
+
+            renderer.update_tool_tip_visible(true);
+            renderer.update_tool_tip_position(bounds.bottom_left());
+            renderer.update_tool_tip_text(
+                item_description(the_world, database, instance));
         });
     }
 
