@@ -2,6 +2,7 @@
 #include "item_pile.hpp"
 #include "item_properties.hpp"
 #include "forward_declarations.hpp"
+#include "utility.hpp" //  static_string_buffer
 
 #include "bkassert/assert.hpp"
 
@@ -13,6 +14,46 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+std::string item_description(
+    world           const& w
+  , game_database   const& db
+  , item            const& itm
+  , item_definition const& def
+) {
+    static_string_buffer<256> buffer;
+
+    buffer.append("<cr>%s<cr>", name_of(db, itm).data());
+
+    auto const we = weight_of_exclusive(db, itm);
+
+    auto const capacity = get_property_value_or(
+        db, itm, property(item_property::capacity), 0);
+
+    if (capacity > 0) {
+        auto const wi = weight_of_inclusive(w, db, itm);
+        buffer.append("\nWeight: %d (%d)", wi, we);
+        buffer.append("\nContains %d of %d items"
+          , static_cast<int>(itm.items().size()), capacity);
+    } else {
+        buffer.append("\nWeight: %d", we);
+    }
+
+    return buffer.to_string();
+}
+
+std::string item_description(
+    world            const& w
+  , game_database    const& db
+  , item_instance_id const  id
+) {
+    auto const& itm = find(w, id);
+    auto const& def = find(db, itm.definition());
+
+    BK_ASSERT(!!def); // TODO
+
+    return item_description(w, db, itm, *def);
+}
+
 item_id get_pile_id(game_database const& db) noexcept {
     auto const pile_def = find(db, make_id<item_id>("pile"));
     return pile_def

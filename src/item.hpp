@@ -4,6 +4,8 @@
 #include "item_def.hpp"
 #include "object.hpp"
 
+#include <string>
+
 namespace boken { class game_database; };
 
 namespace boken {
@@ -33,5 +35,13 @@ item_id get_pile_id(game_database const& db) noexcept;
 //! get the item id to display an item pile
 //! @pre @p pile is not empty
 item_id get_pile_id(world const& w, item_pile const& pile, item_id pile_id) noexcept;
+
+//! return a detailed description of the item
+//! @note This build a new description every time it is called; it is meant for
+//!       generating descriptions to display to the player only.
+//@{
+std::string item_description(world const& w, game_database const& db, item_instance_id id);
+std::string item_description(world const& w, game_database const& db, item const& itm, item_definition const& def);
+//@}
 
 } //namespace boken
