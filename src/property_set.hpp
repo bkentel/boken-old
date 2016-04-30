@@ -118,4 +118,36 @@ private:
     std::vector<pair_t> values_;
 };
 
+namespace detail {
+
+template <typename Property, typename Value>
+Value get_property_value_or(
+    std::initializer_list<
+        std::reference_wrapper<
+            property_set<Property, Value> const>> const il
+  , Property const property
+  , Value    const fallback
+) noexcept {
+    for (property_set<Property, Value> const& properties : il) {
+        auto const p = properties.get_property(property);
+        if (p.second) {
+            return p.first;
+        }
+    }
+
+    return fallback;
+}
+
+} // namespace detail
+
+template <typename Property, typename Value, typename... PropertySets>
+Value get_property_value_or(
+    Property const         property
+  , Value const            fallback
+  , PropertySets const&... property_sets
+) noexcept {
+    return detail::get_property_value_or(
+        {std::cref(property_sets)...}, property, fallback);
+}
+
 } //namespace boken

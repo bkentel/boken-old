@@ -62,14 +62,24 @@ public:
     }
 
     property_value_t property_value_or(
-        game_database    const& data
+        definition_t     const& def
       , property_t       const  property
       , property_value_t const  fallback
     ) const noexcept {
-        auto const pair = properties_.get_property(property);
-        return pair.second
-          ? pair.first
-          : boken::get_property_value_or(data, id_, property, fallback);
+        BK_ASSERT(def.id == definition());
+        return get_property_value_or(
+            property, fallback, properties_, def.properties);
+    }
+
+    property_value_t property_value_or(
+        game_database    const& db
+      , property_t       const  property
+      , property_value_t const  fallback
+    ) const noexcept {
+        auto const def = find(db, definition());
+        return def
+          ? property_value_or(*def, property, fallback)
+          : get_property_value_or(property, fallback, properties_);
     }
 
     bool add_or_update_property(

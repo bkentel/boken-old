@@ -120,15 +120,6 @@
     <ClInclude Include="src\algorithm.hpp" />
     <ClInclude Include="src\allocator.hpp" />
     <ClInclude Include="src\timer.hpp" />
-    <ClInclude Include="src\entity_def.hpp">
-      <Filter>definitions</Filter>
-    </ClInclude>
-    <ClInclude Include="src\item_def.hpp">
-      <Filter>definitions</Filter>
-    </ClInclude>
-    <ClInclude Include="src\definition.hpp">
-      <Filter>definitions</Filter>
-    </ClInclude>
     <ClInclude Include="src\property_set.hpp" />
     <ClInclude Include="src\item.hpp">
       <Filter>objects</Filter>
@@ -138,9 +129,6 @@
     </ClInclude>
     <ClInclude Include="src\object.hpp">
       <Filter>objects</Filter>
-    </ClInclude>
-    <ClInclude Include="src\item_properties.hpp">
-      <Filter>definitions</Filter>
     </ClInclude>
     <ClInclude Include="src\item_list.hpp">
       <Filter>ui</Filter>
@@ -158,6 +146,18 @@
     <ClInclude Include="src\level_details.hpp" />
     <ClInclude Include="src\flag_set.hpp" />
     <ClInclude Include="src\system_input.hpp" />
+    <ClInclude Include="src\item_properties.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\item_def.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\entity_def.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\definition.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
@@ -165,9 +165,6 @@
     </Filter>
     <Filter Include="external">
       <UniqueIdentifier>{bb513ea0-b18f-4b40-8aa9-607b6a5c485e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="definitions">
-      <UniqueIdentifier>{259b2026-2c52-4149-8097-58b290fde0ee}</UniqueIdentifier>
     </Filter>
     <Filter Include="objects">
       <UniqueIdentifier>{e7771176-403f-4574-bceb-395ef3b0670a}</UniqueIdentifier>
