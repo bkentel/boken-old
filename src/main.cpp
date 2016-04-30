@@ -353,16 +353,31 @@ struct game_state {
             p, tmap.tile_width(), tmap.tile_height()));
     }
 
-    void update_view_scale(float const sx, float const sy) {
+    //! Update the rendering scale.
+    //! @pre sx > 0 && sy > 0
+    void update_view_scale(float const sx, float const sy) noexcept {
         update_view(sx, sy, current_view.x_off, current_view.y_off);
     }
 
+    void update_view_scale(point2f const scale) noexcept {
+        update_view_scale(value_cast(scale.x), value_cast(scale.y));
+    }
+
+    //! Update the rendering offset (translation).
     void update_view_trans(float const dx, float const dy) {
         update_view(current_view.scale_x, current_view.scale_y, dx, dy);
     }
 
-    void update_view(float const sx, float const sy, float const dx, float const dy) {
-        BK_ASSERT(sx == sy && sx > 0.0f && sy > 0.0f);
+    void update_view_trans(point2f const trans) noexcept {
+        update_view_trans(value_cast(trans.x), value_cast(trans.y));
+    }
+
+    //! Update the rendering transformation matrix.
+    //! @pre sx > 0 && sy > 0
+    void update_view(float const sx, float const sy
+                   , float const dx, float const dy
+    ) noexcept {
+        BK_ASSERT(sx > 0.0f && sy > 0.0f);
 
         current_view.scale_x = sx;
         current_view.scale_y = sy;
@@ -372,6 +387,13 @@ struct game_state {
         update_highlight_tile();
     }
 
+    void update_view(point2f const scale, point2f const trans) noexcept {
+        update_view(value_cast(scale.x), value_cast(scale.y)
+                  , value_cast(trans.x), value_cast(trans.y));
+    }
+
+    //! Debug command to create a corridor at the give position.
+    //! @param p Position in world coordinates
     void debug_create_corridor_at(point2i32 const p) {
         if (!intersects(p, the_world.current_level().bounds())) {
             return;
@@ -388,7 +410,9 @@ struct game_state {
         update_tile_at(p, data);
     }
 
-    // @param p Position in world coordinates
+    //! Change the properties of the tile for the current level at the given
+    //! position.
+    //! @param p Position in world coordinates
     void update_tile_at(point2i32 const p, tile_data_set const& data) {
         auto& lvl = the_world.current_level();
 
@@ -397,7 +421,8 @@ struct game_state {
         renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
     }
 
-    //! @param p Position in wolrd coordinates
+    //! Show the toolip for the 'view' command
+    //! @param p Position in world coordinates
     void show_view_tool_tip(point2i32 const p) {
         auto const& lvl  = the_world.current_level();
         auto const& tile = lvl.at(p);
@@ -692,7 +717,7 @@ struct game_state {
             get_player().second, tmap.tile_width(), tmap.tile_height()
           , win_r.width(), win_r.height());
 
-        update_view(1.0f, 1.0f, value_cast(q.x), value_cast(q.y));
+        update_view({1.0f, 1.0f}, q);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
