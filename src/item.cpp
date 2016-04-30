@@ -14,6 +14,16 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+uint32_t is_container(
+    game_database const& db
+  , item          const& itm
+) noexcept {
+    auto const capacity = get_property_value_or(
+        db, itm, property(item_property::capacity), 0);
+
+    return capacity;
+}
+
 std::string item_description(
     world           const& w
   , game_database   const& db
@@ -26,8 +36,7 @@ std::string item_description(
 
     auto const we = weight_of_exclusive(db, itm);
 
-    auto const capacity = get_property_value_or(
-        db, itm, property(item_property::capacity), 0);
+    auto const capacity = is_container(db, itm);
 
     if (capacity > 0) {
         auto const wi = weight_of_inclusive(w, db, itm);

@@ -36,6 +36,9 @@ item_id get_pile_id(game_database const& db) noexcept;
 //! @pre @p pile is not empty
 item_id get_pile_id(world const& w, item_pile const& pile, item_id pile_id) noexcept;
 
+//! return a positive integer which is the capacity of the item, or 0 otherwise.
+uint32_t is_container(game_database const& db, item const& itm) noexcept;
+
 //! return a detailed description of the item
 //! @note This build a new description every time it is called; it is meant for
 //!       generating descriptions to display to the player only.
