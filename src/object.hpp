@@ -53,13 +53,6 @@ public:
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     //                              Properties
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool has_property(
-        game_database const& data
-      , property_t    const  property
-    ) const noexcept {
-        return properties_.has_property(property)
-            || boken::has_property(data, id_, property);
-    }
 
     property_value_t property_value_or(
         definition_t     const& def
