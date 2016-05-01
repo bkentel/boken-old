@@ -140,11 +140,11 @@ Value get_property_value_or(
 
 } // namespace detail
 
-template <typename Property, typename Value, typename... PropertySets>
+template <typename Property, typename Value, typename... Ps, typename... Vs>
 Value get_property_value_or(
-    Property const         property
-  , Value const            fallback
-  , PropertySets const&... property_sets
+    Property const                 property
+  , Value const                    fallback
+  , property_set<Ps, Vs> const&... property_sets
 ) noexcept {
     return detail::get_property_value_or(
         {std::cref(property_sets)...}, property, fallback);
