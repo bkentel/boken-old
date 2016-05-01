@@ -14,14 +14,71 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
-uint32_t is_container(
-    game_database const& db
-  , item          const& itm
-) noexcept {
-    auto const capacity = get_property_value_or(
-        db, itm, property(item_property::capacity), 0);
+std::string name_of_decorated(
+    world           const& w
+  , game_database   const& db
+  , item            const& itm
+  , item_definition const& def
+) {
+    static_string_buffer<128> buffer;
 
-    return capacity;
+    auto const& base_name = def.name;
+    buffer.append("%s", base_name.data());
+
+    auto const id_status = is_identified(itm, def);
+    auto const capacity  = is_container(itm, def);
+
+    if (capacity > 0) {
+        if (id_status < 1) {
+            buffer.append(" [?]");
+        } else {
+            auto const n = static_cast<int>(itm.items().size());
+            if (n == 0) {
+                buffer.append(" [empty]");
+            } else {
+                buffer.append(" [%d]", n);
+            }
+        }
+    }
+
+    return buffer.to_string();
+}
+
+std::string name_of_decorated(
+    world         const& w
+  , game_database const& db
+  , item          const& itm
+) {
+    auto const def = find(db, itm.definition());
+    if (!def) {
+        BK_ASSERT(false); // TODO
+    }
+
+    return name_of_decorated(w, db, itm, *def);
+}
+
+std::string name_of_decorated(
+    world            const& w
+  , game_database    const& db
+  , item_instance_id const  id
+) {
+    return name_of_decorated(w, db, find(w, id));
+}
+
+uint32_t is_container(item const& itm, item_definition const& def) noexcept {
+    return get_property_value_or(itm, def, property(item_property::capacity), 0);
+}
+
+uint32_t is_container(game_database const& db, item const& itm) noexcept {
+    return get_property_value_or(db, itm, property(item_property::capacity), 0);
+}
+
+uint32_t is_identified(game_database const& db, item const& itm) noexcept {
+    return get_property_value_or(db, itm, property(item_property::identified), 0);
+}
+
+uint32_t is_identified(item const& itm, item_definition const& def) noexcept {
+    return get_property_value_or(itm, def, property(item_property::identified), 0);
 }
 
 std::string item_description(
@@ -36,13 +93,20 @@ std::string item_description(
 
     auto const we = weight_of_exclusive(db, itm);
 
-    auto const capacity = is_container(db, itm);
+    auto const id_status = is_identified(itm, def);
+    auto const capacity  = is_container(itm, def);
 
     if (capacity > 0) {
         auto const wi = weight_of_inclusive(w, db, itm);
         buffer.append("\nWeight: %d (%d)", wi, we);
-        buffer.append("\nContains %d of %d items"
-          , static_cast<int>(itm.items().size()), capacity);
+
+        auto const n = static_cast<int>(itm.items().size());
+
+        if (id_status > 0) {
+            buffer.append("\nContains %d of %d items", n , capacity);
+        } else {
+            buffer.append("\nContains ? items", n , capacity);
+        }
     } else {
         buffer.append("\nWeight: %d", we);
     }
@@ -170,35 +234,6 @@ bool can_add_item(
         db, dest, item {item_instance_id {}, def.id});
 }
 
-item_property_value get_property_value_or(
-    game_database const&      db
-  , item const&               i
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    return i.property_value_or(db, property, fallback);
-}
-
-item_property_value get_property_value_or(
-    game_database const&      db
-  , item_id const             id
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    auto* const def = find(db, id);
-    return def
-      ? get_property_value_or(*def, property, fallback)
-      : fallback;
-}
-
-item_property_value get_property_value_or(
-    item_definition const& def
-  , item_property_id       property
-  , item_property_value    fallback
-) noexcept {
-    return def.properties.value_or(property, fallback);
-}
-
 item_instance_id get_instance(item const& i) noexcept {
     return i.instance();
 }
@@ -213,6 +248,46 @@ item_pile& get_items(item& i) noexcept {
 
 item_pile const& get_items(item const& i) noexcept {
     return i.items();
+}
+
+item_property_value get_property_value_or(
+    item const&               itm
+  , item_definition const&    def
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    return itm.property_value_or(def, property, fallback);
+}
+
+item_property_value get_property_value_or(
+    game_database const&      db
+  , item const&               itm
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    return itm.property_value_or(db, property, fallback);
+}
+
+item_property_value get_property_value_or(
+    game_database const&      db
+  , item_id                   id
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    auto const def = find(db, id);
+    return def
+      ? get_property_value_or(property, fallback, def->properties)
+      : fallback;
+}
+
+item_property_value get_property_value_or(
+    world const&              w
+  , game_database const&      db
+  , item_instance_id const    id
+  , item_property_id const    property
+  , item_property_value const fallback
+) noexcept {
+    return get_property_value_or(db, find(w, id), property, fallback);
 }
 
 namespace {

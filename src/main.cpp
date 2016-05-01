@@ -287,7 +287,7 @@ struct game_state {
         });
 
         item_list.add_column("Name", [&](item const& itm) {
-            return name_of(itm).to_string();
+            return name_of_decorated(the_world, database, itm);
         });
 
         item_list.add_column("Weight", [&](item const& itm) {
@@ -295,8 +295,11 @@ struct game_state {
         });
 
         item_list.add_column("Count", [&](item const& itm) {
-            auto const stack = get_property_value_or(database, itm
-                , property(item_property::current_stack_size), 1);
+            auto const stack = get_property_value_or(
+                database
+              , itm
+              , property(item_property::current_stack_size)
+              , 1);
 
             return std::to_string(stack);
         });
@@ -453,7 +456,7 @@ struct game_state {
                 auto const sep = (i++ == size - 1) ? "" : ", ";
 
                 auto const result = buffer.append("%s%s"
-                  , name_of(id).data(), sep);
+                  , name_of_decorated(the_world, database, id).data(), sep);
 
                 if (!result) {
                     return false;
@@ -1338,16 +1341,23 @@ struct game_state {
     }
 
     void view_container(item_instance_id const id) {
-        auto const p         = get_player();
-        auto&      container = find(the_world, id);
-        auto&      items     = container.items();
-        auto const name      = name_of(container);
+        auto& container = find(the_world, id);
+        auto name = [&] {
+            if (!is_identified(database, container)) {
+                // viewing a container updates the id status to level 1
+                container.add_or_update_property(
+                    {property(item_property::identified), 1});
+            }
+
+            return name_of_decorated(the_world, database, container);
+        }();
 
         static_string_buffer<128> buffer;
         buffer.append("You open the %s.", name.data());
         message_window.println(buffer.to_string());
 
-        view_item_pile(name.to_string(), container, p.second, p.first);
+        auto const p = get_player();
+        view_item_pile(std::move(name), container, p.second, p.first);
     }
 
     void do_open() {
@@ -1477,7 +1487,7 @@ struct game_state {
 
         static_string_buffer<128> buffer;
         buffer.append("Open the %s in your inventory? y/n"
-            , name_of(container_id).data());
+            , name_of_decorated(the_world, database, container_id).data());
         message_window.println(buffer.to_string());
 
         do_yes_no([=](command_type const cmd) {
@@ -1571,7 +1581,7 @@ struct game_state {
       , int const* const first, int const* const last
     ) {
         static_string_buffer<128> buffer;
-        auto const src_name = name_of(src);
+        auto const src_name = name_of_decorated(the_world, database, src);
 
         return impl_move_items_object_to_level_(
             src, dest_lvl, dest_p, first, last
@@ -1579,7 +1589,8 @@ struct game_state {
           , [&](item_instance_id const id) {
                 buffer.clear();
                 buffer.append("You remove the %s from the %s and drop it on the ground."
-                            , name_of(id).data(), src_name.data());
+                            , name_of_decorated(the_world, database, id).data()
+                            , src_name.data());
                 message_window.println(buffer.to_string());
             }
         );
@@ -1600,7 +1611,7 @@ struct game_state {
           , [&](item_instance_id const id) {
                 buffer.clear();
                 buffer.append("You drop the %s on the ground."
-                            , name_of(id).data());
+                            , name_of_decorated(the_world, database, id).data());
                 message_window.println(buffer.to_string());
             }
         );
@@ -1623,7 +1634,7 @@ struct game_state {
         };
 
         auto const sink = [&](unique_item&& itm, item_pile& pile) {
-            auto const name = name_of(itm);
+            auto const name = name_of_decorated(the_world, database, itm.get());
 
             merge_into_pile(the_world, database, std::move(itm), pile);
 
@@ -1652,7 +1663,7 @@ struct game_state {
         static_string_buffer<128> buffer;
 
         auto const sink = [&](unique_item&& itm) {
-            auto const name = name_of(itm);
+            auto const name = name_of_decorated(the_world, database, itm.get());
 
             merge_into_pile(the_world, database, std::move(itm), dest_pile);
 

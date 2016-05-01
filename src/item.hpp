@@ -38,13 +38,22 @@ item_id get_pile_id(world const& w, item_pile const& pile, item_id pile_id) noex
 
 //! return a positive integer which is the capacity of the item, or 0 otherwise.
 uint32_t is_container(game_database const& db, item const& itm) noexcept;
+uint32_t is_container(item const& itm, item_definition const& def) noexcept;
+
+//! return a positive integer indicating the identification state of the item
+uint32_t is_identified(game_database const& db, item const& itm) noexcept;
+uint32_t is_identified(item const& itm, item_definition const& def) noexcept;
 
 //! return a detailed description of the item
 //! @note This build a new description every time it is called; it is meant for
 //!       generating descriptions to display to the player only.
 //@{
-std::string item_description(world const& w, game_database const& db, item_instance_id id);
 std::string item_description(world const& w, game_database const& db, item const& itm, item_definition const& def);
+std::string item_description(world const& w, game_database const& db, item_instance_id id);
 //@}
+
+std::string name_of_decorated(world const& w, game_database const& db, item const& itm, item_definition const& def);
+std::string name_of_decorated(world const& w, game_database const& db, item const& itm);
+std::string name_of_decorated(world const& w, game_database const& db, item_instance_id id);
 
 } //namespace boken
