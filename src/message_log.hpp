@@ -13,6 +13,8 @@ namespace boken {
 //!
 class message_log {
 public:
+    virtual ~message_log();
+
     virtual void print(std::string msg) = 0;
     virtual void println(std::string msg) = 0;
 

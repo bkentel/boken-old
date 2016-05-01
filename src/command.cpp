@@ -64,7 +64,6 @@ void command_translator_impl::translate(text_input_event const& event) const {
 
 void command_translator_impl::translate(kb_event const& event, kb_modifiers const& kmods) const {
     using ct = command_type;
-    using km = kb_modifiers;
 
     if (!event.went_down) {
         return;

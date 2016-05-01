@@ -105,7 +105,7 @@ std::string item_description(
         if (id_status > 0) {
             buffer.append("\nContains %d of %d items", n , capacity);
         } else {
-            buffer.append("\nContains ? items", n , capacity);
+            buffer.append("\nContains ? items");
         }
     } else {
         buffer.append("\nWeight: %d", we);
@@ -156,7 +156,7 @@ int32_t weight_of_exclusive(
     auto const weight = get_property_value_or(db, itm, prop_weight, 0);
     auto const stack  = get_property_value_or(db, itm, prop_stack,  1);
 
-    return weight * stack;
+    return static_cast<int32_t>(weight * stack);
 }
 
 int32_t weight_of_exclusive(
@@ -337,11 +337,11 @@ void merge_into_pile(
 
     // {item&, item_id, item_definition*}
     auto const get_info = [&](item_instance_id const instance_id) {
-        auto&       itm = find(w, instance_id);
-        auto  const id  = itm.definition();
+        auto&       i   = find(w, instance_id);
+        auto  const id  = i.definition();
         auto* const def = find(db, id);
 
-        return std::make_tuple(std::ref(itm), id, def);
+        return std::make_tuple(std::ref(i), id, def);
     };
 
     auto const get_current_stack = [&](item const& i) {
@@ -376,7 +376,7 @@ void merge_into_pile(
 
     // find any compatible items and merge as much quantity into them as
     // possible
-    for (item_instance_id const b_instance : pile) {
+    for (auto const& b_instance : pile) {
         auto const b_info = get_info(b_instance);
         auto const b_def  = std::get<1>(b_info);
 

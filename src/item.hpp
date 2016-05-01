@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace boken { class game_database; };
+namespace boken { class game_database; }
 
 namespace boken {
 

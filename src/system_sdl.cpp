@@ -45,7 +45,7 @@ struct sdl_error : std::runtime_error {
     using runtime_error::runtime_error;
 };
 
-//! RAII wrapper around the SDL systeem
+//! RAII wrapper around the SDL system
 class sdl {
 public:
     static constexpr auto systems =

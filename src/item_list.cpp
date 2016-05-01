@@ -72,8 +72,6 @@ void item_list_controller::do_on_selection_change_(int const prev_sel) {
 //--------------------------------------------------------------------------
 
 bool item_list_controller::on_key(kb_event const& event, kb_modifiers const& kmods) {
-    auto& il = *list_;
-
     if (!is_visible()) {
         return true;
     }
@@ -82,8 +80,6 @@ bool item_list_controller::on_key(kb_event const& event, kb_modifiers const& kmo
 }
 
 bool item_list_controller::on_text_input(text_input_event const& event) {
-    auto& il = *list_;
-
     if (!is_visible()) {
         return true;
     }
@@ -147,7 +143,6 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
     } else if (event.button_change[0] == btype::went_up) {
         if (hit_test.what == type::cell) {
             if (!is_multi_select_) {
-                auto const p = il.get_selection();
                 do_on_command_(command_type::confirm, &hit_test.y, &hit_test.y + 1);
                 return !is_visible();
             }
@@ -165,7 +160,6 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
 
 bool item_list_controller::on_mouse_move(mouse_event const& event, kb_modifiers const& kmods) {
     using type  = inventory_list::hit_test_result::type;
-    using btype = mouse_event::button_change_t;
 
     auto const p = point2i32 {event.x, event.y};
     auto const v = p - last_mouse_;

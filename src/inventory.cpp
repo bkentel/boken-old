@@ -165,10 +165,13 @@ public:
 
         BK_ASSERT(check_col_(c) && check_row_(r));
 
+        auto const ri = static_cast<size_t>(r);
+        auto const ci = static_cast<size_t>(c);
+
         auto const frame = metrics_.client_frame;
 
         // translate the cell into screen space
-        auto const cell = rows_[r][c].extent()
+        auto const cell = rows_[ri][ci].extent()
             + (frame.top_left() - point2i32 {})
             - scroll_offset();
 
@@ -383,9 +386,9 @@ public:
         erase_if(row_data_, [](auto const& row) noexcept {
             return row.id == item_instance_id {}; });
 
-        auto const n = rows();
+        auto const n = static_cast<int>(rows());
         if (indicated() >= n) {
-            indicated_ = n ? static_cast<int>(n - 1) : 0;
+            indicated_ = n ? n - 1 : 0;
         }
     }
 
@@ -405,7 +408,8 @@ public:
     //--------------------------------------------------------------------------
     bool selection_toggle(int const row) final override {
         BK_ASSERT(check_row_(row));
-        return row_data_[row].selected = !row_data_[row].selected;
+        auto const r = static_cast<size_t>(row);
+        return row_data_[r].selected = !row_data_[r].selected;
     }
 
     void selection_set(std::initializer_list<int> const rows) final override {
@@ -414,7 +418,7 @@ public:
         auto       it    = first;
 
         for (size_t i = 0; i < row_data_.size(); ++i) {
-            if (it != last && *it == i) {
+            if (it != last && *it == static_cast<int>(i)) {
                 row_data_[i].selected = true;
                 ++it;
             } else {
@@ -429,7 +433,7 @@ public:
         auto       it    = first;
 
         for (size_t i = 0; i < row_data_.size() && it != last; ++i) {
-            if (*it == i) {
+            if (*it == static_cast<int>(i)) {
                 row_data_[i].selected = true;
                 ++it;
             }
@@ -470,8 +474,6 @@ public:
         BK_ASSERT(i < cols());
 
         auto const& col = cols_[i];
-        auto const r = col.text.extent();
-
         return {col.text
               , col.min_width
               , col.max_width
@@ -680,7 +682,6 @@ inventory_list_impl::hit_test(point2i32 const p0) const noexcept {
 
 void inventory_list_impl::layout() noexcept {
     auto const& c = config_;
-    auto const& m = metrics_;
 
     auto const get_max_col_w = [&](size_t const i) noexcept {
         auto const header_w = cols_[i].text.extent().width();
