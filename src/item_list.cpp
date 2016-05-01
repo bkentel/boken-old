@@ -29,6 +29,7 @@ void item_list_controller::set_on_command(on_command_t handler) {
     if (!is_processing_callback_) {
         on_command_ = std::move(handler);
     } else {
+        BK_ASSERT(!on_command_swap_);
         on_command_swap_ = std::move(handler);
     }
 }
@@ -254,6 +255,7 @@ event_result item_list_controller::do_on_command_(
 
 bool item_list_controller::on_command(command_type const type, uint64_t const data) {
     auto on_exit = BK_SCOPE_EXIT {
+        // there should never be a queued handler when we finish
         BK_ASSERT(!on_command_swap_);
     };
 

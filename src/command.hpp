@@ -58,6 +58,7 @@ enum class command_type : uint32_t {
 
   , alt_get_items = djb2_hash_32c("alt_get_items")
   , alt_drop_some = djb2_hash_32c("alt_drop_some")
+  , alt_open      = djb2_hash_32c("alt_open")
 
   , toggle_show_inventory = djb2_hash_32c("toggle_show_inventory")
 

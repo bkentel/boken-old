@@ -45,7 +45,15 @@ public:
     void add_column(std::string heading, std::function<std::string (item const&)> getter);
 
     //--------------------------------------------------------------------------
+
+    //! Set the on command handler.
+    //! @note If called during an invocation of the current handler, the new
+    //!       handler is queued until control returns from the handler. If a
+    //!       new handler has been queued, the existing handler must detach
+    //!       on completion.
     void set_on_command(on_command_t handler);
+
+    //! reset the on_command handler to the default.
     void set_on_command();
 
     void set_on_focus_change(on_focus_change_t handler);

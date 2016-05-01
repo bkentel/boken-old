@@ -972,6 +972,7 @@ struct game_state {
 
         case ct::alt_get_items : break;
         case ct::alt_drop_some : break;
+        case ct::alt_open : break;
 
         default:
             BK_ASSERT(false);
@@ -1216,6 +1217,22 @@ struct game_state {
                 }
 
                 return event_result::filter;
+            } else if (cmd == ct::alt_open) {
+                if (item_list.get().empty()) {
+                    return event_result::filter;
+                }
+
+                auto const  i   = item_list.get().indicated();
+                auto const  id  = item_list.get().row_data(i);
+                auto&       itm = find(the_world, id);
+
+                if (!is_container(database, itm)) {
+                    return event_result::filter;
+                }
+
+                view_container(itm);
+
+                return event_result::filter_detach;
             } else if (cmd == ct::cancel) {
                 renderer.update_tool_tip_visible(false);
                 return event_result::filter_detach;
@@ -1340,8 +1357,8 @@ struct game_state {
         context_stack.push(std::move(c));
     }
 
-    void view_container(item_instance_id const id) {
-        auto& container = find(the_world, id);
+    //! @pre container must actually be a container
+    void view_container(item& container) {
         auto name = [&] {
             if (!is_identified(database, container)) {
                 // viewing a container updates the id status to level 1
@@ -1358,6 +1375,10 @@ struct game_state {
 
         auto const p = get_player();
         view_item_pile(std::move(name), container, p.second, p.first);
+    }
+
+    void view_container(item_instance_id const id) {
+        view_container(find(the_world, id));
     }
 
     void do_open() {
