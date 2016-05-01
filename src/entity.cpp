@@ -43,6 +43,46 @@ item_pile const& get_items(entity const& e) noexcept {
     return e.items();
 }
 
+entity_property_value get_property_value_or(
+    entity const&               itm
+  , entity_definition const&    def
+  , entity_property_id const    property
+  , entity_property_value const fallback
+) noexcept {
+    return itm.property_value_or(def, property, fallback);
+}
+
+entity_property_value get_property_value_or(
+    game_database const&        db
+  , entity const&               itm
+  , entity_property_id const    property
+  , entity_property_value const fallback
+) noexcept {
+    return itm.property_value_or(db, property, fallback);
+}
+
+entity_property_value get_property_value_or(
+    game_database const&        db
+  , entity_id                   id
+  , entity_property_id const    property
+  , entity_property_value const fallback
+) noexcept {
+    auto const def = find(db, id);
+    return def
+      ? get_property_value_or(property, fallback, def->properties)
+      : fallback;
+}
+
+entity_property_value get_property_value_or(
+    world const&                w
+  , game_database const&        db
+  , entity_instance_id const    id
+  , entity_property_id const    property
+  , entity_property_value const fallback
+) noexcept {
+    return get_property_value_or(db, find(w, id), property, fallback);
+}
+
 namespace {
 
 entity create_object(

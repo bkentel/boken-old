@@ -61,38 +61,34 @@ inline item_pile const& get_items(item_pile const& i) noexcept { return i; }
 //                              object properties
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-bool has_property(game_database const& db, item const& i
-                , item_property_id property) noexcept;
-
-bool has_property(game_database const& db, entity const& e
-                , entity_property_id property) noexcept;
-
-bool has_property(game_database const& db, item_id id
-                , item_property_id property) noexcept;
-
-bool has_property(game_database const& db, entity_id id
-                , entity_property_id property) noexcept;
-
-bool has_property(item_definition const& def
-                , item_property_id property) noexcept;
-
-bool has_property(entity_definition const& def
-                , entity_property_id property) noexcept;
-
 //------------------------------------------------------------------------------
 
 entity_property_value get_property_value_or(
-    game_database const& db, entity const& e
-  , entity_property_id property, entity_property_value fallback) noexcept;
-
-
-entity_property_value get_property_value_or(
-    game_database const& db, entity_id id
-  , entity_property_id property, entity_property_value fallback) noexcept;
+    entity const&            itm
+  , entity_definition const& def
+  , entity_property_id       property
+  , entity_property_value    fallback) noexcept;
 
 entity_property_value get_property_value_or(
-    entity_definition const& def
-  , entity_property_id property, entity_property_value fallback) noexcept;
+    game_database const&  db
+  , entity const&         itm
+  , entity_property_id    property
+  , entity_property_value fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    game_database const&  db
+  , entity_id             id
+  , entity_property_id    property
+  , entity_property_value fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    world const&          w
+  , game_database const&  db
+  , entity_instance_id    id
+  , entity_property_id    property
+  , entity_property_value fallback) noexcept;
+
+//------------------------------------------------------------------------------
 
 item_property_value get_property_value_or(
     item const&            itm
