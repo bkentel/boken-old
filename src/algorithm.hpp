@@ -110,4 +110,16 @@ void for_each_matching(
     });
 }
 
+template <typename Container, typename Predicate, typename UnaryF>
+void for_each_matching(
+    Container&& c
+  , Predicate   pred
+  , UnaryF      callback
+) {
+    using std::begin;
+    using std::end;
+
+    for_each_matching(begin(c), end(c), pred, callback);
+}
+
 } //namespace boken

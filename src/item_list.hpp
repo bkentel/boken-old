@@ -3,6 +3,7 @@
 #include "inventory.hpp"
 #include "math_types.hpp"
 #include "types.hpp"
+#include "algorithm.hpp"
 
 #include <memory>
 #include <functional>
@@ -35,7 +36,7 @@ enum class event_result : uint32_t {
 
 class item_list_controller {
 public:
-    using on_command_t = std::function<event_result (command_type type, int const* first, int const* last)>;
+    using on_command_t = std::function<event_result (command_type type)>;
     using on_focus_change_t = std::function<void (bool)>;
     using on_selection_change_t = std::function<void (int)>;
 
@@ -80,9 +81,33 @@ public:
     //! clears all state and row data; leaves columns intact.
     void clear();
 
+    //! Clears the list of any existing rows, adds new rows for each item in
+    //! items, and adjusts the layout to fit said items.
     void assign(item_pile const& items);
 
+    //! Clears the list of any existing rows, adds new rows for each item in
+    //! items matching the predicate, and adjusts the layout to fit said items.
+    template <typename Predicate>
+    void assign_if(item_pile const& items, Predicate pred) {
+        auto& il = get();
+
+        clear();
+
+        for_each_matching(items, pred, [&](item_instance_id const id) {
+            il.add_row(id);
+        });
+
+        il.layout();
+    }
+
     void append(item_instance_id const id);
+
+    template <typename FwdIt, typename Predicate>
+    void append_if(FwdIt const first, FwdIt const last, Predicate pred) {
+        for_each_matching(first, last, pred, [&](item_instance_id const id) {
+            append(id);
+        });
+    }
 
     void layout();
 
@@ -111,12 +136,89 @@ public:
     //--------------------------------------------------------------------------
     inventory_list const& get() const noexcept { return *list_; }
     inventory_list&       get()       noexcept { return *list_; }
+    //--------------------------------------------------------------------------
+
+    // @param pred f(item_instance_id) -> {bool, item*, item_definition const*}
+    template <typename Predicate, typename Unaryf>
+    bool with_index_if(int const i, Predicate pred, Unaryf f) {
+        auto const& il = get();
+        BK_ASSERT((!il.empty())
+               && (i < static_cast<int>(il.rows())));
+
+        auto const id     = il.row_data(i);
+        auto const result = pred(id);
+
+        if (!std::get<0>(result)) {
+            return false;
+        }
+
+        auto const itm = std::get<1>(result);
+        auto const def = std::get<2>(result);
+
+        BK_ASSERT(!!itm && !!def);
+
+        f(*itm, *def);
+        return true;
+    }
+
+    template <typename Unaryf>
+    bool with_index(int const i, Unaryf f) {
+        auto const& il = get();
+        BK_ASSERT((!il.empty())
+               && (i < static_cast<int>(il.rows())));
+
+        f(il.row_data(i));
+        return true;
+    }
+
+    template <typename Predicate, typename Unaryf>
+    bool with_indicated_if(Predicate pred, Unaryf f) {
+        auto const& il = get();
+        return !il.empty() && with_index_if(il.indicated(), pred, f);
+    }
+
+    template <typename Unaryf>
+    bool with_indicated(Unaryf f) {
+        auto const& il = get();
+        return !il.empty() && with_index(il.indicated(), f);
+    }
+
+    template <typename BinaryF>
+    int with_selected_range(BinaryF f) {
+        auto const& il = get();
+        if (il.empty()) {
+            return 0;
+        }
+
+        auto const sel = il.get_selection();
+        if (sel.first == sel.second) {
+            auto const i = il.indicated();
+            return f(std::addressof(i), std::addressof(i) + 1);
+        }
+
+        return f(sel.first, sel.second);
+    }
+
+    template <typename Predicate, typename BinaryF>
+    int with_selected_if(Predicate pred, BinaryF f) {
+        return with_selected_range([&](int const* const first, int const* const last) {
+            return std::accumulate(first, last, 0
+              , [&](int const sum, int const i) {
+                    return sum + with_index_if(i, pred, f);
+                });
+            });
+    }
+
+    template <typename BinaryF>
+    int with_selected(BinaryF f) {
+        return with_selected_if(always_true {}, f);
+    }
 private:
     void set_visible_(bool state) noexcept;
 
     void resize_(point2i32 p, vec2i32 v);
 
-    event_result do_on_command_(command_type type, int const* first, int const* last);
+    event_result do_on_command_(command_type type);
 
     void do_on_selection_change_(int prev_sel);
 private:

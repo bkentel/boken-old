@@ -36,7 +36,7 @@ void item_list_controller::set_on_command(on_command_t handler) {
 
 void item_list_controller::set_on_command() {
     BK_ASSERT(!is_processing_callback_);
-    on_command_ = [](auto, auto, auto) noexcept { return event_result::pass_through; };
+    on_command_ = [](auto) noexcept { return event_result::pass_through; };
 }
 
 void item_list_controller::set_on_focus_change(on_focus_change_t handler) {
@@ -143,7 +143,7 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
     } else if (event.button_change[0] == btype::went_up) {
         if (hit_test.what == type::cell) {
             if (!is_multi_select_) {
-                do_on_command_(command_type::confirm, &hit_test.y, &hit_test.y + 1);
+                do_on_command_(command_type::confirm);
                 return !is_visible();
             }
 
@@ -232,10 +232,7 @@ bool item_list_controller::on_mouse_wheel(int const wy, int const wx, kb_modifie
     return true;
 }
 
-event_result item_list_controller::do_on_command_(
-    command_type const type
-  , int const* const first, int const* const last
-) {
+event_result item_list_controller::do_on_command_(command_type const type) {
     // the temporary should always be empty here
     BK_ASSERT(!is_processing_callback_ && !on_command_swap_);
 
@@ -244,7 +241,7 @@ event_result item_list_controller::do_on_command_(
         is_processing_callback_ = false;
     };
 
-    return on_command_(type, first, last);
+    return on_command_(type);
 }
 
 bool item_list_controller::on_command(command_type const type, uint64_t const data) {
@@ -267,15 +264,6 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
         return true;
     }
 
-    auto const sel = il.get_selection();
-    auto const ind = il.indicated();
-
-    BK_ASSERT((!!sel.first && !!sel.second)
-           || ( !sel.first &&  !sel.second));
-
-    auto const first_s = (is_multi_select_ && sel.first) ? sel.first  : &ind;
-    auto const last_s  = (is_multi_select_ && sel.first) ? sel.second : &ind + 1;
-
     auto const result = [&] {
         using ct = command_type;
 
@@ -292,7 +280,7 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
             return event_result::filter;
         }
 
-        return do_on_command_(type, first_s, last_s);
+        return do_on_command_(type);
     }();
 
     auto const pass = !is_modal();
