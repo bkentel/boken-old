@@ -148,7 +148,13 @@ public:
     virtual void selection_set(std::initializer_list<int> rows) = 0;
     virtual void selection_union(std::initializer_list<int> rows) = 0;
     virtual void selection_clear() = 0;
+
+    //! Get an iterator range indicating the indicies of the currently selected
+    //! items.
+    //! @returns {nullptr, nullptr} to indicate the absence of any selection.
+    //! @returns {first, last + 1} when a selection exists.
     virtual std::pair<int const*, int const*> get_selection() const = 0;
+
     virtual bool is_selected(int row) const noexcept = 0;
 
     //--------------------------------------------------------------------------

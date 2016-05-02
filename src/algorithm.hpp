@@ -13,14 +13,14 @@ namespace boken {
 
 struct always_true {
     template <typename... Args>
-    inline constexpr bool operator()(Args...) const noexcept {
+    inline constexpr bool operator()(Args&&...) const noexcept {
         return true;
     }
 };
 
 struct always_false {
     template <typename... Args>
-    inline constexpr bool operator()(Args...) const noexcept {
+    inline constexpr bool operator()(Args&&...) const noexcept {
         return false;
     }
 };
