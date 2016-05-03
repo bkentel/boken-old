@@ -69,13 +69,14 @@ public:
                 continue;
             }
 
-            if (!pred(id)) {
-                ++index;
-                continue;
-            }
+            auto const ok = pred(id);
 
             ++it;
             ++index;
+
+            if (!ok) {
+                continue;
+            }
 
             sink(unique_item {id, *deleter_});
             id = item_instance_id {};

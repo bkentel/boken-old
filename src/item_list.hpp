@@ -5,6 +5,8 @@
 #include "types.hpp"
 #include "algorithm.hpp"
 
+#include "bkassert/assert.hpp"
+
 #include <memory>
 #include <functional>
 #include <string>
