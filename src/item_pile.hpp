@@ -1,6 +1,8 @@
 #pragma once
 
 #include "types.hpp"
+#include "scope_guard.hpp"
+#include "context.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -44,14 +46,16 @@ public:
     unique_item remove_item(size_t pos);
 
     //@{
-    //! @note @p pred is called for all elements, and then again @p sink is
-    //!       called for each element matched. i.e {p, p, p, p, s, s}.
-    template <typename Predicate, typename Sink>
-    void remove_if(int const* first, int const* last, Predicate pred, Sink sink) {
-        BK_ASSERT((!!first && !!last) && ((first == last) || !!deleter_));
+    //! Remove items from the pile at the indicies in the range [first, last).
+    //! @param pred A function of the form (unique_item&& i) -> any.
+    //!             If the unique_item has ownership taken from it, it indicates
+    //!             the predicate is true, false otherwise.
+    template <typename FwdIt, typename Predicate>
+    int remove_if(FwdIt const first, FwdIt const last, Predicate pred) {
+        BK_ASSERT(!!deleter_);
 
         if (first == last) {
-            return;
+            return 0;
         }
 
         int  index = 0;
@@ -69,44 +73,86 @@ public:
                 continue;
             }
 
-            auto const ok = pred(id);
+            remove_id_(id, pred);
 
             ++it;
             ++index;
-
-            if (!ok) {
-                continue;
-            }
-
-            sink(unique_item {id, *deleter_});
-            id = item_instance_id {};
         }
 
-        auto const first_i = items_.begin();
-        auto const last_i  = items_.end();
-        items_.erase(std::remove(first_i, last_i, item_instance_id {}), last_i);
+        return remove_dead_items_();
     }
 
-    template <typename Predicate, typename Sink>
-    void remove_if(Predicate pred, Sink sink) {
-        BK_ASSERT(empty() || !!deleter_);
+    template <typename Predicate>
+    int remove_if(Predicate pred) {
+        BK_ASSERT(!!deleter_);
 
         for (auto& id : items_) {
-            if (!pred(id)) {
-                continue;
-            }
-
-            sink(unique_item {id, *deleter_});
-            id = item_instance_id {};
+            remove_id_(id, pred);
         }
 
-        auto const first = items_.begin();
-        auto const last  = items_.end();
-        items_.erase(std::remove(first, last, item_instance_id {}), last);
+        return remove_dead_items_();
+    }
+
+    template <typename FwdIt, typename Transform, typename Predicate>
+    int remove_if2(FwdIt const first, FwdIt const last, Transform trans, Predicate pred) {
+        // indicies pile
+        // [ ]      [4]
+        // [ ]      [1]
+        // [6]      [6]
+        // [ ]      [7]
+
+        using value_type = std::decay_t<decltype(trans(*first))>;
+        static_assert(std::is_same<item_instance_id, value_type>::value, "");
+
+        auto       p_it   = items_.begin();
+        auto const p_last = items_.end();
+
+        for (auto it = first; it != last; ++it, ++p_it) {
+            for (auto const id = trans(*it); *p_it != id; ++p_it) {
+                BK_ASSERT(p_it != p_last);
+            }
+
+            remove_id_(*p_it, pred);
+        }
+
+        return remove_dead_items_();
     }
 
     //@}
 private:
+    template <typename Predicate>
+    void remove_id_(item_instance_id& id, Predicate&& pred) {
+        // make an owning pointer to the item
+        auto itm = unique_item {id, *deleter_};
+
+        // if the predicate throws, an item could end up lost; ensure that
+        // cleanup always happens properly.
+        auto on_exit = BK_SCOPE_EXIT {
+            if (itm) {
+                // the predicate didn't take ownership
+                itm.release();
+            } else {
+                // the predicate did take ownership -- zero out the id
+                id = item_instance_id {};
+            }
+        };
+
+        pred(std::move(itm));
+    }
+
+    int remove_dead_items_() {
+        // remove any of the items that has ownership taken and were zeroed out
+        auto const id    = item_instance_id {};
+        auto const first = items_.begin();
+        auto const last  = items_.end();
+
+        auto const size_before = static_cast<int>(items_.size());
+        items_.erase(std::remove(first, last, id), last);
+        auto const size_after = static_cast<int>(items_.size());
+
+        return size_before - size_after;
+    }
+
     item_deleter const* deleter_ {};
     std::vector<item_instance_id> items_;
 };
@@ -123,6 +169,10 @@ enum class merge_item_result : uint32_t {
   , failed_bad_destination
 };
 
-void merge_into_pile(world& w, game_database const& db, unique_item&& itm, item_pile& pile);
+void merge_into_pile(
+    context         ctx
+  , unique_item     itm_ptr
+  , item_descriptor itm
+  , item_pile&      pile);
 
 } //namespace boken

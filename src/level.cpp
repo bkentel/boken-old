@@ -26,6 +26,35 @@
 
 namespace boken {
 
+void merge_into_pile(
+    context         ctx
+  , unique_item     itm_ptr
+  , item_descriptor itm
+  , level_location  pile
+) {
+    pile.lvl.add_object_at(std::move(itm_ptr), pile.p);
+}
+
+namespace detail {
+
+string_view impl_can_add_item(
+    context               const ctx
+  , const_item_descriptor const itm
+  , const_level_location  const dest
+) noexcept {
+    return {};
+}
+
+string_view impl_can_remove_item(
+    context               const ctx
+  , const_item_descriptor const itm
+  , const_level_location  const dest
+) noexcept {
+    return {};
+}
+
+} // namespace detail
+
 tile_id wall_type_from_neighbors(uint32_t const neighbors) noexcept {
     using ti = tile_id;
 
@@ -431,13 +460,11 @@ public:
         return make_range_(area, data_.region_ids);
     }
 
-    merge_item_result impl_move_items_(
+    std::pair<merge_item_result, int> impl_move_items_(
         point2i32 const from
-      , item_pile& to
       , int const* const first
       , int const* const last
-      , std::function<bool (item_instance_id)>          const& pred
-      , std::function<void (unique_item&&, item_pile&)> const& sink
+      , std::function<void (unique_item&&)> const& pred
     ) {
         BK_ASSERT(( !first &&  !last)
                || (!!first && !!last));
@@ -445,53 +472,38 @@ public:
         auto  const src_pos  = underlying_cast_unsafe<int16_t>(from);
         auto* const src_pile = items_.find(src_pos);
         if (!src_pile) {
-            return merge_item_result::failed_bad_source;
+            return {merge_item_result::failed_bad_source, 0};
         }
 
-        auto const pile_sink = [&](unique_item&& itm) {
-            sink(std::move(itm), to);
-        };
-
-        auto const size_before = src_pile->size();
-
-        if (!first && !last) {
-            src_pile->remove_if(pred, pile_sink);
-        } else {
-            src_pile->remove_if(first, last, pred, pile_sink);
-        }
-
-        auto const size_after = src_pile->size();
-
-        BK_ASSERT(size_after <= size_before);
+        auto const trans = [&](int const i) noexcept { return (*src_pile)[i]; };
+        auto const n = (!first && !last)
+          ? src_pile->remove_if(pred)
+          : src_pile->remove_if2(first, last, trans, pred);
 
         if (src_pile->empty()) {
             items_.erase(src_pos);
-            return merge_item_result::ok_merged_all;
-        } else if (size_before - size_after == 0) {
-            return merge_item_result::ok_merged_none;
+            return {merge_item_result::ok_merged_all, n};
+        } else if (n == 0) {
+            return {merge_item_result::ok_merged_none, 0};
         }
 
-        return merge_item_result::ok_merged_some;
+        return {merge_item_result::ok_merged_some, n};
     }
 
-    merge_item_result move_items(
-        point2i32 from
-      , item_pile& to
-      , std::function<bool (item_instance_id)>          const& pred
-      , std::function<void (unique_item&&, item_pile&)> const& sink
+    std::pair<merge_item_result, int> move_items(
+        point2i32 const from
+      , std::function<void (unique_item&&)> const& pred
     ) final override {
-        return impl_move_items_(from, to, nullptr, nullptr, pred, sink);
+        return impl_move_items_(from, nullptr, nullptr, pred);
     }
 
-    merge_item_result move_items(
-        point2i32 from
-      , item_pile& to
-      , int const* first
-      , int const* last
-      , std::function<bool (item_instance_id)>          const& pred
-      , std::function<void (unique_item&&, item_pile&)> const& sink
+    std::pair<merge_item_result, int> move_items(
+        point2i32 const from
+      , int const* const first
+      , int const* const last
+      , std::function<void (unique_item&&)> const& pred
     ) final override {
-        return impl_move_items_(from, to, first, last, pred, sink);
+        return impl_move_items_(from, first, last, pred);
     }
 
     point2i32 stair_up(int const i) const noexcept final override {

@@ -355,7 +355,7 @@ class static_string_buffer {
 public:
     static_string_buffer() noexcept
       : first_ {0}
-      , buffer_()
+      //, buffer_()
     {
     }
 

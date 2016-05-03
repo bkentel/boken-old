@@ -3,6 +3,8 @@
 #pragma once
 
 #include "types.hpp"
+#include "context.hpp"
+
 #include <functional>
 
 namespace boken { struct entity_definition; }
@@ -27,9 +29,11 @@ unique_entity create_object(world& w, entity_definition const& def, random_state
 entity_instance_id get_instance(entity const& e) noexcept;
 item_instance_id get_instance(item const& i) noexcept;
 
-// object -> id
 entity_id get_id(entity const& e) noexcept;
 item_id get_id(item const& i) noexcept;
+
+entity_id get_id(entity_definition const& def) noexcept;
+item_id get_id(item_definition const& def) noexcept;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //                         object lookup
@@ -89,6 +93,11 @@ entity_property_value get_property_value_or(
   , entity_property_value fallback) noexcept;
 
 //------------------------------------------------------------------------------
+
+item_property_value get_property_value_or(
+    const_item_descriptor itm
+  , item_property_id      property
+  , item_property_value   fallback) noexcept;
 
 item_property_value get_property_value_or(
     item const&            itm

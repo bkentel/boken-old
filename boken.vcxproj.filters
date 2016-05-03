@@ -158,6 +158,7 @@
     <ClInclude Include="src\definition.hpp">
       <Filter>objects</Filter>
     </ClInclude>
+    <ClInclude Include="src\context.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

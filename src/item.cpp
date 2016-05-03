@@ -11,9 +11,101 @@
 
 namespace boken {
 
+namespace detail {
+
+string_view impl_can_add_item(
+    context               ctx
+  , const_item_descriptor itm
+  , const_item_descriptor dest
+) noexcept {
+    constexpr auto p_capacity = property(item_property::capacity);
+
+    if (!itm.def) {
+        return "{missing definition for item}";
+    }
+
+    if (!dest) {
+        return "{missing definition for destination item}";
+    }
+
+    auto const dest_capacity = get_property_value_or(dest, p_capacity, 0);
+    if (dest_capacity <= 0) {
+        return "the destination is not a container";
+    }
+
+    auto const itm_capacity = get_property_value_or(itm, p_capacity, 0);
+    if (itm_capacity > 0) {
+        return "the item is too big";
+    }
+
+    if (dest.obj.items().size() + 1 > dest_capacity) {
+        return "the destination is full";
+    }
+
+    return {};
+}
+
+string_view impl_can_remove_item(
+    context               const ctx
+  , const_item_descriptor const itm
+  , const_item_descriptor const dest
+) noexcept {
+    return {};
+}
+
+} // namespace detail
+
+
+void merge_into_pile(
+    context         ctx
+  , unique_item     itm_ptr
+  , item_descriptor itm
+  , item_descriptor pile
+) {
+    merge_into_pile(ctx, std::move(itm_ptr), itm, pile.obj.items());
+}
+
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+std::string name_of_decorated(
+    context               const ctx
+  , const_item_descriptor const itm
+) {
+    if (!itm) {
+        return "{missing definition}";
+    }
+
+    static_string_buffer<128> buffer;
+    buffer.append("%s", itm.def->name.data());
+
+    auto const id_status = is_identified(itm);
+    auto const capacity  = is_container(itm);
+
+    if (capacity > 0) {
+        if (id_status < 1) {
+            buffer.append(" [?]");
+        } else {
+            auto const n = static_cast<int>(itm.obj.items().size());
+            if (n == 0) {
+                buffer.append(" <cr>[empty]</c>");
+            } else {
+                buffer.append(" [%d]", n);
+            }
+        }
+    }
+
+    return buffer.to_string();
+}
+
+uint32_t is_identified(const_item_descriptor const itm) noexcept {
+    return get_property_value_or(itm, property(item_property::identified), 0);
+}
+
+uint32_t is_container(const_item_descriptor const itm) noexcept {
+    return get_property_value_or(itm, property(item_property::capacity), 0);
+}
+
 std::string name_of_decorated(
     world           const& w
   , game_database   const& db
@@ -251,6 +343,16 @@ item_pile const& get_items(item const& i) noexcept {
 }
 
 item_property_value get_property_value_or(
+    const_item_descriptor const itm
+  , item_property_id      const property
+  , item_property_value   const fallback
+) noexcept {
+    return itm
+      ? itm.obj.property_value_or(*itm.def, property, fallback)
+      : fallback;
+}
+
+item_property_value get_property_value_or(
     item const&               itm
   , item_definition const&    def
   , item_property_id const    property
@@ -327,105 +429,67 @@ unique_item create_object(
 }
 
 void merge_into_pile(
-    world& w
-  , game_database const& db
-  , unique_item&& itm
-  , item_pile& pile
+    context         const ctx
+  , unique_item           itm_ptr
+  , item_descriptor const itm
+  , item_pile&            pile
 ) {
-    BK_ASSERT(!!itm);
-    auto const a_instance = itm.get();
+    BK_ASSERT(!!itm_ptr);
 
-    // {item&, item_id, item_definition*}
-    auto const get_info = [&](item_instance_id const instance_id) {
-        auto&       i   = find(w, instance_id);
-        auto  const id  = i.definition();
-        auto* const def = find(db, id);
-
-        return std::make_tuple(std::ref(i), id, def);
+    // the default action on any failure is to preserve the item and add it to
+    // the pile
+    auto on_exit = BK_SCOPE_EXIT {
+        pile.add_item(std::move(itm_ptr));
     };
 
-    auto const get_current_stack = [&](item const& i) {
-        return i.property_value_or(db, property(item_property::current_stack_size), 0);
-    };
-
-    auto const set_current_stack = [&](item& i, item_property_value const n) {
-        auto const result =
-            i.add_or_update_property(property(item_property::current_stack_size), n);
-        BK_ASSERT(!result);
-    };
-
-    auto const a_info    = get_info(a_instance);
-    auto const a_def_ptr = std::get<2>(a_info);
-
-    // if no definition can be found, just add the item to the pile
-    if (!a_def_ptr) {
-        pile.add_item(std::move(itm));
+    // if the item doesn't have a valid id, preserve the item anyway and add it
+    // to the pile.
+    if (!itm) {
         return;
     }
+
+    constexpr auto p_max_stack = property(item_property::stack_size);
+    constexpr auto p_cur_stack = property(item_property::current_stack_size);
 
     // if the item can't be stacked, just add the item to the pile
-    auto const max_stack = a_def_ptr->properties.value_or(property(item_property::stack_size), 0);
-    if (max_stack <= 0) {
-        pile.add_item(std::move(itm));
+    if (!get_property_value_or(itm, p_max_stack, 0)) {
         return;
     }
 
-    auto const a_def       = std::get<1>(a_info);
-    auto&      a_itm       = std::get<0>(a_info);
-    auto       a_cur_stack = item_property_value {0};
+    auto src_cur_stack = get_property_value_or(itm, p_cur_stack, 0);
+    BK_ASSERT(src_cur_stack > 0); // no zero sized stacks
 
-    // find any compatible items and merge as much quantity into them as
-    // possible
-    for (auto const& b_instance : pile) {
-        auto const b_info = get_info(b_instance);
-        auto const b_def  = std::get<1>(b_info);
+    for (auto const& id : pile) {
+        auto const i = item_descriptor {ctx, id};
 
-        // reject if definitions don't match
-        if (a_def != b_def) {
+        // different item
+        if (i.def != itm.def) {
             continue;
         }
 
-        auto&      b_itm       = std::get<0>(b_info);
-        auto const b_cur_stack = get_current_stack(b_itm);
+        auto const max_stack = get_property_value_or(i, p_max_stack, 0);
+        auto const cur_stack = get_property_value_or(i, p_cur_stack, 0);
 
-        BK_ASSERT(max_stack >= b_cur_stack);
-        auto const b_remaining = max_stack - b_cur_stack;
-
-        // reject if no more room in this stack
-        if (b_remaining <= 0) {
+        // no space in the stack to merge quantity
+        if (cur_stack >= max_stack) {
+            BK_ASSERT(cur_stack <= max_stack);
             continue;
         }
 
-        // first time -- get the value
-        if (a_cur_stack <= 0) {
-            a_cur_stack = get_current_stack(a_itm);
-        }
+        auto const spare_stack = max_stack - cur_stack;
+        auto const n = std::min(src_cur_stack, spare_stack);
 
-        BK_ASSERT(a_cur_stack > 0);
+        src_cur_stack -= n;
+        i.obj.add_or_update_property({p_cur_stack, cur_stack + n});
 
-        // move as much quantity from a -> b as possible
-        auto const n = std::min(b_remaining, a_cur_stack);
-        set_current_stack(b_itm, b_cur_stack + n);
-        a_cur_stack -= n;
-
-        // if there is nothing left in a, destroy it; we're done
-        if (a_cur_stack <= 0) {
-            itm.reset();
-            break;
+        if (src_cur_stack <= 0) {
+            on_exit.dismiss();
+            return;
         }
     }
 
-    // quantity in a was modified, and not all of it could be merged into the
-    // pile; update a's final quantity
-    if (a_cur_stack > 0) {
-        set_current_stack(a_itm, a_cur_stack);
-    }
-
-    // quantity in a either couldn't fully be merged, or was only partially
-    // merged; add the item as a new item in the pile.
-    if (itm) {
-        pile.add_item(std::move(itm));
-    }
+    BK_ASSERT(src_cur_stack > 0);
+    itm.obj.add_or_update_property({p_cur_stack, src_cur_stack});
 }
 
 //=====--------------------------------------------------------------------=====

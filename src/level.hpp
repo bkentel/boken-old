@@ -3,6 +3,7 @@
 #include "math_types.hpp"
 #include "types.hpp"
 #include "utility.hpp"
+#include "context.hpp"
 
 #include <memory>
 #include <utility>
@@ -187,14 +188,17 @@ public:
         update_tile_at(random_state& rng, point2i32 p
                      , tile_data_set const& data) noexcept = 0;
 
-    virtual merge_item_result move_items(point2i32 from, item_pile& to
-      , std::function<bool (item_instance_id)> const& pred
-      , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
+    virtual std::pair<merge_item_result, int>
+    move_items(
+        point2i32 from
+      , std::function<void (unique_item&&)> const& pred) = 0;
 
-    virtual merge_item_result move_items(
-        point2i32 from, item_pile& to, int const* first, int const* last
-      , std::function<bool (item_instance_id)> const& pred
-      , std::function<void (unique_item&&, item_pile&)> const& sink) = 0;
+    virtual std::pair<merge_item_result, int>
+    move_items(
+        point2i32  from
+      , int const* first
+      , int const* last
+      , std::function<void (unique_item&&)> const& pred) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access
@@ -209,5 +213,73 @@ public:
 std::unique_ptr<level>
 make_level(random_state& rng, world& w, sizei32x width, sizei32y height
          , size_t id);
+
+
+template <bool Const>
+struct level_location_base {
+    using type = std::conditional_t<Const, std::add_const_t<level>, level>;
+
+    level_location_base(type& level, point2i32 const where)
+      : lvl {level}
+      , p   {where}
+    {
+    }
+
+    template <bool C, typename = std::enable_if_t<Const || !C>>
+    level_location_base(level_location_base<C> other)
+      : lvl {other.lvl}
+      , p   {other.p}
+    {
+    }
+
+    std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
+    point2i32 p;
+};
+
+using level_location = level_location_base<false>;
+using const_level_location = level_location_base<true>;
+
+namespace detail {
+
+string_view impl_can_add_item(context ctx, const_item_descriptor itm
+                            , const_level_location dest) noexcept;
+
+string_view impl_can_remove_item(context ctx, const_item_descriptor itm
+                               , const_level_location dest) noexcept;
+
+} // namespace detail
+
+void merge_into_pile(
+    context         ctx
+  , unique_item     itm_ptr
+  , item_descriptor itm
+  , level_location  pile);
+
+template <typename UnaryF>
+bool can_add_item(
+    context               ctx
+  , const_item_descriptor itm
+  , const_level_location  dest
+  , UnaryF                on_fail
+) noexcept {
+    auto const result = detail::impl_can_add_item(ctx, itm, dest);
+    return result.empty()
+      ? true
+      : (on_fail(result), false);
+}
+
+template <typename UnaryF>
+bool can_remove_item(
+    context               ctx
+  , const_item_descriptor itm
+  , const_level_location  dest
+  , UnaryF                on_fail
+) noexcept {
+    auto const result = detail::impl_can_remove_item(ctx, itm, dest);
+    return result.empty()
+      ? true
+      : (on_fail(result), false);
+}
+
 
 } //namespace boken

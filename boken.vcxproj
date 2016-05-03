@@ -143,6 +143,7 @@
     <ClInclude Include="src\circular_buffer.hpp" />
     <ClInclude Include="src\command.hpp" />
     <ClInclude Include="src\config.hpp" />
+    <ClInclude Include="src\context.hpp" />
     <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\definition.hpp" />
     <ClInclude Include="src\entity.hpp" />

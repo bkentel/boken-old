@@ -25,6 +25,12 @@ struct always_false {
     }
 };
 
+struct ignore {
+    template <typename... Args>
+    inline constexpr void operator()(Args&&...) const noexcept {
+    }
+};
+
 //! Return an iterator to the @p n th value equal to @p value in the range given
 //! by [@p first, @p last). Otherwise, return @p last.
 template <typename FwdIt, typename Count, typename Value>

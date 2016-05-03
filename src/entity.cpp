@@ -7,24 +7,57 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+
+namespace detail {
+
+string_view impl_can_add_item(
+    context                 const ctx
+  , const_item_descriptor   const itm
+  , const_entity_descriptor const dest
+) noexcept {
+    if (!itm.def) {
+        return "{missing definition for item}";
+    }
+
+    if (!dest) {
+        return "{missing definition for destination entity}";
+    }
+
+    return {};
+}
+
+string_view impl_can_remove_item(
+    context                 const ctx
+  , const_item_descriptor   const itm
+  , const_entity_descriptor const dest
+) noexcept {
+    return {};
+}
+
+} // namespace detail
+
+void merge_into_pile(
+    context           ctx
+  , unique_item       itm_ptr
+  , item_descriptor   itm
+  , entity_descriptor pile
+) {
+    merge_into_pile(ctx, std::move(itm_ptr), itm, pile.obj.items());
+}
+
+std::string name_of_decorated(
+    context                 const ctx
+  , const_entity_descriptor const e
+) {
+    if (!e) {
+        return "{missing definition}";
+    }
+
+    return e.def->name;
+}
+
 string_view name_of(game_database const& db, entity const& e) noexcept {
     return name_of(db, e.definition());
-}
-
-bool can_add_item(
-    game_database const& db
-  , entity        const& dest
-  , item          const& itm
-) noexcept {
-    return true;
-}
-
-bool can_add_item(
-    game_database   const& db
-  , entity          const& dest
-  , item_definition const& def
-) noexcept {
-    return true;
 }
 
 entity_instance_id get_instance(entity const& e) noexcept {
