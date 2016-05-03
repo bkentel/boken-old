@@ -1875,6 +1875,7 @@ struct game_state {
                 case command_type::alt_open: BK_ATTRIBUTE_FALLTHROUGH;
                 case command_type::confirm:
                     view_indicated_container();
+                    break;
                 case command_type::cancel:
                     message_window.println("Nevermind.");
                     renderer.update_tool_tip_visible(false);
