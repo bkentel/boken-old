@@ -2,7 +2,9 @@
 #include "system.hpp"   // for system
 #include "utility.hpp"  // for BK_OFFSETOF
 #include "math.hpp"
+
 #include <algorithm>    // for move, max, swap
+#include <array>
 
 namespace boken {
 
@@ -109,7 +111,7 @@ void text_layout::layout(text_renderer& trender) {
     data_.clear();
 
     enum class state_t {
-        read, proccess, skip, stop, escape, markup
+        read, read_escape, read_markup, proccess, skip, stop, escape, markup
     };
 
     int16_t const line_gap = static_cast<int16_t>(trender.line_gap()); // gap between successive lines
@@ -124,7 +126,15 @@ void text_layout::layout(text_renderer& trender) {
     size_t line_start_pos = 0; // index of the element where this line started
     size_t line_break_pos = 0; // index of the last candidate for a line break
 
-    uint32_t color = 0xFF'FFFFFFu; // opaque white
+    //                                  AA'BB'GG'RR
+    constexpr uint32_t c_light_gray = 0xFF'DD'DD'DDu;
+    constexpr uint32_t c_bright_red = 0xFF'00'00'FFu;
+
+    uint32_t color = c_light_gray;
+
+    auto       markup_tag = std::array<char, 32> {};
+    auto       markup_it  = begin(markup_tag);
+    auto const markup_end = end(markup_tag);
 
     auto const break_line = [&](uint32_t const cp) noexcept {
         auto const next_line = [&]() noexcept {
@@ -172,8 +182,55 @@ void text_layout::layout(text_renderer& trender) {
         return state_t::proccess;
     };
 
+    auto const apply_markup = [&] {
+        // <.*>
+        auto const size = std::distance(begin(markup_tag), markup_it);
+        BK_ASSERT(size >= 2 && markup_tag[0] == '<');
+
+        switch (markup_tag[1]) {
+        case '/' :
+            switch (markup_tag[2]) {
+            case 'c' :
+                color = c_light_gray;
+                break;
+            default:
+                break;
+            }
+        case 'c' :
+            switch (markup_tag[2]) {
+            case 'r' :
+                color = c_bright_red;
+                break;
+            default:
+                break;
+            }
+
+            break;
+        default:
+            break;
+        }
+    };
+
     auto const process_markup = [&](uint32_t const cp) noexcept {
-        return state_t::proccess;
+        if (markup_it == markup_end) {
+            BK_ASSERT(false);
+            markup_it = begin(markup_tag);
+            return state_t::read;
+        }
+
+        if (cp == '<') {
+            markup_it = begin(markup_tag);
+        }
+
+        *markup_it = static_cast<char>(cp & 0x7Fu);
+        ++markup_it;
+
+        if (cp == '>') {
+            apply_markup();
+            return state_t::read;
+        }
+
+        return state_t::read_markup;
     };
 
     auto const process_cp = [&](uint32_t const cp) noexcept {
@@ -182,7 +239,7 @@ void text_layout::layout(text_renderer& trender) {
             return state_t::escape;
         case '\n':
             return break_line(cp);
-        case '%' :
+        case '<' :
             return state_t::markup;
         default :
             break;
@@ -229,18 +286,33 @@ void text_layout::layout(text_renderer& trender) {
     auto       it   = text_.data();
     auto const last = text_.data() + static_cast<ptrdiff_t>(text_.size());
 
+    auto const read_next = [&]() noexcept {
+        if (it == last) {
+            return false;
+        }
+
+        prev_cp = cp;
+        cp = next_code_point(it, last);
+
+        return true;
+    };
+
     for (auto state = state_t::read; ; ) {
         switch (state) {
+        case state_t::read_escape :
+            state = read_next()
+              ? process_escape_seq(cp)
+              : state_t::stop;
+            break;
+        case state_t::read_markup :
+            state = read_next()
+              ? process_markup(cp)
+              : state_t::stop;
+            break;
         case state_t::read :
-            if (it == last) {
-                state = state_t::stop;
-                break;
-            }
-
-            prev_cp = cp;
-            cp      = next_code_point(it, last);
-
-            state = process_cp(cp);
+            state = read_next()
+              ? process_cp(cp)
+              : state_t::stop;
             break;
         case state_t::proccess :
             state = load_glyph(prev_cp, cp);

@@ -34,7 +34,7 @@ std::string name_of_decorated(
         } else {
             auto const n = static_cast<int>(itm.items().size());
             if (n == 0) {
-                buffer.append(" [empty]");
+                buffer.append(" <cr>[empty]</c>");
             } else {
                 buffer.append(" [%d]", n);
             }
@@ -89,7 +89,7 @@ std::string item_description(
 ) {
     static_string_buffer<256> buffer;
 
-    buffer.append("<cr>%s<cr>", name_of(db, itm).data());
+    buffer.append("<cr>%s</c>", name_of(db, itm).data());
 
     auto const we = weight_of_exclusive(db, itm);
 
