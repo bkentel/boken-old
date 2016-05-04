@@ -1130,10 +1130,51 @@ struct game_state {
             });
     }
 
-    void impl_do_drop_n_(int const n) {
+    int remove_items(
+        entity_descriptor const subject
+      , point2i32         const from_p
+      , item_descriptor   const container
+      , int const*        const first = nullptr
+      , int const*        const last  = nullptr
+    ) {
+        BK_ASSERT((!!subject)
+               && (!!container)
+               && ((first && last) || (!first && !last)));
+
+        auto const ctx = context {the_world, database};
+
+        auto const find_result = current_level().find(subject.obj.instance());
+        BK_ASSERT(find_result.first
+               && find_result.first == &subject.obj);
+
+        auto const p = find_result.second;
+
+        static_string_buffer<128> buffer;
+
+        return move_items(subject, p, first, last, container, subject
+            , match_all_indicies(always_true {})
+            , [&](const_item_descriptor const i) {
+                buffer.clear();
+                buffer.append("%s remove the %s from the %s."
+                  , name_of_decorated(ctx, subject).data()
+                  , name_of_decorated(ctx, i).data()
+                  , name_of_decorated(ctx, container).data());
+                message_window.println(buffer.to_string());
+            }
+            , [&](const_item_descriptor const i, string_view const reason) {
+                buffer.clear();
+                buffer.append("%s can't remove the %s from the %s: %s."
+                  , name_of_decorated(ctx, subject).data()
+                  , name_of_decorated(ctx, i).data()
+                  , name_of_decorated(ctx, container).data()
+                  , reason.data());
+                message_window.println(buffer.to_string());
+            });
+    }
+
+    void impl_do_drop_items_(int const n) {
         BK_ASSERT(n > 0);
 
-        auto const ctx         = context {the_world, database};
         auto const player_info = get_player();
         auto&      player      = player_info.first;
         auto const player_p    = player_info.second;
@@ -1169,6 +1210,54 @@ struct game_state {
             choose_multiple_items("Drop which item(s)?", handler);
         } else {
             choose_single_item("Drop which item?", handler);
+        }
+    }
+
+    //! For n > 0, choose which items to get.
+    //! For n < 0, get all items
+    //! @pre n != 0
+    void impl_do_get_items_(int const n) {
+        BK_ASSERT(n != 0);
+
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+        auto const player_p    = player_info.second;
+        auto const player_d    = entity_descriptor {database, player};
+
+        auto* const pile = current_level().item_at(player_p);
+        if (!pile) {
+            message_window.println("There is nothing here to get.");
+            return;
+        }
+
+        // called later; be careful of dangling references
+        auto const handler = [&, player_p, player_d](command_type const cmd) {
+            switch (cmd) {
+            case command_type::alt_get_items:
+                BK_ATTRIBUTE_FALLTHROUGH;
+            case command_type::confirm:
+                pickup_selected_items(player_d, player_p);
+                break;
+            case command_type::cancel:
+                message_window.println("Nevermind.");
+                renderer.update_tool_tip_visible(false);
+                break;
+            default:
+                return event_result::filter;
+            }
+
+            return event_result::filter_detach;
+        };
+
+        if (n > 1) {
+            item_list.assign(*pile);
+            choose_multiple_items("Get which item(s)?", handler);
+            return;
+        }
+
+        // n < 0 ~> get all items
+        if (pickup_items(player_d, player_p) > 0) {
+            renderer_update_pile(player_p);
         }
     }
 
@@ -1266,6 +1355,13 @@ struct game_state {
                 {property(item_property::identified), 1});
         }
 
+        auto const player_info = get_player();
+        auto&      player      = player_info.first;
+        auto const player_p    = player_info.second;
+        auto const player_d    = entity_descriptor {database, player};
+
+        auto const container_d = item_descriptor {container, def};
+
         auto const name = name_of_decorated(the_world, database, container);
 
         // Print a message
@@ -1281,17 +1377,15 @@ struct game_state {
         item_list.set_multiselect(true);
         item_list.show();
 
-        item_list.set_on_command([&](command_type const cmd) {
+        item_list.set_on_command([&, player_p, player_d, container_d](command_type const cmd) {
             bool update = false;
 
             switch (cmd) {
             case command_type::alt_get_items:
-                //update = !!item_list.with_selected_range(
-                  //  move_items_from_container(container, get_player().first));
+                remove_selected_items(player_d, player_p, container_d);
                 break;
             case command_type::alt_drop_some:
-                //update = !!item_list.with_selected_range(
-                //    move_items_to_level(get_player_current_location(), container));
+                drop_selected_items(player_d, player_p);
                 break;
             case command_type::alt_open:
                 break;
@@ -1410,6 +1504,12 @@ struct game_state {
             first, last, item_list_index_to_id(), pred);
     }
 
+    template <typename Predicate>
+    int remove_items(item_descriptor const i, int const* const first, int const* const last, Predicate pred) {
+        return i.obj.items().remove_if2(
+            first, last, item_list_index_to_id(), pred);
+    }
+
     template <typename From, typename To, typename Predicate, typename Success, typename Fail>
     int move_items(
         const_entity_descriptor const //subject
@@ -1423,7 +1523,7 @@ struct game_state {
       , Fail      on_failure
     ) {
         auto const ctx  = context {the_world, database};
-        auto const to_d = make_descriptor(to);
+        auto const to_d = to;
 
         auto const on_pass = [&](unique_item&& itm, item_descriptor const i) {
             on_success(i);
@@ -1538,11 +1638,13 @@ struct game_state {
             bool update = false;
 
             switch (cmd) {
-            case command_type::alt_drop_some:
-                //update = item_list.with_selected_range(
-                //    move_items_to_level(get_player_location()
-                //                      , get_player().first));
+            case command_type::alt_drop_some: {
+                auto const p = get_player();
+                if (drop_selected_items({database, p.first}, p.second)) {
+                    item_list.assign(p.first.items());
+                }
                 break;
+            }
             case command_type::alt_open:
                 view_indicated_container();
                 return event_result::filter_detach;
@@ -1584,7 +1686,7 @@ struct game_state {
 
         static_string_buffer<128> buffer;
 
-        return move_items(subject, subject_p, first, last, lvl_loc, subject.obj
+        return move_items(subject, subject_p, first, last, lvl_loc, subject
             , match_all_indicies(always_true {})
             , [&](const_item_descriptor const i) {
                 buffer.clear();
@@ -1603,17 +1705,21 @@ struct game_state {
             });
     }
 
+    template <typename T>
+    T update_render_pile_if(point2i32 const p, T const value) {
+        if (!!value) {
+            renderer_update_pile(p);
+        }
+
+        return value;
+    }
+
     //! The entity e will attempt to pickup the items currently selected in the
     //! item list at location p on the current level.
     int pickup_selected_items(entity_descriptor const e, point2i32 const p) {
         using It = int const* const;
         return item_list.with_selected_range([&](It first, It last) {
-            auto const n = pickup_items(e, p, first, last);
-            if (n) {
-                renderer_update_pile(p);
-            }
-
-            return n;
+            return update_render_pile_if(p, pickup_items(e, p, first, last));
         });
     }
 
@@ -1622,79 +1728,39 @@ struct game_state {
     int drop_selected_items(entity_descriptor const e, point2i32 const p) {
         using It = int const* const;
         return item_list.with_selected_range([&](It first, It last) {
-            auto const n = drop_items(e, p, first, last);
-            if (n) {
-                renderer_update_pile(p);
-            }
+            return update_render_pile_if(p, drop_items(e, p, first, last));
+        });
+    }
 
-            return n;
+    //! The entity e will attempt to pickup the items currently selected in the
+    //! item list at location p on the current level.
+    int remove_selected_items(entity_descriptor const e, point2i32 const p, item_descriptor const i) {
+        using It = int const* const;
+        return item_list.with_selected_range([&](It first, It last) {
+            return remove_items(e, p, i, first, last);
         });
     }
 
     //! Pickup 0..N items from a list at the player's current position.
     void do_get_items() {
-        auto const ctx         = context {the_world, database};
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const player_p    = player_info.second;
-        auto const player_d    = entity_descriptor {database, player};
-
-        auto* const pile = current_level().item_at(player_p);
-        if (!pile) {
-            message_window.println("There is nothing here to get.");
-            return;
-        }
-
-        // called later; be careful of dangling references
-        auto const handler = [&, player_p, player_d](command_type const cmd) {
-            switch (cmd) {
-            case command_type::alt_get_items: BK_ATTRIBUTE_FALLTHROUGH;
-            case command_type::confirm:
-                pickup_selected_items(player_d, player_p);
-                break;
-            case command_type::cancel:
-                message_window.println("Nevermind.");
-                renderer.update_tool_tip_visible(false);
-                break;
-            default:
-                return event_result::filter;
-            }
-
-            return event_result::filter_detach;
-        };
-
-        item_list.assign(*pile);
-        choose_multiple_items("Get which item(s)?", handler);
+        impl_do_get_items_(2);
     }
 
     //! Pickup all items at the player's current position.
     void do_get_all_items() {
-        auto const ctx         = context {the_world, database};
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const player_p    = player_info.second;
-        auto const player_d    = entity_descriptor {database, player};
-
-        if (!current_level().item_at(player_p)) {
-            message_window.println("There is nothing here to get.");
-            return;
-        }
-
-        if (pickup_items(player_d, player_p)) {
-            renderer_update_pile(player_p);
-        }
+        impl_do_get_items_(-1);
     }
 
     //! Drop zero or one items from the player's inventory at the player's
     //! current position.
     void do_drop_one() {
-        impl_do_drop_n_(1);
+        impl_do_drop_items_(1);
     }
 
     //! Drop zero or more items from the player's inventory at the player's
     //! current position.
     void do_drop_some() {
-        impl_do_drop_n_(2);
+        impl_do_drop_items_(2);
     }
 
     void do_open() {

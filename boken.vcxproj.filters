@@ -159,6 +159,9 @@
       <Filter>objects</Filter>
     </ClInclude>
     <ClInclude Include="src\context.hpp" />
+    <ClInclude Include="src\entity_properties.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

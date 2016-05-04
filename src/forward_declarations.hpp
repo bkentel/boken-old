@@ -68,7 +68,12 @@ inline item_pile const& get_items(item_pile const& i) noexcept { return i; }
 //------------------------------------------------------------------------------
 
 entity_property_value get_property_value_or(
-    entity const&            itm
+    const_entity_descriptor ent
+  , entity_property_id      property
+  , entity_property_value   fallback) noexcept;
+
+entity_property_value get_property_value_or(
+    entity const&            ent
   , entity_definition const& def
   , entity_property_id       property
   , entity_property_value    fallback) noexcept;

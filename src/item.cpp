@@ -11,6 +11,10 @@
 
 namespace boken {
 
+item_id get_id(item_definition const& def) noexcept {
+    return def.id;
+}
+
 namespace detail {
 
 string_view impl_can_add_item(

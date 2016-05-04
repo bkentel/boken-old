@@ -1,4 +1,5 @@
 #include "entity.hpp"
+#include "entity_properties.hpp"
 #include "forward_declarations.hpp"
 #include "math.hpp"
 
@@ -7,6 +8,10 @@ namespace boken {
 //=====--------------------------------------------------------------------=====
 //                               free functions
 //=====--------------------------------------------------------------------=====
+
+entity_id get_id(entity_definition const& def) noexcept {
+    return def.id;
+}
 
 namespace detail {
 
@@ -53,6 +58,12 @@ std::string name_of_decorated(
         return "{missing definition}";
     }
 
+    constexpr auto p_is_player = property(entity_property::is_player);
+
+    if (get_property_value_or(e, p_is_player, 0)) {
+        return "you";
+    }
+
     return e.def->name;
 }
 
@@ -74,6 +85,16 @@ item_pile& get_items(entity& e) noexcept {
 
 item_pile const& get_items(entity const& e) noexcept {
     return e.items();
+}
+
+entity_property_value get_property_value_or(
+    const_entity_descriptor const ent
+  , entity_property_id      const property
+  , entity_property_value   const fallback
+) noexcept {
+    return ent
+      ? ent.obj.property_value_or(*ent.def, property, fallback)
+      : fallback;
 }
 
 entity_property_value get_property_value_or(

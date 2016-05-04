@@ -6,6 +6,7 @@
       "properties": {
         "race": "player",
         "class": "player",
+        "is_player": true,
         "tile_index": 351
       }
     },

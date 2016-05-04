@@ -62,7 +62,7 @@ struct descriptor_base {
       : obj {object}
       , def {&definition}
     {
-        BK_ASSERT(get_id(def) == get_id(obj));
+        BK_ASSERT(get_id(definition) == get_id(object));
     }
 
     operator bool() const noexcept {
