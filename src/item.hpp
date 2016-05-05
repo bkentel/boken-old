@@ -23,10 +23,6 @@ void merge_into_pile(
   , item_descriptor itm
   , item_descriptor pile);
 
-//! Returns whether the item @p dest can have the item @p itm placed within it.
-bool can_add_item(game_database const& db, item const& dest, item const& itm) noexcept;
-bool can_add_item(game_database const& db, item const& dest, item_definition const& def) noexcept;
-
 namespace detail {
 
 string_view impl_can_add_item(context ctx, const_item_descriptor itm
@@ -67,45 +63,30 @@ string_view name_of(const_context ctx, const_item_descriptor i) noexcept;
 
 std::string name_of_decorated(context ctx, const_item_descriptor itm);
 
-uint32_t is_identified(const_item_descriptor itm) noexcept;
-
-uint32_t is_container(const_item_descriptor itm) noexcept;
-
 //! Get the weight of an item exclusive of any other items that might be
 //! contained within it.
-int32_t weight_of_exclusive(game_database const& db, item const& itm) noexcept;
-int32_t weight_of_exclusive(world const& w, game_database const& db, item_instance_id id) noexcept;
+int32_t weight_of_exclusive(const_item_descriptor i) noexcept;
 
 //! Get the weight of an item inclusive of the weight of any other items that
 //! might be contained within it.
-int32_t weight_of_inclusive(world const& w, game_database const& db, item const& itm) noexcept;
-int32_t weight_of_inclusive(world const& w, game_database const& db, item_instance_id id) noexcept;
+int32_t weight_of_inclusive(const_context ctx, const_item_descriptor i) noexcept;
+
+//! return a positive integer which is the capacity of the item, or 0 otherwise.
+uint32_t is_container(const_item_descriptor i) noexcept;
+
+//! return a positive integer indicating the identification state of the item
+uint32_t is_identified(const_item_descriptor i) noexcept;
+
+//! return a detailed description of the item
+//! @note This build a new description every time it is called; it is meant for
+//!       generating descriptions to display to the player only.
+std::string item_description(const_context ctx, const_item_descriptor i);
 
 //! get the item id to use for the display of item piles.
 item_id get_pile_id(game_database const& db) noexcept;
 
 //! get the item id to display an item pile
 //! @pre @p pile is not empty
-item_id get_pile_id(world const& w, item_pile const& pile, item_id pile_id) noexcept;
-
-//! return a positive integer which is the capacity of the item, or 0 otherwise.
-uint32_t is_container(game_database const& db, item const& itm) noexcept;
-uint32_t is_container(item const& itm, item_definition const& def) noexcept;
-
-//! return a positive integer indicating the identification state of the item
-uint32_t is_identified(game_database const& db, item const& itm) noexcept;
-uint32_t is_identified(item const& itm, item_definition const& def) noexcept;
-
-//! return a detailed description of the item
-//! @note This build a new description every time it is called; it is meant for
-//!       generating descriptions to display to the player only.
-//@{
-std::string item_description(world const& w, game_database const& db, item const& itm, item_definition const& def);
-std::string item_description(world const& w, game_database const& db, item_instance_id id);
-//@}
-
-std::string name_of_decorated(world const& w, game_database const& db, item const& itm, item_definition const& def);
-std::string name_of_decorated(world const& w, game_database const& db, item const& itm);
-std::string name_of_decorated(world const& w, game_database const& db, item_instance_id id);
+item_id get_pile_id(const_context ctx, item_pile const& pile, item_id pile_id) noexcept;
 
 } //namespace boken

@@ -110,99 +110,30 @@ uint32_t is_container(const_item_descriptor const itm) noexcept {
     return get_property_value_or(itm, property(item_property::capacity), 0);
 }
 
-std::string name_of_decorated(
-    world           const& w
-  , game_database   const& db
-  , item            const& itm
-  , item_definition const& def
-) {
-    static_string_buffer<128> buffer;
-
-    auto const& base_name = def.name;
-    buffer.append("%s", base_name.data());
-
-    auto const id_status = is_identified(itm, def);
-    auto const capacity  = is_container(itm, def);
-
-    if (capacity > 0) {
-        if (id_status < 1) {
-            buffer.append(" [?]");
-        } else {
-            auto const n = static_cast<int>(itm.items().size());
-            if (n == 0) {
-                buffer.append(" <cr>[empty]</c>");
-            } else {
-                buffer.append(" [%d]", n);
-            }
-        }
-    }
-
-    return buffer.to_string();
-}
-
 string_view name_of(const_context const ctx, const_item_descriptor const i) noexcept {
     return i
       ? i.def->name
       : "{missing definition}";
 }
 
-std::string name_of_decorated(
-    world         const& w
-  , game_database const& db
-  , item          const& itm
-) {
-    auto const def = find(db, itm.definition());
-    if (!def) {
-        BK_ASSERT(false); // TODO
-    }
-
-    return name_of_decorated(w, db, itm, *def);
-}
-
-std::string name_of_decorated(
-    world            const& w
-  , game_database    const& db
-  , item_instance_id const  id
-) {
-    return name_of_decorated(w, db, find(w, id));
-}
-
-uint32_t is_container(item const& itm, item_definition const& def) noexcept {
-    return get_property_value_or(itm, def, property(item_property::capacity), 0);
-}
-
-uint32_t is_container(game_database const& db, item const& itm) noexcept {
-    return get_property_value_or(db, itm, property(item_property::capacity), 0);
-}
-
-uint32_t is_identified(game_database const& db, item const& itm) noexcept {
-    return get_property_value_or(db, itm, property(item_property::identified), 0);
-}
-
-uint32_t is_identified(item const& itm, item_definition const& def) noexcept {
-    return get_property_value_or(itm, def, property(item_property::identified), 0);
-}
-
 std::string item_description(
-    world           const& w
-  , game_database   const& db
-  , item            const& itm
-  , item_definition const& def
+    const_context         const ctx
+  , const_item_descriptor const i
 ) {
     static_string_buffer<256> buffer;
 
-    buffer.append("<cr>%s</c>", name_of(const_context {w, db}, {db, itm}).data());
+    buffer.append("<cr>%s</c>", name_of(ctx, i).data());
 
-    auto const we = weight_of_exclusive(db, itm);
+    auto const we = weight_of_exclusive(i);
 
-    auto const id_status = is_identified(itm, def);
-    auto const capacity  = is_container(itm, def);
+    auto const id_status = is_identified(i);
+    auto const capacity  = is_container(i);
 
     if (capacity > 0) {
-        auto const wi = weight_of_inclusive(w, db, itm);
+        auto const wi = weight_of_inclusive(ctx, i);
         buffer.append("\nWeight: %d (%d)", wi, we);
 
-        auto const n = static_cast<int>(itm.items().size());
+        auto const n = static_cast<int>(i.obj.items().size());
 
         if (id_status > 0) {
             buffer.append("\nContains %d of %d items", n , capacity);
@@ -216,19 +147,6 @@ std::string item_description(
     return buffer.to_string();
 }
 
-std::string item_description(
-    world            const& w
-  , game_database    const& db
-  , item_instance_id const  id
-) {
-    auto const& itm = find(w, id);
-    auto const& def = find(db, itm.definition());
-
-    BK_ASSERT(!!def); // TODO
-
-    return item_description(w, db, itm, *def);
-}
-
 item_id get_pile_id(game_database const& db) noexcept {
     auto const pile_def = find(db, make_id<item_id>("pile"));
     return pile_def
@@ -237,99 +155,41 @@ item_id get_pile_id(game_database const& db) noexcept {
 }
 
 item_id get_pile_id(
-    world     const& w
-  , item_pile const& pile
-  , item_id   const  pile_id
+    const_context const  ctx
+  , item_pile     const& pile
+  , item_id       const  pile_id
 ) noexcept {
     BK_ASSERT(!pile.empty());
 
     return (pile.size() == 1u)
-      ? find(w, *pile.begin()).definition()
+      ? find(ctx.w, *pile.begin()).definition()
       : pile_id;
 }
 
-int32_t weight_of_exclusive(
-    game_database const& db
-  , item          const& itm
-) noexcept {
+int32_t weight_of_exclusive(const_item_descriptor const i) noexcept {
     constexpr auto prop_weight = property(item_property::weight);
     constexpr auto prop_stack  = property(item_property::current_stack_size);
 
-    auto const weight = get_property_value_or(db, itm, prop_weight, 0);
-    auto const stack  = get_property_value_or(db, itm, prop_stack,  1);
+    auto const weight = get_property_value_or(i, prop_weight, 0);
+    auto const stack  = get_property_value_or(i, prop_stack,  1);
 
     return static_cast<int32_t>(weight * stack);
 }
 
-int32_t weight_of_exclusive(
-    world            const& w
-  , game_database    const& db
-  , item_instance_id const  id
-) noexcept {
-    return weight_of_exclusive(db, find(w, id));
-}
-
 int32_t weight_of_inclusive(
-    world         const& w
-  , game_database const& db
-  , item          const& itm
+    const_context         const ctx
+  , const_item_descriptor const i
 ) noexcept {
-    auto const first = begin(itm.items());
-    auto const last  = end(itm.items());
+    auto const first = begin(i.obj.items());
+    auto const last  = end(i.obj.items());
 
-    auto const w0 = weight_of_exclusive(db, itm);
+    auto const w0 = weight_of_exclusive(i);
     auto const w1 = std::accumulate(first, last, int32_t {0}
-        , [&](int32_t const sum, item_instance_id const id) {
-            return sum + weight_of_inclusive(w, db, id);
-        });
+        , [&](int32_t const sum, item_instance_id const id) noexcept {
+              return sum + weight_of_inclusive(ctx, {ctx, id});
+          });
 
     return w0 + w1;
-}
-
-int32_t weight_of_inclusive(
-    world            const& w
-  , game_database    const& db
-  , item_instance_id const  id
-) noexcept {
-    return weight_of_inclusive(w, db, find(w, id));
-}
-
-bool can_add_item(
-    game_database const& db
-  , item          const& dest
-  , item          const& itm
-) noexcept {
-    auto const dest_capacity =
-        get_property_value_or(db, dest, property(item_property::capacity), 0);
-
-    // the destination is not a container
-    if (dest_capacity <= 0) {
-        return false;
-    }
-
-    // the destination is full
-    if (dest.items().size() + 1 > dest_capacity) {
-        return false;
-    }
-
-    auto const itm_capacity =
-        get_property_value_or(db, itm, property(item_property::capacity), 0);
-
-    // the item to add is itself a container
-    if (itm_capacity > 0) {
-        return false;
-    }
-
-    return true;
-}
-
-bool can_add_item(
-    game_database   const& db
-  , item            const& dest
-  , item_definition const& def
-) noexcept {
-    return can_add_item(
-        db, dest, item {item_instance_id {}, def.id});
 }
 
 item_instance_id get_instance(item const& i) noexcept {
@@ -356,46 +216,6 @@ item_property_value get_property_value_or(
     return itm
       ? itm.obj.property_value_or(*itm.def, property, fallback)
       : fallback;
-}
-
-item_property_value get_property_value_or(
-    item const&               itm
-  , item_definition const&    def
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    return itm.property_value_or(def, property, fallback);
-}
-
-item_property_value get_property_value_or(
-    game_database const&      db
-  , item const&               itm
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    return itm.property_value_or(db, property, fallback);
-}
-
-item_property_value get_property_value_or(
-    game_database const&      db
-  , item_id                   id
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    auto const def = find(db, id);
-    return def
-      ? get_property_value_or(property, fallback, def->properties)
-      : fallback;
-}
-
-item_property_value get_property_value_or(
-    world const&              w
-  , game_database const&      db
-  , item_instance_id const    id
-  , item_property_id const    property
-  , item_property_value const fallback
-) noexcept {
-    return get_property_value_or(db, find(w, id), property, fallback);
 }
 
 namespace {

@@ -38,10 +38,12 @@ using const_context = context_base<true>;
 
 template <typename Object, typename Definition>
 struct descriptor_base {
+    static constexpr bool is_const = std::is_const<Object>::value;
+
     // construct const from non-const
     template <typename T, typename = std::enable_if_t<
          std::is_same<std::remove_cv_t<T>, std::remove_cv_t<Object>>::value
-     && (std::is_const<Object>::value || !std::is_const<T>::value)
+     && (!descriptor_base<T, Definition>::is_const || is_const)
     >>
     descriptor_base(descriptor_base<T, Definition> other) noexcept
       : obj {other.obj}
@@ -51,7 +53,7 @@ struct descriptor_base {
 
     template <typename T, typename Tag>
     descriptor_base(
-        world&                     w
+        std::conditional_t<is_const, world const, world>& w
       , game_database const&       db
       , tagged_value<T, Tag> const id
     ) noexcept
@@ -61,7 +63,7 @@ struct descriptor_base {
     }
 
     template <typename T, typename Tag>
-    descriptor_base(context const ctx, tagged_value<T, Tag> const id) noexcept
+    descriptor_base(context_base<is_const> const ctx, tagged_value<T, Tag> const id) noexcept
       : descriptor_base {ctx.w, ctx.db, id}
     {
     }
@@ -72,7 +74,7 @@ struct descriptor_base {
     {
     }
 
-    descriptor_base(context const ctx, Object& object) noexcept
+    descriptor_base(context_base<is_const> const ctx, Object& object) noexcept
       : descriptor_base {ctx.db, object}
     {
     }

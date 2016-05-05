@@ -254,7 +254,7 @@ struct game_state {
     }
 
     item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
-        return boken::get_pile_id(the_world, pile, pile_id);
+        return boken::get_pile_id(ctx, pile, pile_id);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -288,17 +288,16 @@ struct game_state {
         });
 
         item_list.add_column("Name", [&](item const& itm) {
-            return name_of_decorated(the_world, database, itm);
+            return name_of_decorated(ctx, {database, itm});
         });
 
         item_list.add_column("Weight", [&](item const& itm) {
-            return std::to_string(weight_of_inclusive(the_world, database, itm));
+            return std::to_string(weight_of_inclusive(ctx, {database, itm}));
         });
 
         item_list.add_column("Count", [&](item const& itm) {
             auto const stack = get_property_value_or(
-                database
-              , itm
+                {database, itm}
               , property(item_property::current_stack_size)
               , 1);
 
@@ -458,8 +457,9 @@ struct game_state {
             for (auto const& id : *pile) {
                 auto const sep = (i++ == size - 1) ? "" : ", ";
 
+                auto const i = const_item_descriptor {ctx, id};
                 auto const result = buffer.append("%s%s"
-                  , name_of_decorated(the_world, database, id).data(), sep);
+                  , name_of_decorated(ctx, i).data(), sep);
 
                 if (!result) {
                     return false;
@@ -626,8 +626,8 @@ struct game_state {
         BK_ASSERT(!!def_ptr);
         auto const& def = *def_ptr;
 
-
-        auto const dag_def_ptr = database.find(make_id<item_id>("weapon_dagger"));
+        auto const dag_id = make_id<item_id>("weapon_dagger");
+        auto const dag_def_ptr = database.find(dag_id);
         BK_ASSERT(!!dag_def_ptr);
         auto const& dag_def = *dag_def_ptr;
 
@@ -647,16 +647,24 @@ struct game_state {
                 continue;
             }
 
-            auto const instance_id =
+            auto const container_id =
                 create_object_at(def, result.first, rng);
 
-            auto& itm = boken::find(the_world, instance_id);
+            auto const dagger_id =
+                create_object_at(dag_def, result.first, rng);
 
-            if (!can_add_item(database, itm, dag_def)) {
-                continue;
+            auto const container = item_descriptor {ctx, container_id};
+            auto const dagger    = item_descriptor {ctx, dagger_id};
+
+            if (can_add_item(ctx, dagger, container, ignore {})) {
+                lvl.move_items(result.first, [&](unique_item&& itm) {
+                    if (itm.get() != dagger.obj.instance()) {
+                        return;
+                    }
+
+                    merge_into_pile(ctx, std::move(itm), dagger, container);
+                });
             }
-
-            create_item_in(itm, dag_def, rng);
         }
     }
 
@@ -1734,7 +1742,7 @@ struct game_state {
         auto&       lvl         = the_world.current_level();
 
         auto const is_container = [&](item_instance_id const id) noexcept {
-            return boken::is_container(database, find(the_world, id)) > 0;
+            return boken::is_container({ctx, id}) > 0;
         };
 
         // check for containers at the players position
