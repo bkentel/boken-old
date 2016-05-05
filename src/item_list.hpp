@@ -41,11 +41,12 @@ public:
     using on_command_t = std::function<event_result (command_type type)>;
     using on_focus_change_t = std::function<void (bool)>;
     using on_selection_change_t = std::function<void (int)>;
+    using get_f = inventory_list::get_f;
 
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
 
-    void add_column(std::string heading, std::function<std::string (item const&)> getter);
+    void add_column(std::string heading, get_f getter);
 
     //--------------------------------------------------------------------------
 

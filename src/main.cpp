@@ -267,16 +267,13 @@ struct game_state {
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     std::unique_ptr<inventory_list> make_item_list_() {
-        return make_inventory_list(trender
-            , [&](item_instance_id const id) noexcept -> item const& {
-                return the_world.find(id);
-            });
+        return make_inventory_list(ctx, trender);
     }
 
     void set_item_list_columns() {
-        item_list.add_column("", [&](item const& itm) {
+        item_list.add_column("", [&](const_item_descriptor const i) {
             auto const& tmap = database.get_tile_map(tile_map_type::item);
-            auto const index = tmap.find(itm.definition());
+            auto const index = tmap.find(i.obj.definition());
 
             BK_ASSERT(index < 0x7Fu); //TODO
 
@@ -287,19 +284,17 @@ struct game_state {
             return std::string {as_string.data()};
         });
 
-        item_list.add_column("Name", [&](item const& itm) {
-            return name_of_decorated(ctx, {database, itm});
+        item_list.add_column("Name", [&](const_item_descriptor const i) {
+            return name_of_decorated(ctx, i);
         });
 
-        item_list.add_column("Weight", [&](item const& itm) {
-            return std::to_string(weight_of_inclusive(ctx, {database, itm}));
+        item_list.add_column("Weight", [&](const_item_descriptor const i) {
+            return std::to_string(weight_of_inclusive(ctx, i));
         });
 
-        item_list.add_column("Count", [&](item const& itm) {
+        item_list.add_column("Count", [&](const_item_descriptor const i) {
             auto const stack = get_property_value_or(
-                {database, itm}
-              , property(item_property::current_stack_size)
-              , 1);
+                i, property(item_property::current_stack_size), 1);
 
             return std::to_string(stack);
         });
@@ -456,10 +451,10 @@ struct game_state {
             size_t i = 0;
             for (auto const& id : *pile) {
                 auto const sep = (i++ == size - 1) ? "" : ", ";
+                auto const itm = const_item_descriptor {ctx, id};
 
-                auto const i = const_item_descriptor {ctx, id};
                 auto const result = buffer.append("%s%s"
-                  , name_of_decorated(ctx, i).data(), sep);
+                  , name_of_decorated(ctx, itm).data(), sep);
 
                 if (!result) {
                     return false;

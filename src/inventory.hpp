@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include "config.hpp"
+#include "context.hpp"
 #include "math_types.hpp"
 
 #include <string>
@@ -17,11 +18,8 @@ namespace boken { class item; }
 namespace boken {
 class inventory_list {
 public:
-    //! function used to lookup an actual item instance from an id.
-    using lookup_f = std::function<item const& (item_instance_id id)>;
-
     //! function used to get the text for a cell from an item instance.
-    using get_f = std::function<std::string (item const& itm)>;
+    using get_f = std::function<std::string (const_item_descriptor)>;
 
     //! insert new column of row and the end
     static int const insert_at_end = -1;
@@ -127,6 +125,8 @@ public:
     //--------------------------------------------------------------------------
     virtual void reserve(size_t cols, size_t rows) = 0;
 
+    //! @note The functor get_f is copied internally; any state must be captured
+    //!       by value: be careful of dangling references.
     virtual void add_column(
         uint8_t     id
       , std::string label
@@ -170,10 +170,7 @@ public:
     virtual void layout() noexcept = 0;
 };
 
-std::unique_ptr<inventory_list> make_inventory_list(
-    text_renderer&           trender
-  , inventory_list::lookup_f lookup
-);
-
+std::unique_ptr<inventory_list> make_inventory_list(const_context  ctx
+                                                  , text_renderer& trender);
 
 } //namespace boken

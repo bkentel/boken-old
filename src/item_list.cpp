@@ -19,7 +19,7 @@ item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
     set_on_selection_change();
 }
 
-void item_list_controller::add_column(std::string heading, std::function<std::string(item const&)> getter) {
+void item_list_controller::add_column(std::string heading, get_f getter) {
     auto const id = static_cast<uint8_t>(list_->cols() & 0xFFu);
     list_->add_column(id, std::move(heading), std::move(getter));
 }

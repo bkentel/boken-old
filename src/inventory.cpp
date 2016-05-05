@@ -60,10 +60,10 @@ public:
     };
 
     //--------------------------------------------------------------------------
-    explicit inventory_list_impl(text_renderer& trender, lookup_f lookup)
-      : trender_ {trender}
-      , lookup_ {std::move(lookup)}
-      , title_ {trender, "Inventory"}
+    explicit inventory_list_impl(const_context const ctx, text_renderer& trender)
+      : ctx_     {ctx}
+      , trender_ {trender}
+      , title_   {trender, "Inventory"}
     {
         move_to({100, 100});
         resize_to(500, 300);
@@ -347,11 +347,11 @@ public:
             row_t row;
             row.reserve(n_cols);
 
-            auto const& itm = lookup_(id);
+            auto const i = const_item_descriptor {ctx_, id};
 
             std::transform(first_col, last_col, back_inserter(row)
               , [&](col_data const& col) -> text_layout {
-                    return {trender_, col.getter(itm), col.max_width, sizei16y {}};
+                    return {trender_, col.getter(i), col.max_width, sizei16y {}};
                 });
 
             return row;
@@ -527,8 +527,8 @@ private:
         bool             selected;
     };
 
+    const_context  ctx_;
     text_renderer& trender_;
-    lookup_f       lookup_;
 
     layout_config  config_;
     layout_metrics metrics_;
@@ -551,10 +551,10 @@ private:
 };
 
 std::unique_ptr<inventory_list> make_inventory_list(
-    text_renderer&           trender
-  , inventory_list::lookup_f lookup
+    const_context const ctx
+  , text_renderer&      trender
 ) {
-    return std::make_unique<inventory_list_impl>(trender, std::move(lookup));
+    return std::make_unique<inventory_list_impl>(ctx, trender);
 }
 
 void inventory_list_impl::add_column(

@@ -29,25 +29,6 @@ unique_entity create_object(world& w, entity_definition const& def, random_state
 entity_instance_id get_instance(entity const& e) noexcept;
 item_instance_id   get_instance(item   const& i) noexcept;
 
-entity_id get_id(entity            const& e  ) noexcept;
-item_id   get_id(item              const& i  ) noexcept;
-entity_id get_id(entity_definition const& def) noexcept;
-item_id   get_id(item_definition   const& def) noexcept;
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                         object lookup
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-item   const& find(world const& w, item_instance_id   id) noexcept;
-entity const& find(world const& w, entity_instance_id id) noexcept;
-item&         find(world&       w, item_instance_id   id) noexcept;
-entity&       find(world&       w, entity_instance_id id) noexcept;
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                         object definition lookup
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-item_definition   const* find(game_database const& db, item_id   id) noexcept;
-entity_definition const* find(game_database const& db, entity_id id) noexcept;
-
 item_pile&       get_items(item&         i) noexcept;
 item_pile const& get_items(item const&   i) noexcept;
 item_pile&       get_items(entity&       e) noexcept;

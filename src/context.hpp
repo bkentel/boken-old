@@ -3,15 +3,35 @@
 #include "types.hpp"
 #include "bkassert/assert.hpp"
 
+#include <type_traits>
+
 namespace boken { class world; }
 namespace boken { class game_database; }
-namespace boken { struct entity_definition; }
-namespace boken { struct item_definition; }
 namespace boken { class entity; }
 namespace boken { class item; }
+namespace boken { struct entity_definition; }
+namespace boken { struct item_definition; }
 
 namespace boken {
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+entity_id get_id(entity            const& e  ) noexcept;
+item_id   get_id(item              const& i  ) noexcept;
+entity_id get_id(entity_definition const& def) noexcept;
+item_id   get_id(item_definition   const& def) noexcept;
+
+item   const& find(world const& w, item_instance_id   id) noexcept;
+entity const& find(world const& w, entity_instance_id id) noexcept;
+item&         find(world&       w, item_instance_id   id) noexcept;
+entity&       find(world&       w, entity_instance_id id) noexcept;
+
+item_definition   const* find(game_database const& db, item_id   id) noexcept;
+entity_definition const* find(game_database const& db, entity_id id) noexcept;
+
+//===------------------------------------------------------------------------===
+//
+//===------------------------------------------------------------------------===
 template <bool Const>
 struct context_base {
     using world_t = std::conditional_t<Const, world const, world>;
@@ -36,6 +56,9 @@ struct context_base {
 using context       = context_base<false>;
 using const_context = context_base<true>;
 
+//===------------------------------------------------------------------------===
+//
+//===------------------------------------------------------------------------===
 template <typename Object, typename Definition>
 struct descriptor_base {
     static constexpr bool is_const = std::is_const<Object>::value;
@@ -94,9 +117,8 @@ struct descriptor_base {
     Definition const* def;
 };
 
-using item_descriptor       = descriptor_base<item,       item_definition>;
-using const_item_descriptor = descriptor_base<item const, item_definition>;
-
+using item_descriptor         = descriptor_base<item,         item_definition>;
+using const_item_descriptor   = descriptor_base<item const,   item_definition>;
 using entity_descriptor       = descriptor_base<entity,       entity_definition>;
 using const_entity_descriptor = descriptor_base<entity const, entity_definition>;
 
