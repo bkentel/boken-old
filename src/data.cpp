@@ -137,18 +137,4 @@ entity_definition const* find(game_database const& db, entity_id const id) noexc
     return db.find(id);
 }
 
-string_view name_of(game_database const& db, item_id const id) noexcept {
-    auto const def_ptr = db.find(id);
-    return def_ptr
-      ? string_view {def_ptr->name}
-      : string_view {"{invalid idef}"};
-}
-
-string_view name_of(game_database const& db, entity_id const id) noexcept {
-    auto const def_ptr = db.find(id);
-    return def_ptr
-      ? string_view {def_ptr->name}
-      : string_view {"{invalid edef}"};
-}
-
 } //namespace boken

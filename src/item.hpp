@@ -63,8 +63,12 @@ bool can_remove_item(
       : (on_fail(result), false);
 }
 
+string_view name_of(const_context ctx, const_item_descriptor i) noexcept;
+
 std::string name_of_decorated(context ctx, const_item_descriptor itm);
+
 uint32_t is_identified(const_item_descriptor itm) noexcept;
+
 uint32_t is_container(const_item_descriptor itm) noexcept;
 
 //! Get the weight of an item exclusive of any other items that might be

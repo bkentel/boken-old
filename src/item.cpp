@@ -140,6 +140,12 @@ std::string name_of_decorated(
     return buffer.to_string();
 }
 
+string_view name_of(const_context const ctx, const_item_descriptor const i) noexcept {
+    return i
+      ? i.def->name
+      : "{missing definition}";
+}
+
 std::string name_of_decorated(
     world         const& w
   , game_database const& db
@@ -185,7 +191,7 @@ std::string item_description(
 ) {
     static_string_buffer<256> buffer;
 
-    buffer.append("<cr>%s</c>", name_of(db, itm).data());
+    buffer.append("<cr>%s</c>", name_of(const_context {w, db}, {db, itm}).data());
 
     auto const we = weight_of_exclusive(db, itm);
 
@@ -286,10 +292,6 @@ int32_t weight_of_inclusive(
   , item_instance_id const  id
 ) noexcept {
     return weight_of_inclusive(w, db, find(w, id));
-}
-
-string_view name_of(game_database const& db, item const& i) noexcept {
-    return name_of(db, i.definition());
 }
 
 bool can_add_item(

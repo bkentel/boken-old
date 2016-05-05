@@ -249,56 +249,12 @@ struct game_state {
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
-    string_view name_of(item_id const id) noexcept {
-        return boken::name_of(database, id);
-    }
-
-    string_view name_of(item const& i) noexcept {
-        return boken::name_of(database, i.definition());
-    }
-
-    string_view name_of(unique_item const& i) noexcept {
-        return name_of(i.get());
-    }
-
-    string_view name_of(item_instance_id const id) noexcept {
-        return boken::name_of(the_world, database, id);
-    }
-
-    string_view name_of(entity_id const id) noexcept {
-        return boken::name_of(database, id);
-    }
-
-    string_view name_of(entity const& e) noexcept {
-        return boken::name_of(database, e.definition());
-    }
-
-    string_view name_of(unique_entity const& e) noexcept {
-        return name_of(e.get());
-    }
-
-    string_view name_of(entity_instance_id const id) noexcept {
-        return boken::name_of(the_world, database, id);
-    }
-
     item_id get_pile_id() const {
         return boken::get_pile_id(database);
     }
 
     item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
         return boken::get_pile_id(the_world, pile, pile_id);
-    }
-
-    int32_t weight_of_exclusive(item const& itm) const noexcept {
-        return boken::weight_of_exclusive(database, itm);
-    }
-
-    int32_t weight_of_inclusive(item const& itm) const noexcept {
-        return boken::weight_of_inclusive(the_world, database, itm);
-    }
-
-    int32_t weight_of_inclusive(item_instance_id const id) const noexcept {
-        return boken::weight_of_inclusive(the_world, database, id);
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -336,7 +292,7 @@ struct game_state {
         });
 
         item_list.add_column("Weight", [&](item const& itm) {
-            return std::to_string(weight_of_inclusive(itm));
+            return std::to_string(weight_of_inclusive(the_world, database, itm));
         });
 
         item_list.add_column("Count", [&](item const& itm) {
@@ -484,7 +440,9 @@ struct game_state {
                 return true;
             }
 
-            return buffer.append("%s\n", name_of(*entity).data());
+            auto const e = const_entity_descriptor {database, *entity};
+
+            return buffer.append("%s\n", name_of(ctx, e).data());
         };
 
         auto const print_items = [&]() noexcept {
@@ -1962,7 +1920,7 @@ struct game_state {
                && lvl.is_entity_at(p));
 
         static_string_buffer<128> buffer;
-        buffer.append("The %s dies.", name_of(e).data());
+        buffer.append("The %s dies.", name_of_decorated(ctx, {database, e}).data());
         message_window.println(buffer.to_string());
 
         get_entity_loot(e, rng_superficial, [&](unique_item&& itm) {

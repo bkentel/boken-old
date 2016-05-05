@@ -129,16 +129,4 @@ item_property_value get_property_value_or(
   , item_property_id     property
   , item_property_value  fallback) noexcept;
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//                            object names
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-string_view name_of(game_database const& db, item_id id) noexcept;
-string_view name_of(game_database const& db, item const& i) noexcept;
-string_view name_of(world const& w, game_database const& db, item_instance_id id) noexcept;
-
-string_view name_of(game_database const& db, entity_id id) noexcept;
-string_view name_of(game_database const& db, entity const& e) noexcept;
-string_view name_of(world const& w, game_database const& db, entity_instance_id id) noexcept;
-
 } //namespace boken

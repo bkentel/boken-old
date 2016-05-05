@@ -67,8 +67,10 @@ std::string name_of_decorated(
     return e.def->name;
 }
 
-string_view name_of(game_database const& db, entity const& e) noexcept {
-    return name_of(db, e.definition());
+string_view name_of(const_context const ctx, const_entity_descriptor const e) noexcept {
+    return e
+      ? e.def->name
+      : "{missing definition}";
 }
 
 entity_instance_id get_instance(entity const& e) noexcept {

@@ -12,10 +12,29 @@ namespace boken { class item; }
 
 namespace boken {
 
-struct context {
-    world&               w;
+template <bool Const>
+struct context_base {
+    using world_t = std::conditional_t<Const, world const, world>;
+
+    template <bool C, typename = std::enable_if_t<!C || Const>>
+    context_base(context_base<C> const other) noexcept
+      : w  {other.w}
+      , db {other.db}
+    {
+    }
+
+    context_base(world_t& w_, game_database const& db_) noexcept
+      : w {w_}
+      , db {db_}
+    {
+    }
+
+    world_t&             w;
     game_database const& db;
 };
+
+using context       = context_base<false>;
+using const_context = context_base<true>;
 
 template <typename Object, typename Definition>
 struct descriptor_base {
