@@ -200,22 +200,15 @@ private:
 };
 
 struct game_state {
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Convenience functions
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     auto item_list_index_to_id() noexcept {
         return [&](int const i) noexcept {
             return item_list.get().row_data(i);
         };
     }
-
-    template <typename Predicate>
-    auto match_all_indicies(Predicate pred) {
-        return [=](auto, auto const i) {
-            return pred(i);
-        };
-    }
-
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Convenience functions
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     //--------------------------------------------------------------------------
     // Player functions
@@ -233,16 +226,14 @@ struct game_state {
         return const_cast<game_state*>(this)->get_player();
     }
 
+    static constexpr entity_instance_id player_id() noexcept {
+        return entity_instance_id {1u};
+    }
+
     point2i32 player_location() const noexcept {
-        return get_player().second;
-    }
-
-    item_pile const& player_items() const noexcept {
-        return get_player().first.items();
-    }
-
-    item_pile& player_items() noexcept {
-        return get_player().first.items();
+        auto const p = current_level().find_position(player_id());
+        BK_ASSERT(p.first);
+        return p.second;
     }
 
     //--------------------------------------------------------------------------
@@ -252,7 +243,7 @@ struct game_state {
         return the_world.current_level();
     }
 
-    level const & current_level() const noexcept {
+    level const& current_level() const noexcept {
         return the_world.current_level();
     }
 
@@ -384,9 +375,9 @@ struct game_state {
 
         item_list.hide();
 
-        item_list.set_on_focus_change([&](bool const state) {
-            renderer.set_inventory_window_focus(state);
-            if (state) {
+        item_list.set_on_focus_change([&](bool const is_focused) {
+            renderer.set_inventory_window_focus(is_focused);
+            if (is_focused) {
                 renderer.update_tool_tip_visible(false);
             }
         });
@@ -737,9 +728,9 @@ struct game_state {
         set_current_level(id, true);
     }
 
-    void set_current_level(size_t const id, bool const is_new) {
-        BK_ASSERT(the_world.has_level(id));
-        renderer.set_level(the_world.change_level(id));
+    void set_current_level(size_t const level_id, bool const is_new) {
+        BK_ASSERT(the_world.has_level(level_id));
+        renderer.set_level(the_world.change_level(level_id));
 
         renderer.update_map_data();
 
@@ -1091,28 +1082,35 @@ struct game_state {
         impl_choose_items_(1, std::move(title), on_command);
     }
 
+    //! hard fail if the entity doesn't exists on the given level.
+    point2i32 require_entity_on_level(
+        const_entity_descriptor const  e
+      , level                   const& lvl
+    ) const {
+        auto const p = lvl.find(e.obj.instance());
+        BK_ASSERT_SAFE(p.first);
+        return p.second;
+    }
+
     int drop_items(
         entity_descriptor const subject
-      , point2i32         const p
+      , point2i32         const to_p
       , int const*        const first = nullptr
       , int const*        const last  = nullptr
     ) {
-        BK_ASSERT((!!subject)
-               && ((first && last) || (!first && !last)));
-
         auto& lvl = current_level();
 
-        auto const find_result = lvl.find(subject.obj.instance());
-        BK_ASSERT(find_result.first);
-
-        auto const ctx       = context {the_world, database};
-        auto const subject_p = find_result.second;
-        auto const lvl_loc   = level_location {lvl, p};
+        auto const subject_p = require_entity_on_level(subject, lvl);
+        if (subject_p != to_p) {
+            BK_ASSERT(false); //TODO
+            return 0;
+        }
 
         static_string_buffer<128> buffer;
 
+        auto const lvl_loc = level_location {lvl, to_p};
         return move_items(subject, subject_p, first, last, subject, lvl_loc
-            , match_all_indicies(always_true {})
+            , always_true {}
             , [&](const_item_descriptor const i) {
                 buffer.clear();
                 buffer.append("%s drop the %s."
@@ -1130,29 +1128,20 @@ struct game_state {
             });
     }
 
+    template <typename To>
     int remove_items(
         entity_descriptor const subject
-      , point2i32         const from_p
       , item_descriptor   const container
+      , To                const to
       , int const*        const first = nullptr
       , int const*        const last  = nullptr
     ) {
-        BK_ASSERT((!!subject)
-               && (!!container)
-               && ((first && last) || (!first && !last)));
-
-        auto const ctx = context {the_world, database};
-
-        auto const find_result = current_level().find(subject.obj.instance());
-        BK_ASSERT(find_result.first
-               && find_result.first == &subject.obj);
-
-        auto const p = find_result.second;
+        auto const subject_p = require_entity_on_level(subject, current_level());
 
         static_string_buffer<128> buffer;
 
-        return move_items(subject, p, first, last, container, subject
-            , match_all_indicies(always_true {})
+        return move_items(subject, subject_p, first, last, container, to
+            , always_true {}
             , [&](const_item_descriptor const i) {
                 buffer.clear();
                 buffer.append("%s remove the %s from the %s."
@@ -1172,21 +1161,49 @@ struct game_state {
             });
     }
 
+    int insert_items(
+        entity_descriptor const subject
+      , point2i32         const p
+      , item_descriptor   const container
+      , int const*        const first = nullptr
+      , int const*        const last  = nullptr
+    ) {
+        static_string_buffer<128> buffer;
+
+        return move_items(subject, p, first, last, subject, container
+            , always_true {}
+            , [&](const_item_descriptor const i) {
+                buffer.clear();
+                buffer.append("%s put the %s in the %s."
+                  , name_of_decorated(ctx, subject).data()
+                  , name_of_decorated(ctx, i).data()
+                  , name_of_decorated(ctx, container).data());
+                message_window.println(buffer.to_string());
+            }
+            , [&](const_item_descriptor const i, string_view const reason) {
+                buffer.clear();
+                buffer.append("%s can't put the %s in the %s: %s."
+                  , name_of_decorated(ctx, subject).data()
+                  , name_of_decorated(ctx, i).data()
+                  , name_of_decorated(ctx, container).data()
+                  , reason.data());
+                message_window.println(buffer.to_string());
+            });
+    }
+
     void impl_do_drop_items_(int const n) {
         BK_ASSERT(n > 0);
 
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const player_p    = player_info.second;
-        auto const player_d    = entity_descriptor {database, player};
+        auto const player_p = player_location();
+        auto const player_d = entity_descriptor {ctx, player_id()};
 
-        if (n == 1 && player.items().empty()) {
+        if (n == 1 && player_d.obj.items().empty()) {
             message_window.println("You have nothing to drop.");
             return;
         }
 
         // called later; be careful of dangling references
-        auto const handler = [&, player_p, player_d](command_type const cmd) {
+        auto const handler = [=](command_type const cmd) {
             switch (cmd) {
             case command_type::alt_drop_some:
                 BK_ATTRIBUTE_FALLTHROUGH;
@@ -1204,7 +1221,7 @@ struct game_state {
             return event_result::filter_detach;
         };
 
-        item_list.assign(player.items());
+        item_list.assign(player_d.obj.items());
 
         if (n > 1) {
             choose_multiple_items("Drop which item(s)?", handler);
@@ -1219,10 +1236,8 @@ struct game_state {
     void impl_do_get_items_(int const n) {
         BK_ASSERT(n != 0);
 
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const player_p    = player_info.second;
-        auto const player_d    = entity_descriptor {database, player};
+        auto const player_p = player_location();
+        auto const player_d = entity_descriptor {ctx, player_id()};
 
         auto* const pile = current_level().item_at(player_p);
         if (!pile) {
@@ -1231,7 +1246,7 @@ struct game_state {
         }
 
         // called later; be careful of dangling references
-        auto const handler = [&, player_p, player_d](command_type const cmd) {
+        auto const handler = [=](command_type const cmd) {
             switch (cmd) {
             case command_type::alt_get_items:
                 BK_ATTRIBUTE_FALLTHROUGH;
@@ -1282,14 +1297,14 @@ struct game_state {
                 return event_result::filter;
             }
 
-            auto const c = event.text[0];
+            auto const ch = event.text[0];
 
-            if (c == 'y' || c == 'Y') {
+            if (ch == 'y' || ch == 'Y') {
                 callback(command_type::confirm);
                 return event_result::filter_detach;
             }
 
-            if (c == 'n' || c == 'N') {
+            if (ch == 'n' || ch == 'N') {
                 callback(command_type::cancel);
                 return event_result::filter_detach;
             }
@@ -1304,14 +1319,23 @@ struct game_state {
     //! The item list is populated with the items in the players inventory
     //! excluding the container itself if the player is holding it.
     //! @pre container must be an item that is a container.
-    void insert_into_container(item& container, item_definition const& def) {
-        auto const handler = [&](command_type const cmd) {
+    void insert_into_container(item_descriptor const container) {
+        auto const player_p = player_location();
+        auto const player   = entity_descriptor {ctx, player_id()};
+
+        auto const fill_list = [=, cid = container.obj.instance()] {
+            item_list.assign_if(player.obj.items()
+              , [&](item_instance_id const id) { return id != cid; });
+        };
+
+        auto const handler = [=](command_type const cmd) {
             switch (cmd) {
             case command_type::alt_insert:
                 BK_ATTRIBUTE_FALLTHROUGH;
             case command_type::confirm:
-                //item_list.with_selected_range(
-                  //  move_items_to_container(container, get_player().first));
+                if (insert_selected_items(player, player_p, container)) {
+                    fill_list();
+                }
                 break;
             case command_type::cancel:
                 message_window.println("Nevermind.");
@@ -1324,10 +1348,7 @@ struct game_state {
             return event_result::filter_detach;
         };
 
-        item_list.assign_if(player_items()
-          , [cid = container.instance()](item_instance_id const id) {
-                return id != cid;
-            });
+        fill_list();
         choose_multiple_items("Insert which item(s)?", handler);
     }
 
@@ -1335,23 +1356,19 @@ struct game_state {
     //! otherwise does nothing. The list is populated with the contents of the
     //! indicated container.
     bool insert_into_indicated_container() {
-        return item_list.with_indicated_if(
-            [&](item_instance_id const id) {
-                auto& itm = find(the_world, id);
-                auto* def = find(database, itm.definition());
-                return std::make_tuple(
-                    def && is_container(itm, *def), &itm, def);
+        return item_list.with_indicated([&](item_instance_id const id) {
+            auto const i = item_descriptor {ctx, id};
+            if (is_container(i)) {
+                insert_into_container(i);
             }
-            , [&](item& itm, item_definition const& def) {
-                insert_into_container(itm, def);
-            });
+        });
     }
 
     //! @pre container must actually be a container
-    void view_container(item& container, item_definition const& def) {
-        if (!is_identified(database, container)) {
+    void view_container(item_descriptor const container) {
+        if (!is_identified(container)) {
             // viewing a container updates the id status to level 1
-            container.add_or_update_property(
+            container.obj.add_or_update_property(
                 {property(item_property::identified), 1});
         }
 
@@ -1360,9 +1377,7 @@ struct game_state {
         auto const player_p    = player_info.second;
         auto const player_d    = entity_descriptor {database, player};
 
-        auto const container_d = item_descriptor {container, def};
-
-        auto const name = name_of_decorated(the_world, database, container);
+        auto const name = name_of_decorated(ctx, container);
 
         // Print a message
         {
@@ -1372,20 +1387,21 @@ struct game_state {
         }
 
         item_list.set_title(name);
-        item_list.assign(container.items());
+        item_list.assign(container.obj.items());
         item_list.set_modal(true);
         item_list.set_multiselect(true);
         item_list.show();
 
-        item_list.set_on_command([&, player_p, player_d, container_d](command_type const cmd) {
+        item_list.set_on_command([=](command_type const cmd) {
             bool update = false;
 
             switch (cmd) {
             case command_type::alt_get_items:
-                remove_selected_items(player_d, player_p, container_d);
+                update = !!remove_selected_items(player_d, container, player_d);
                 break;
             case command_type::alt_drop_some:
-                drop_selected_items(player_d, player_p);
+                update = !!remove_selected_items(player_d, container, level_location {current_level(), player_p});
+                update_render_pile_if(player_p, update);
                 break;
             case command_type::alt_open:
                 break;
@@ -1400,33 +1416,21 @@ struct game_state {
             }
 
             if (update) {
-                item_list.assign(container.items());
+                item_list.set_title(name_of_decorated(ctx, container));
+                item_list.assign(container.obj.items());
             }
 
             return event_result::filter;
         });
     }
 
-    void view_container(item_instance_id const id) {
-        auto&       itm = find(the_world, id);
-        auto* const def = find(database, itm.definition());
-
-        BK_ASSERT(!!def);
-
-        view_container(itm, *def);
-    }
-
     bool view_indicated_container() {
-        return item_list.with_indicated_if(
-            [&](item_instance_id const id) {
-                auto& itm = find(the_world, id);
-                auto* def = find(database, itm.definition());
-                return std::make_tuple(
-                    def && is_container(itm, *def), &itm, def);
+        return item_list.with_indicated([&](item_instance_id const id) {
+            auto const i = item_descriptor {ctx, id};
+            if (is_container(i)) {
+                view_container(i);
             }
-            , [&](item& itm, item_definition const& def) {
-                view_container(itm, def);
-            });
+        });
     }
 
     void adjust_view_to_player(point2i32 const p) noexcept {
@@ -1479,68 +1483,56 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Item transfer
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    entity_descriptor make_descriptor(entity& e) {
-        return {database, e};
-    }
-
-    level_location make_descriptor(level_location const l) {
-        return l;
-    }
-
     template <typename Predicate>
-    int remove_items(level_location const l, Predicate pred) {
-        return l.lvl.move_items(l.p, pred).second;
-    }
-
-    template <typename Predicate>
-    int remove_items(level_location const l, int const* const first, int const* const last, Predicate pred) {
+    int move_items(level_location const l, int const* const first, int const* const last, Predicate pred) {
         return l.lvl.move_items(l.p, first, last, pred).second;
     }
 
     template <typename Predicate>
-    int remove_items(entity_descriptor const e, int const* const first, int const* const last, Predicate pred) {
+    int move_items(entity_descriptor const e, int const* const first, int const* const last, Predicate pred) {
         return e.obj.items().remove_if2(
             first, last, item_list_index_to_id(), pred);
     }
 
     template <typename Predicate>
-    int remove_items(item_descriptor const i, int const* const first, int const* const last, Predicate pred) {
+    int move_items(item_descriptor const i, int const* const first, int const* const last, Predicate pred) {
         return i.obj.items().remove_if2(
             first, last, item_list_index_to_id(), pred);
     }
 
     template <typename From, typename To, typename Predicate, typename Success, typename Fail>
     int move_items(
-        const_entity_descriptor const //subject
+        const_entity_descriptor const subject
       , point2i32               const //subject_p
       , int const* const first
       , int const* const last
-      , From&&    from
-      , To&&      to
+      , From      from
+      , To        to
       , Predicate filter
       , Success   on_success
       , Fail      on_failure
     ) {
-        auto const ctx  = context {the_world, database};
-        auto const to_d = to;
+        BK_ASSERT((!!first == !!last)
+               && !!subject
+               && !!from
+               && !!to);
 
         auto const on_pass = [&](unique_item&& itm, item_descriptor const i) {
             on_success(i);
-            merge_into_pile(ctx, std::move(itm), i, to_d);
+            merge_into_pile(ctx, std::move(itm), i, to);
             return true;
         };
 
-        return remove_items(from, first, last, [&, index = 0](unique_item&& itm) mutable {
+        return move_items(from, first, last, [&](unique_item&& itm) {
             auto const i = item_descriptor {ctx, itm.get()};
 
             auto const on_fail = [&](string_view const reason) {
                 on_failure(i, reason);
             };
 
-            return filter(index++, i)
+            return filter(i)
                 && can_remove_item(ctx, i, from, on_fail)
-                && can_add_item(ctx, i, to_d, on_fail)
+                && can_add_item(ctx, i, to, on_fail)
                 && on_pass(std::move(itm), i);
         });
     }
@@ -1629,7 +1621,7 @@ struct game_state {
 
     void do_view_inventory() {
         item_list.set_title("Inventory");
-        item_list.assign(player_items());
+        item_list.assign(find(the_world, player_id()).items());
         item_list.set_modal(false);
         item_list.set_multiselect(true);
         item_list.show();
@@ -1639,9 +1631,10 @@ struct game_state {
 
             switch (cmd) {
             case command_type::alt_drop_some: {
-                auto const p = get_player();
-                if (drop_selected_items({database, p.first}, p.second)) {
-                    item_list.assign(p.first.items());
+                auto const d = entity_descriptor {ctx, player_id()};
+                auto const p = require_entity_on_level(d, current_level());
+                if (drop_selected_items(d, p)) {
+                    item_list.assign(d.obj.items());
                 }
                 break;
             }
@@ -1659,7 +1652,7 @@ struct game_state {
             }
 
             if (update) {
-                item_list.assign(player_items());
+                item_list.assign(find(the_world, player_id()).items());
             }
 
             return event_result::filter;
@@ -1668,26 +1661,29 @@ struct game_state {
 
     int pickup_items(
         entity_descriptor const subject
-      , point2i32         const p
+      , point2i32         const from_p
       , int const*        const first = nullptr
       , int const*        const last  = nullptr
     ) {
-        BK_ASSERT((!!subject)
-               && ((first && last) || (!first && !last)));
-
         auto& lvl = current_level();
 
-        auto const find_result = lvl.find(subject.obj.instance());
-        BK_ASSERT(find_result.first);
+        auto const subject_p = [&] {
+            auto const result =
+                current_level().find_position(subject.obj.instance());
+            BK_ASSERT(result.first);
+            return result.second;
+        }();
 
-        auto const ctx       = context {the_world, database};
-        auto const subject_p = find_result.second;
-        auto const lvl_loc   = level_location {lvl, p};
+        if (from_p != subject_p) {
+            BK_ASSERT(false); //TODO
+            return 0;
+        }
 
         static_string_buffer<128> buffer;
 
+        auto const lvl_loc = level_location {lvl, from_p};
         return move_items(subject, subject_p, first, last, lvl_loc, subject
-            , match_all_indicies(always_true {})
+            , always_true {}
             , [&](const_item_descriptor const i) {
                 buffer.clear();
                 buffer.append("%s pick up the %s."
@@ -1734,10 +1730,20 @@ struct game_state {
 
     //! The entity e will attempt to pickup the items currently selected in the
     //! item list at location p on the current level.
-    int remove_selected_items(entity_descriptor const e, point2i32 const p, item_descriptor const i) {
+    template <typename To>
+    int remove_selected_items(entity_descriptor const e, item_descriptor const i, To const to) {
         using It = int const* const;
         return item_list.with_selected_range([&](It first, It last) {
-            return remove_items(e, p, i, first, last);
+            return remove_items(e, i, to, first, last);
+        });
+    }
+
+    //! The entity e will attempt to pickup the items currently selected in the
+    //! item list at location p on the current level.
+    int insert_selected_items(entity_descriptor const e, point2i32 const p, item_descriptor const container) {
+        using It = int const* const;
+        return item_list.with_selected_range([&](It first, It last) {
+            return insert_items(e, p, container, first, last);
         });
     }
 
@@ -1854,7 +1860,8 @@ struct game_state {
         auto const matches = std::get<0>(result);
 
         if (matches == 1) {
-            view_container(*std::get<1>(result));
+            auto const id = *std::get<1>(result);
+            view_container({ctx, id});
             return;
         }
 
@@ -1895,15 +1902,16 @@ struct game_state {
 
         BK_ASSERT(p_matches == 1);
         auto const container_id = *std::get<1>(p_result);
+        auto const container_d  = item_descriptor {ctx, container_id};
 
         static_string_buffer<128> buffer;
         buffer.append("Open the %s in your inventory? y/n"
-            , name_of_decorated(the_world, database, container_id).data());
+            , name_of_decorated(ctx, container_d).data());
         message_window.println(buffer.to_string());
 
         query_yes_no([=](command_type const cmd) {
             if (cmd == command_type::confirm) {
-                view_container(container_id);;
+                view_container(container_d);;
             }
         });
     }
@@ -2433,6 +2441,7 @@ struct game_state {
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
     message_log&        message_window  = *state.messsage_window_ptr;
+    context const       ctx             = context {the_world, database};
 
     timer timers;
 

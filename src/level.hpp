@@ -84,6 +84,9 @@ public:
     virtual std::pair<entity const*, point2i32>
         find(entity_instance_id id) const noexcept = 0;
 
+    virtual std::pair<bool, point2i32>
+        find_position(entity_instance_id id) const noexcept = 0;
+
     //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
     //! is at the given position.
     virtual entity const* entity_at(point2i32 p) const noexcept = 0;
@@ -231,6 +234,8 @@ struct level_location_base {
       , p   {other.p}
     {
     }
+
+    constexpr explicit operator bool() const noexcept { return true; }
 
     std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
     point2i32 p;

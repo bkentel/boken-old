@@ -215,14 +215,25 @@ public:
         return id_;
     }
 
-    std::pair<entity*, point2i32>
-    find(entity_instance_id const id) noexcept final override {
+    std::pair<bool, point2i32> find_position(
+        entity_instance_id const id
+    ) const noexcept final override {
         auto const result = entities_.find(id);
         if (!result.first) {
-            return {nullptr, point2i32 {}};
+            return {false, {}};
         }
 
-        return {&boken::find(world_, *result.first), result.second};
+        return {true, result.second};
+    }
+
+    std::pair<entity*, point2i32>
+    find(entity_instance_id const id) noexcept final override {
+        auto const p = find_position(id);
+        if (!p.first) {
+            return {nullptr, {}};
+        }
+
+        return {&boken::find(world_, id), p.second};
     }
 
     std::pair<entity const*, point2i32>

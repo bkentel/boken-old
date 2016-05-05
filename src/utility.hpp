@@ -422,7 +422,7 @@ size_t weight_list_size(std::random_access_iterator_tag, It const first, It cons
 }
 
 template <typename Tag, typename It>
-size_t weight_list_size(Tag, It const first, It const last) noexcept {
+size_t weight_list_size(Tag, It, It) noexcept {
     return 0u;
 }
 
