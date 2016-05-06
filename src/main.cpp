@@ -20,10 +20,12 @@
 #include "utility.hpp"      // for BK_OFFSETOF
 #include "world.hpp"        // for world, make_world
 #include "inventory.hpp"
+#include "rect.hpp"
 #include "scope_guard.hpp"
 #include "item_properties.hpp"
 #include "timer.hpp"
 #include "item_list.hpp"
+#include "messages.hpp"
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
@@ -150,7 +152,7 @@ public:
     //! @returns true if the event has not been filtered, false otherwise.
     template <typename... Args0, typename... Args1>
     bool process(
-        event_result (input_context::* handler)(Args0...)
+        event_result (input_context::* const handler)(Args0...)
       , Args1&&... args
     ) {
         // as a stack: back to front
@@ -573,7 +575,7 @@ struct game_state {
         auto const w_max = w.max();
 
         auto& rng = rng_substantive;
-        auto& lvl = the_world.current_level();
+        auto& lvl = current_level();
 
         auto const def_ptr = database.find(make_id<entity_id>("rat_small"));
         BK_ASSERT(!!def_ptr);
@@ -585,17 +587,16 @@ struct game_state {
                 continue;
             }
 
-            point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
-                             , region.bounds.y0 + region.bounds.height() / 2};
-
-            auto const result =
-                lvl.find_valid_entity_placement_neareast(rng, p, 3);
+            auto const result = lvl.find_valid_entity_placement_neareast(
+                rng, center_of(region.bounds), 3);
 
             if (result.second != placement_result::ok) {
                 continue;
             }
 
-            auto const instance_id = create_object_at(def, result.first, rng);
+            auto const p = result.first;
+
+            auto const instance_id = create_object_at(def, p, rng);
             auto& new_entity = find(the_world, instance_id);
 
             auto const id = random_weighted(rng, w);
@@ -613,18 +614,19 @@ struct game_state {
         }
     }
 
+
     void generate_items() {
-        auto& lvl = the_world.current_level();
+        auto& lvl = current_level();
         auto& rng = rng_substantive;
 
-        auto const def_ptr = database.find(make_id<item_id>("container_chest"));
-        BK_ASSERT(!!def_ptr);
-        auto const& def = *def_ptr;
+        auto const container_def_id = make_id<item_id>("container_chest");
+        auto const dagger_def_id    = make_id<item_id>("weapon_dagger");
 
-        auto const dag_id = make_id<item_id>("weapon_dagger");
-        auto const dag_def_ptr = database.find(dag_id);
-        BK_ASSERT(!!dag_def_ptr);
-        auto const& dag_def = *dag_def_ptr;
+        BK_ASSERT(find(database, container_def_id)
+               && find(database, dagger_def_id));
+
+        auto const& container_def = *find(database, container_def_id);
+        auto const& dagger_def    = *find(database, dagger_def_id);
 
         for (size_t i = 0; i < lvl.region_count(); ++i) {
             auto const& region = lvl.region(i);
@@ -632,34 +634,37 @@ struct game_state {
                 continue;
             }
 
-            point2i32 const p {region.bounds.x0 + region.bounds.width()  / 2
-                             , region.bounds.y0 + region.bounds.height() / 2};
-
-            auto const result =
-                lvl.find_valid_item_placement_neareast(rng, p, 3);
+            auto const result = lvl.find_valid_item_placement_neareast(
+                rng, center_of(region.bounds), 3);
 
             if (result.second != placement_result::ok) {
                 continue;
             }
 
-            auto const container_id =
-                create_object_at(def, result.first, rng);
+            auto const p = result.first;
 
-            auto const dagger_id =
-                create_object_at(dag_def, result.first, rng);
+            auto const container_id = create_object_at(container_def, p, rng);
+            auto const dagger_id    = create_object_at(dagger_def, p, rng);
 
-            auto const container = item_descriptor {ctx, container_id};
-            auto const dagger    = item_descriptor {ctx, dagger_id};
+            auto const container = item_descriptor {
+                find(the_world, container_id), container_def};
 
-            if (can_add_item(ctx, dagger, container, ignore {})) {
-                lvl.move_items(result.first, [&](unique_item&& itm) {
-                    if (itm.get() != dagger.obj.instance()) {
-                        return;
-                    }
+            auto const dagger = item_descriptor {
+                find(the_world, dagger_id), dagger_def};
 
-                    merge_into_pile(ctx, std::move(itm), dagger, container);
-                });
+            if (!can_add_item(ctx, dagger, container, ignore {})) {
+                continue;
             }
+
+            lvl.move_items(result.first, [&](unique_item&& itm) {
+                if (itm.get() != dagger.obj.instance()) {
+                    return;
+                }
+
+                merge_into_pile(ctx, std::move(itm), dagger, container);
+            });
+
+            renderer_update_pile(result.first);
         }
     }
 
@@ -847,12 +852,8 @@ struct game_state {
         using mbc = mouse_event::button_change_t;
 
         switch (event.button_state_bits()) {
-        case 0b0000 :
-            // no buttons down
-            break;
+        case 0b0000 : break;
         case 0b0001 :
-            // left mouse button only
-
             if (event.button_change[0] == mbc::went_down) {
                 if (kmods.exclusive_any(kb_mod::alt)) {
                     debug_create_corridor_at(
@@ -861,16 +862,11 @@ struct game_state {
             }
 
             break;
-        case 0b0010 :
-            // middle mouse button only
-            break;
-        case 0b0100 :
-            // right mouse button only
-            break;
-        case 0b1000 :
-            // extra mouse button only
-            break;
+        case 0b0010 : break;
+        case 0b0100 : break;
+        case 0b1000 : break;
         default :
+            BK_ASSERT(false);
             break;
         }
     }
@@ -878,29 +874,22 @@ struct game_state {
     void on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
         switch (event.button_state_bits()) {
         case 0b0000 :
-            // no buttons down
             if (kmods.exclusive_any(kb_mod::shift)) {
                 debug_show_tool_tip({event.x, event.y});
             }
             break;
-        case 0b0001 :
-            // left mouse button only
-            break;
-        case 0b0010 :
-            // middle mouse button only
-            break;
+        case 0b0001 : break;
+        case 0b0010 : break;
         case 0b0100 :
-            // right mouse button only
             if (kmods.none()) {
                 update_view_trans(
                     current_view.x_off + static_cast<float>(event.dx)
                   , current_view.y_off + static_cast<float>(event.dy));
             }
             break;
-        case 0b1000 :
-            // extra mouse button only
-            break;
+        case 0b1000 : break;
         default :
+            BK_ASSERT(false);
             break;
         }
     }
@@ -959,23 +948,25 @@ struct game_state {
         case ct::reset_zoom:
             BK_ASSERT(false); // TODO
             break;
+
         case ct::debug_toggle_regions :
             renderer.debug_toggle_show_regions();
             renderer.update_map_data();
             break;
         case ct::debug_teleport_self : do_debug_teleport_self(); break;
-        case ct::cancel : do_cancel(); break;
-        case ct::confirm : break;
-        case ct::toggle : break;
-        case ct::drop_one : do_drop_one(); break;
+
+        case ct::cancel    : do_cancel(); break;
+        case ct::confirm   : break;
+        case ct::toggle    : break;
+        case ct::drop_one  : do_drop_one(); break;
         case ct::drop_some : do_drop_some(); break;
-        case ct::open : do_open(); break;
-        case ct::view : do_view(); break;
+        case ct::open      : do_open(); break;
+        case ct::view      : do_view(); break;
 
         case ct::alt_get_items : break;
         case ct::alt_drop_some : break;
-        case ct::alt_open : break;
-        case ct::alt_insert : break;
+        case ct::alt_open      : break;
+        case ct::alt_insert    : break;
 
         default:
             BK_ASSERT(false);
@@ -1053,6 +1044,22 @@ struct game_state {
         return p.second;
     }
 
+    template <size_t N>
+    void println(static_string_buffer<N> const& buffer) {
+        message_window.println(buffer.to_string());
+    }
+
+    void println(std::string msg) {
+        message_window.println(std::move(msg));
+    }
+
+    template <typename... Args>
+    auto msg_printer(std::string (* const f)(Args...)) {
+        return [=](Args... args) {
+            println((*f)(args...));
+        };
+    }
+
     int drop_items(
         entity_descriptor const subject
       , point2i32         const to_p
@@ -1067,26 +1074,10 @@ struct game_state {
             return 0;
         }
 
-        static_string_buffer<128> buffer;
-
         auto const lvl_loc = level_location {lvl, to_p};
         return move_items(subject, subject_p, first, last, subject, lvl_loc
             , always_true {}
-            , [&](const_item_descriptor const i) {
-                buffer.clear();
-                buffer.append("%s drop the %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data());
-                message_window.println(buffer.to_string());
-            }
-            , [&](const_item_descriptor const i, string_view const reason) {
-                buffer.clear();
-                buffer.append("%s can't drop the %s: %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , reason.data());
-                message_window.println(buffer.to_string());
-            });
+            , msg_printer(&msg::drop_item));
     }
 
     template <typename To>
@@ -1098,28 +1089,9 @@ struct game_state {
       , int const*        const last  = nullptr
     ) {
         auto const subject_p = require_entity_on_level(subject, current_level());
-
-        static_string_buffer<128> buffer;
-
         return move_items(subject, subject_p, first, last, container, to
             , always_true {}
-            , [&](const_item_descriptor const i) {
-                buffer.clear();
-                buffer.append("%s remove the %s from the %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , name_of_decorated(ctx, container).data());
-                message_window.println(buffer.to_string());
-            }
-            , [&](const_item_descriptor const i, string_view const reason) {
-                buffer.clear();
-                buffer.append("%s can't remove the %s from the %s: %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , name_of_decorated(ctx, container).data()
-                  , reason.data());
-                message_window.println(buffer.to_string());
-            });
+            , msg_printer(&msg::remove_item<To>));
     }
 
     int insert_items(
@@ -1129,27 +1101,9 @@ struct game_state {
       , int const*        const first = nullptr
       , int const*        const last  = nullptr
     ) {
-        static_string_buffer<128> buffer;
-
         return move_items(subject, p, first, last, subject, container
             , always_true {}
-            , [&](const_item_descriptor const i) {
-                buffer.clear();
-                buffer.append("%s put the %s in the %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , name_of_decorated(ctx, container).data());
-                message_window.println(buffer.to_string());
-            }
-            , [&](const_item_descriptor const i, string_view const reason) {
-                buffer.clear();
-                buffer.append("%s can't put the %s in the %s: %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , name_of_decorated(ctx, container).data()
-                  , reason.data());
-                message_window.println(buffer.to_string());
-            });
+            , msg_printer(&msg::insert_item));
     }
 
     void impl_do_drop_items_(int const n) {
@@ -1461,7 +1415,7 @@ struct game_state {
             first, last, item_list_index_to_id(), pred);
     }
 
-    template <typename From, typename To, typename Predicate, typename Success, typename Fail>
+    template <typename From, typename To, typename Predicate, typename Callback>
     int move_items(
         const_entity_descriptor const subject
       , point2i32               const //subject_p
@@ -1470,8 +1424,7 @@ struct game_state {
       , From      from
       , To        to
       , Predicate filter
-      , Success   on_success
-      , Fail      on_failure
+      , Callback  callback
     ) {
         BK_ASSERT((!!first == !!last)
                && !!subject
@@ -1479,7 +1432,7 @@ struct game_state {
                && !!to);
 
         auto const on_pass = [&](unique_item&& itm, item_descriptor const i) {
-            on_success(i);
+            callback(ctx, subject, i, from, to, string_view {});
             merge_into_pile(ctx, std::move(itm), i, to);
             return true;
         };
@@ -1488,7 +1441,7 @@ struct game_state {
             auto const i = item_descriptor {ctx, itm.get()};
 
             auto const on_fail = [&](string_view const reason) {
-                on_failure(i, reason);
+                callback(ctx, subject, i, from, to, reason);
             };
 
             return filter(i)
@@ -1640,26 +1593,10 @@ struct game_state {
             return 0;
         }
 
-        static_string_buffer<128> buffer;
-
         auto const lvl_loc = level_location {lvl, from_p};
         return move_items(subject, subject_p, first, last, lvl_loc, subject
             , always_true {}
-            , [&](const_item_descriptor const i) {
-                buffer.clear();
-                buffer.append("%s pick up the %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data());
-                message_window.println(buffer.to_string());
-            }
-            , [&](const_item_descriptor const i, string_view const reason) {
-                buffer.clear();
-                buffer.append("%s can't pick up the %s: %s."
-                  , name_of_decorated(ctx, subject).data()
-                  , name_of_decorated(ctx, i).data()
-                  , reason.data());
-                message_window.println(buffer.to_string());
-            });
+            , msg_printer(&msg::pickup_item));
     }
 
     template <typename T>
@@ -1775,7 +1712,7 @@ struct game_state {
         };
 
         // choose between multiple container choices
-        auto const choose_container = [=](item_pile const& pile, auto const result) {
+        auto const choose_container = [=](auto const result) {
             // there are at least two containers here; build a list and let the
             // player decide which to inspect
             BK_ASSERT(std::get<0>(result) == 2);
@@ -1827,7 +1764,7 @@ struct game_state {
         }
 
         if (matches == 2) {
-            choose_container(*pile, result);
+            choose_container(result);
             return;
         }
 
@@ -1855,7 +1792,7 @@ struct game_state {
             message_window.println("Open a container in your inventory? y/n");
             query_yes_no([=, &items](command_type const cmd) {
                 if (cmd == command_type::confirm) {
-                    choose_container(items, p_result);
+                    choose_container(p_result);
                 }
             });
             return;

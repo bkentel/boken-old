@@ -67,6 +67,6 @@ bool can_remove_item(
 
 string_view name_of(const_context ctx, const_entity_descriptor e) noexcept;
 
-std::string name_of_decorated(context ctx, const_entity_descriptor e);
+std::string name_of_decorated(const_context ctx, const_entity_descriptor e);
 
 } //namespace boken

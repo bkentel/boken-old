@@ -128,12 +128,6 @@ constexpr vec2<T> signof(vec2<T> const v) noexcept {
     return {signof(v.x), signof(v.y)};
 }
 
-template <typename T>
-constexpr point2<T> center_of(axis_aligned_rect<T> const r) noexcept {
-    return r.top_left()
-         + vec2<T> {r.width() / T {2}, r.height() / T {2}};
-}
-
 //
 template <typename T, typename U, typename V, typename TagAxis, typename TagType>
 inline constexpr basic_1_tuple<T, TagAxis, TagType> clamp(

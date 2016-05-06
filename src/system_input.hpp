@@ -569,6 +569,12 @@ struct mouse_event {
     int32_t dx;
     int32_t dy;
 
+    //! 0000
+    //! ||||
+    //! |||L-> left
+    //! ||L--> middle
+    //! |L---> right
+    //! L----> extra
     uint32_t button_state_bits() const noexcept {
         uint32_t result {};
         for (size_t i = 0; i < button_count; ++i) {

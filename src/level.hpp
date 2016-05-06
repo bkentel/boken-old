@@ -217,33 +217,6 @@ std::unique_ptr<level>
 make_level(random_state& rng, world& w, sizei32x width, sizei32y height
          , size_t id);
 
-
-template <bool Const>
-struct level_location_base {
-    using type = std::conditional_t<Const, std::add_const_t<level>, level>;
-
-    level_location_base(type& level, point2i32 const where)
-      : lvl {level}
-      , p   {where}
-    {
-    }
-
-    template <bool C, typename = std::enable_if_t<Const || !C>>
-    level_location_base(level_location_base<C> other)
-      : lvl {other.lvl}
-      , p   {other.p}
-    {
-    }
-
-    constexpr explicit operator bool() const noexcept { return true; }
-
-    std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
-    point2i32 p;
-};
-
-using level_location = level_location_base<false>;
-using const_level_location = level_location_base<true>;
-
 namespace detail {
 
 string_view impl_can_add_item(context ctx, const_item_descriptor itm

@@ -591,4 +591,10 @@ void transform_xy(
     }
 }
 
+template <typename T> constexpr
+point2<T> center_of(axis_aligned_rect<T> const r) noexcept {
+    return {r.x0 + r.width()  / static_cast<T>(2)
+          , r.y0 + r.height() / static_cast<T>(2)};
+}
+
 } //namespace boken

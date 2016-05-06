@@ -6,6 +6,7 @@
 #include <type_traits>
 
 namespace boken { class world; }
+namespace boken { class level; }
 namespace boken { class game_database; }
 namespace boken { class entity; }
 namespace boken { class item; }
@@ -121,5 +122,34 @@ using item_descriptor         = descriptor_base<item,         item_definition>;
 using const_item_descriptor   = descriptor_base<item const,   item_definition>;
 using entity_descriptor       = descriptor_base<entity,       entity_definition>;
 using const_entity_descriptor = descriptor_base<entity const, entity_definition>;
+
+//===------------------------------------------------------------------------===
+//
+//===------------------------------------------------------------------------===
+template <bool Const>
+struct level_location_base {
+    using type = std::conditional_t<Const, std::add_const_t<level>, level>;
+
+    level_location_base(type& level, point2i32 const where)
+      : lvl {level}
+      , p   {where}
+    {
+    }
+
+    template <bool C, typename = std::enable_if_t<Const || !C>>
+    level_location_base(level_location_base<C> other)
+      : lvl {other.lvl}
+      , p   {other.p}
+    {
+    }
+
+    constexpr explicit operator bool() const noexcept { return true; }
+
+    std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
+    point2i32 p;
+};
+
+using level_location = level_location_base<false>;
+using const_level_location = level_location_base<true>;
 
 } // namespace boken

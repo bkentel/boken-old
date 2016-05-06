@@ -105,6 +105,7 @@
     <ClCompile Include="src\item_list.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\messages.cpp" />
     <ClCompile Include="src\message_log.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -163,6 +164,7 @@
     <ClInclude Include="src\level_details.hpp" />
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\math_types.hpp" />
+    <ClInclude Include="src\messages.hpp" />
     <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />

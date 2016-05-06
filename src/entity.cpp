@@ -51,7 +51,7 @@ void merge_into_pile(
 }
 
 std::string name_of_decorated(
-    context                 const ctx
+    const_context           const ctx
   , const_entity_descriptor const e
 ) {
     if (!e) {

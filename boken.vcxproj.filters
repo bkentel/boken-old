@@ -87,6 +87,7 @@
     <ClCompile Include="src\test\flag_set.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
+    <ClCompile Include="src\messages.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.hpp" />
@@ -162,6 +163,7 @@
     <ClInclude Include="src\entity_properties.hpp">
       <Filter>objects</Filter>
     </ClInclude>
+    <ClInclude Include="src\messages.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

@@ -73,7 +73,7 @@ void merge_into_pile(
 //                               free functions
 //=====--------------------------------------------------------------------=====
 std::string name_of_decorated(
-    context               const ctx
+    const_context         const ctx
   , const_item_descriptor const itm
 ) {
     if (!itm) {
