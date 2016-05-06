@@ -219,45 +219,35 @@ make_level(random_state& rng, world& w, sizei32x width, sizei32y height
 
 namespace detail {
 
-string_view impl_can_add_item(context ctx, const_item_descriptor itm
-                            , const_level_location dest) noexcept;
+string_view impl_can_add_item(const_context ctx, const_item_descriptor itm
+    , const_level_location dst) noexcept;
 
-string_view impl_can_remove_item(context ctx, const_item_descriptor itm
-                               , const_level_location dest) noexcept;
+string_view impl_can_remove_item(const_context ctx, const_item_descriptor itm
+    , const_level_location src) noexcept;
 
 } // namespace detail
 
-void merge_into_pile(
-    context         ctx
-  , unique_item     itm_ptr
-  , item_descriptor itm
-  , level_location  pile);
-
 template <typename UnaryF>
 bool can_add_item(
-    context               ctx
-  , const_item_descriptor itm
-  , const_level_location  dest
-  , UnaryF                on_fail
+    const_context         const ctx
+  , const_item_descriptor const itm
+  , const_level_location  const dst
+  , UnaryF                const on_fail
 ) noexcept {
-    auto const result = detail::impl_can_add_item(ctx, itm, dest);
-    return result.empty()
-      ? true
-      : (on_fail(result), false);
+    return not_empty_or(on_fail, detail::impl_can_add_item(ctx, itm, dst));
 }
 
 template <typename UnaryF>
 bool can_remove_item(
-    context               ctx
-  , const_item_descriptor itm
-  , const_level_location  dest
-  , UnaryF                on_fail
+    const_context         const ctx
+  , const_item_descriptor const itm
+  , const_level_location  const src
+  , UnaryF                const on_fail
 ) noexcept {
-    auto const result = detail::impl_can_remove_item(ctx, itm, dest);
-    return result.empty()
-      ? true
-      : (on_fail(result), false);
+    return not_empty_or(on_fail, detail::impl_can_remove_item(ctx, itm, src));
 }
 
+void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm
+    , level_location dst);
 
 } //namespace boken

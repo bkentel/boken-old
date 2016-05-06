@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.hpp"
 #include "types.hpp"
 #include "bkassert/assert.hpp"
 
@@ -151,5 +152,15 @@ struct level_location_base {
 
 using level_location = level_location_base<false>;
 using const_level_location = level_location_base<true>;
+
+template <typename UnaryF>
+bool not_empty_or(UnaryF const f, string_view const s) noexcept {
+    if (s.empty()) {
+        f(s);
+        return false;
+    }
+
+    return true;
+}
 
 } // namespace boken

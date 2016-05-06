@@ -16,7 +16,7 @@ entity_id get_id(entity_definition const& def) noexcept {
 namespace detail {
 
 string_view impl_can_add_item(
-    context                 const ctx
+    const_context           const ctx
   , const_item_descriptor   const itm
   , const_entity_descriptor const dest
 ) noexcept {
@@ -32,7 +32,7 @@ string_view impl_can_add_item(
 }
 
 string_view impl_can_remove_item(
-    context                 const ctx
+    const_context           const ctx
   , const_item_descriptor   const itm
   , const_entity_descriptor const dest
 ) noexcept {
@@ -42,10 +42,10 @@ string_view impl_can_remove_item(
 } // namespace detail
 
 void merge_into_pile(
-    context           ctx
-  , unique_item       itm_ptr
-  , item_descriptor   itm
-  , entity_descriptor pile
+    context           const ctx
+  , unique_item             itm_ptr
+  , item_descriptor   const itm
+  , entity_descriptor const pile
 ) {
     merge_into_pile(ctx, std::move(itm_ptr), itm, pile.obj.items());
 }

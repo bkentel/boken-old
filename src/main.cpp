@@ -23,6 +23,7 @@
 #include "rect.hpp"
 #include "scope_guard.hpp"
 #include "item_properties.hpp"
+#include "entity_properties.hpp"
 #include "timer.hpp"
 #include "item_list.hpp"
 #include "messages.hpp"

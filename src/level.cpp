@@ -26,19 +26,10 @@
 
 namespace boken {
 
-void merge_into_pile(
-    context         ctx
-  , unique_item     itm_ptr
-  , item_descriptor itm
-  , level_location  pile
-) {
-    pile.lvl.add_object_at(std::move(itm_ptr), pile.p);
-}
-
 namespace detail {
 
 string_view impl_can_add_item(
-    context               const ctx
+    const_context         const ctx
   , const_item_descriptor const itm
   , const_level_location  const dest
 ) noexcept {
@@ -46,7 +37,7 @@ string_view impl_can_add_item(
 }
 
 string_view impl_can_remove_item(
-    context               const ctx
+    const_context         const ctx
   , const_item_descriptor const itm
   , const_level_location  const dest
 ) noexcept {
@@ -54,6 +45,15 @@ string_view impl_can_remove_item(
 }
 
 } // namespace detail
+
+void merge_into_pile(
+    context         const ctx
+  , unique_item           itm_ptr
+  , item_descriptor const itm
+  , level_location  const pile
+) {
+    pile.lvl.add_object_at(std::move(itm_ptr), pile.p);
+}
 
 tile_id wall_type_from_neighbors(uint32_t const neighbors) noexcept {
     using ti = tile_id;

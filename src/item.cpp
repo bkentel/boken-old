@@ -18,9 +18,9 @@ item_id get_id(item_definition const& def) noexcept {
 namespace detail {
 
 string_view impl_can_add_item(
-    context               ctx
-  , const_item_descriptor itm
-  , const_item_descriptor dest
+    const_context         const ctx
+  , const_item_descriptor const itm
+  , const_item_descriptor const dest
 ) noexcept {
     constexpr auto p_capacity = property(item_property::capacity);
 
@@ -50,7 +50,7 @@ string_view impl_can_add_item(
 }
 
 string_view impl_can_remove_item(
-    context               const ctx
+    const_context         const ctx
   , const_item_descriptor const itm
   , const_item_descriptor const dest
 ) noexcept {
@@ -59,12 +59,75 @@ string_view impl_can_remove_item(
 
 } // namespace detail
 
+void merge_into_pile(
+    context         const ctx
+  , unique_item           itm_ptr
+  , item_descriptor const itm
+  , item_pile&            pile
+) {
+    BK_ASSERT(!!itm_ptr);
+
+    // the default action on any failure is to preserve the item and add it to
+    // the pile
+    auto on_exit = BK_SCOPE_EXIT {
+        pile.add_item(std::move(itm_ptr));
+    };
+
+    // if the item doesn't have a valid id, preserve the item anyway and add it
+    // to the pile.
+    if (!itm) {
+        return;
+    }
+
+    constexpr auto p_max_stack = property(item_property::stack_size);
+    constexpr auto p_cur_stack = property(item_property::current_stack_size);
+
+    // if the item can't be stacked, just add the item to the pile
+    if (!get_property_value_or(itm, p_max_stack, 0)) {
+        return;
+    }
+
+    auto src_cur_stack = get_property_value_or(itm, p_cur_stack, 0);
+    BK_ASSERT(src_cur_stack > 0); // no zero sized stacks
+
+    for (auto const& id : pile) {
+        auto const i = item_descriptor {ctx, id};
+
+        // different item
+        if (i.def != itm.def) {
+            continue;
+        }
+
+        auto const max_stack = get_property_value_or(i, p_max_stack, 0);
+        auto const cur_stack = get_property_value_or(i, p_cur_stack, 0);
+
+        // no space in the stack to merge quantity
+        if (cur_stack >= max_stack) {
+            BK_ASSERT(cur_stack <= max_stack);
+            continue;
+        }
+
+        auto const spare_stack = max_stack - cur_stack;
+        auto const n = std::min(src_cur_stack, spare_stack);
+
+        src_cur_stack -= n;
+        i.obj.add_or_update_property({p_cur_stack, cur_stack + n});
+
+        if (src_cur_stack <= 0) {
+            on_exit.dismiss();
+            return;
+        }
+    }
+
+    BK_ASSERT(src_cur_stack > 0);
+    itm.obj.add_or_update_property({p_cur_stack, src_cur_stack});
+}
 
 void merge_into_pile(
-    context         ctx
-  , unique_item     itm_ptr
-  , item_descriptor itm
-  , item_descriptor pile
+    context         const ctx
+  , unique_item           itm_ptr
+  , item_descriptor const itm
+  , item_descriptor const pile
 ) {
     merge_into_pile(ctx, std::move(itm_ptr), itm, pile.obj.items());
 }
@@ -252,70 +315,6 @@ unique_item create_object(
     return create_object(w, [&](item_instance_id const instance) {
         return create_object(instance, def, rng);
     });
-}
-
-void merge_into_pile(
-    context         const ctx
-  , unique_item           itm_ptr
-  , item_descriptor const itm
-  , item_pile&            pile
-) {
-    BK_ASSERT(!!itm_ptr);
-
-    // the default action on any failure is to preserve the item and add it to
-    // the pile
-    auto on_exit = BK_SCOPE_EXIT {
-        pile.add_item(std::move(itm_ptr));
-    };
-
-    // if the item doesn't have a valid id, preserve the item anyway and add it
-    // to the pile.
-    if (!itm) {
-        return;
-    }
-
-    constexpr auto p_max_stack = property(item_property::stack_size);
-    constexpr auto p_cur_stack = property(item_property::current_stack_size);
-
-    // if the item can't be stacked, just add the item to the pile
-    if (!get_property_value_or(itm, p_max_stack, 0)) {
-        return;
-    }
-
-    auto src_cur_stack = get_property_value_or(itm, p_cur_stack, 0);
-    BK_ASSERT(src_cur_stack > 0); // no zero sized stacks
-
-    for (auto const& id : pile) {
-        auto const i = item_descriptor {ctx, id};
-
-        // different item
-        if (i.def != itm.def) {
-            continue;
-        }
-
-        auto const max_stack = get_property_value_or(i, p_max_stack, 0);
-        auto const cur_stack = get_property_value_or(i, p_cur_stack, 0);
-
-        // no space in the stack to merge quantity
-        if (cur_stack >= max_stack) {
-            BK_ASSERT(cur_stack <= max_stack);
-            continue;
-        }
-
-        auto const spare_stack = max_stack - cur_stack;
-        auto const n = std::min(src_cur_stack, spare_stack);
-
-        src_cur_stack -= n;
-        i.obj.add_or_update_property({p_cur_stack, cur_stack + n});
-
-        if (src_cur_stack <= 0) {
-            on_exit.dismiss();
-            return;
-        }
-    }
-
-    BK_ASSERT(src_cur_stack > 0);
-    itm.obj.add_or_update_property({p_cur_stack, src_cur_stack});
 }
 
 //=====--------------------------------------------------------------------=====

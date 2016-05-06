@@ -1,7 +1,7 @@
 #include "messages.hpp"
 #include "utility.hpp"
-#include "item.hpp"
-#include "entity.hpp"
+#include "item_properties.hpp"
+#include "entity_properties.hpp"
 
 namespace boken {
 namespace msg {

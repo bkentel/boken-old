@@ -169,10 +169,7 @@ enum class merge_item_result : uint32_t {
   , failed_bad_destination
 };
 
-void merge_into_pile(
-    context         ctx
-  , unique_item     itm_ptr
-  , item_descriptor itm
-  , item_pile&      pile);
+void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm
+    , item_pile& dst);
 
 } //namespace boken
