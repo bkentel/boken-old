@@ -155,7 +155,7 @@ using const_level_location = level_location_base<true>;
 
 template <typename UnaryF>
 bool not_empty_or(UnaryF const f, string_view const s) noexcept {
-    if (s.empty()) {
+    if (!s.empty()) {
         f(s);
         return false;
     }
