@@ -153,7 +153,15 @@ std::string name_of_decorated(
         if (id_status < 1) {
             buffer.append(" [?]");
         } else {
-            auto const n = static_cast<int>(itm.obj.items().size());
+            auto const& items = itm.obj.items();
+            // count items that don't have a 0 id; this can happen when items
+            // are begin moved from one pile to another due to the way the
+            // move algorithm behaves.
+            auto const n = std::count_if(begin(items), end(items)
+              , [&](item_instance_id const id) {
+                    return id != item_instance_id {};
+                });
+
             if (n == 0) {
                 buffer.append(" <cr>[empty]</c>");
             } else {
