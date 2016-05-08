@@ -69,8 +69,8 @@ std::string name_of_decorated(
 
 string_view name_of(const_context const ctx, const_entity_descriptor const e) noexcept {
     return e
-      ? e.def->name
-      : "{missing definition}";
+      ? string_view {e.def->name}
+      : string_view {"{missing definition}"};
 }
 
 entity_instance_id get_instance(entity const& e) noexcept {

@@ -45,43 +45,6 @@ public:
     unique_item remove_item(item_instance_id id);
     unique_item remove_item(size_t pos);
 
-    //@{
-    //! Remove items from the pile at the indicies in the range [first, last).
-    //! @param pred A function of the form (unique_item&& i) -> any.
-    //!             If the unique_item has ownership taken from it, it indicates
-    //!             the predicate is true, false otherwise.
-    template <typename FwdIt, typename Predicate>
-    int remove_if(FwdIt const first, FwdIt const last, Predicate pred) {
-        BK_ASSERT(!!deleter_);
-
-        if (first == last) {
-            return 0;
-        }
-
-        int  index = 0;
-        auto it    = first;
-
-        for (auto& id : items_) {
-            // done
-            if (it == last) {
-                break;
-            }
-
-            // no match; examine next
-            if (*it != index) {
-                ++index;
-                continue;
-            }
-
-            remove_id_(id, pred);
-
-            ++it;
-            ++index;
-        }
-
-        return remove_dead_items_();
-    }
-
     template <typename Predicate>
     int remove_if(Predicate pred) {
         BK_ASSERT(!!deleter_);
@@ -94,7 +57,7 @@ public:
     }
 
     template <typename FwdIt, typename Transform, typename Predicate>
-    int remove_if2(FwdIt const first, FwdIt const last, Transform trans, Predicate pred) {
+    int remove_if(FwdIt const first, FwdIt const last, Transform trans, Predicate pred) {
         // indicies pile
         // [ ]      [4]
         // [ ]      [1]
@@ -117,8 +80,6 @@ public:
 
         return remove_dead_items_();
     }
-
-    //@}
 private:
     template <typename Predicate>
     void remove_id_(item_instance_id& id, Predicate&& pred) {

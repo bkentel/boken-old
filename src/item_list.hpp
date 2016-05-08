@@ -229,6 +229,7 @@ private:
 
     on_command_t          on_command_;
     on_command_t          on_command_swap_;
+
     on_focus_change_t     on_focus_change_;
     on_selection_change_t on_selection_change_;
 

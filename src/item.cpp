@@ -183,8 +183,8 @@ uint32_t is_container(const_item_descriptor const itm) noexcept {
 
 string_view name_of(const_context const ctx, const_item_descriptor const i) noexcept {
     return i
-      ? i.def->name
-      : "{missing definition}";
+      ? string_view {i.def->name}
+      : string_view {"{missing definition}"};
 }
 
 std::string item_description(

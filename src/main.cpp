@@ -206,7 +206,6 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Convenience functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     auto item_list_index_to_id() noexcept {
         return [&](int const i) noexcept {
             return item_list.get().row_data(i);
@@ -269,11 +268,7 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    std::unique_ptr<inventory_list> make_item_list_() {
-        return make_inventory_list(ctx, trender);
-    }
-
-    void set_item_list_columns() {
+    void init_item_list() {
         item_list.add_column("", [&](const_item_descriptor const i) {
             auto const& tmap = database.get_tile_map(tile_map_type::item);
             auto const index = tmap.find(i.obj.definition());
@@ -303,11 +298,21 @@ struct game_state {
         });
 
         item_list.layout();
+
+        item_list.hide();
+
+        item_list.set_on_focus_change([&](bool const is_focused) {
+            renderer.set_inventory_window_focus(is_focused);
+            if (is_focused) {
+                renderer.update_tool_tip_visible(false);
+            }
+        });
+
+        item_list.set_on_selection_change([&](int const row) {
+        });
     }
 
-    game_state()
-      : item_list {make_item_list_()}
-    {
+    game_state() {
         bind_event_handlers_();
 
         renderer.set_message_window(&message_window);
@@ -320,20 +325,11 @@ struct game_state {
 
         renderer.set_inventory_window(&item_list.get());
 
+        init_item_list();
+
         generate();
 
         reset_view_to_player();
-
-        set_item_list_columns();
-
-        item_list.hide();
-
-        item_list.set_on_focus_change([&](bool const is_focused) {
-            renderer.set_inventory_window_focus(is_focused);
-            if (is_focused) {
-                renderer.update_tool_tip_visible(false);
-            }
-        });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -614,7 +610,6 @@ struct game_state {
             new_entity.add_item(create_object(*idef, rng));
         }
     }
-
 
     void generate_items() {
         auto& lvl = current_level();
@@ -1128,7 +1123,6 @@ struct game_state {
                 break;
             case command_type::cancel:
                 message_window.println("Nevermind.");
-                renderer.update_tool_tip_visible(false);
                 break;
             default:
                 return event_result::filter;
@@ -1171,7 +1165,6 @@ struct game_state {
                 break;
             case command_type::cancel:
                 message_window.println("Nevermind.");
-                renderer.update_tool_tip_visible(false);
                 break;
             default:
                 return event_result::filter;
@@ -1255,7 +1248,6 @@ struct game_state {
                 break;
             case command_type::cancel:
                 message_window.println("Nevermind.");
-                renderer.update_tool_tip_visible(false);
                 break;
             default:
                 return event_result::filter;
@@ -1325,7 +1317,6 @@ struct game_state {
                 insert_into_indicated_container();
                 return event_result::filter_detach;
             case command_type::cancel:
-                renderer.update_tool_tip_visible(false);
                 return event_result::filter_detach;
             default:
                 break;
@@ -1406,13 +1397,13 @@ struct game_state {
 
     template <typename Predicate>
     int move_items(entity_descriptor const e, int const* const first, int const* const last, Predicate pred) {
-        return e.obj.items().remove_if2(
+        return e.obj.items().remove_if(
             first, last, item_list_index_to_id(), pred);
     }
 
     template <typename Predicate>
     int move_items(item_descriptor const i, int const* const first, int const* const last, Predicate pred) {
-        return i.obj.items().remove_if2(
+        return i.obj.items().remove_if(
             first, last, item_list_index_to_id(), pred);
     }
 
@@ -1542,15 +1533,22 @@ struct game_state {
         item_list.show();
 
         item_list.set_on_command([&](command_type const cmd) {
-            bool update = false;
-
             switch (cmd) {
             case command_type::alt_drop_some: {
-                auto const d = entity_descriptor {ctx, player_id()};
-                auto const p = require_entity_on_level(d, current_level());
-                if (drop_selected_items(d, p)) {
-                    item_list.assign(d.obj.items());
+                auto const indicated = item_list.get().indicated();
+                auto const player_d  = entity_descriptor {ctx, player_id()};
+                auto const player_p  = require_entity_on_level(player_d, current_level());
+
+                if (!drop_selected_items(player_d, player_p)) {
+                    break;
                 }
+
+                item_list.assign(player_d.obj.items());
+                auto const r = item_list.get().rows();
+                if (r > 0) {
+                    item_list.get().indicate(std::min(indicated, static_cast<int>(r) - 1));
+                }
+
                 break;
             }
             case command_type::alt_open:
@@ -1560,14 +1558,9 @@ struct game_state {
                 insert_into_indicated_container();
                 return event_result::filter_detach;
             case command_type::cancel:
-                renderer.update_tool_tip_visible(false);
                 return event_result::filter_detach;
             default:
                 break;
-            }
-
-            if (update) {
-                item_list.assign(find(the_world, player_id()).items());
             }
 
             return event_result::filter;
@@ -1738,7 +1731,6 @@ struct game_state {
                     break;
                 case command_type::cancel:
                     message_window.println("Nevermind.");
-                    renderer.update_tool_tip_visible(false);
                     break;
                 default:
                     return event_result::filter;
@@ -2344,7 +2336,7 @@ struct game_state {
 
     timer timers;
 
-    item_list_controller item_list;
+    item_list_controller item_list {make_inventory_list(ctx, trender)};
 
     input_context_stack context_stack;
 

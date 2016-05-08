@@ -489,7 +489,7 @@ public:
         auto const trans = [&](int const i) noexcept { return (*src_pile)[i]; };
         auto const n = (!first && !last)
           ? src_pile->remove_if(pred)
-          : src_pile->remove_if2(first, last, trans, pred);
+          : src_pile->remove_if(first, last, trans, pred);
 
         if (src_pile->empty()) {
             items_.erase(src_pos);
