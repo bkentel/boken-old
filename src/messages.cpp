@@ -1,5 +1,6 @@
 #include "messages.hpp"
 #include "utility.hpp"
+#include "forward_declarations.hpp"
 #include "item_properties.hpp"
 #include "entity_properties.hpp"
 
@@ -128,6 +129,59 @@ std::string pickup_item(const_context const ctx,
           , fail.data());
     }
 
+    return buffer.to_string();
+}
+
+bool debug_item_info(string_buffer_base& buffer, const_context const ctx, cid const itm) {
+    return buffer.append(
+        " Instance  : %0#10x\n"
+        " Definition: %0#10x (%s)\n"
+        " Name      : %s\n"
+      , value_cast(get_instance(itm.obj))
+      , value_cast(get_id(itm.obj)), id_string(itm).data()
+      , name_of(ctx, itm).data());
+}
+
+bool debug_entity_info(string_buffer_base& buffer, const_context const ctx, ced const ent) {
+    return buffer.append(
+        "Entity:\n"
+        " Instance  : %0#10x\n"
+        " Definition: %0#10x (%s)\n"
+        " Name      : %s\n"
+      , value_cast(get_instance(ent.obj))
+      , value_cast(get_id(ent.obj)), id_string(ent).data()
+      , name_of(ctx, ent).data());
+}
+
+std::string debug_item_info(const_context const ctx, cid const itm) {
+    static_string_buffer<128> buffer;
+    debug_item_info(buffer, ctx, itm);
+    return buffer.to_string();
+}
+
+std::string debug_entity_info(const_context const ctx, ced const ent) {
+    static_string_buffer<128> buffer;
+    debug_entity_info(buffer, ctx, ent);
+    return buffer.to_string();
+}
+
+bool view_item_info(string_buffer_base& buffer, const_context const ctx, cid const itm) {
+    return buffer.append("%s", name_of_decorated(ctx, itm).data());
+}
+
+bool view_entity_info(string_buffer_base buffer, const_context const ctx, ced const ent) {
+    return buffer.append("%s", name_of(ctx, ent).data());
+}
+
+std::string view_item_info(const_context const ctx, cid const itm) {
+    static_string_buffer<128> buffer;
+    view_item_info(buffer, ctx, itm);
+    return buffer.to_string();
+}
+
+std::string view_entity_info(const_context const ctx, ced const ent) {
+    static_string_buffer<128> buffer;
+    view_entity_info(buffer, ctx, ent);
     return buffer.to_string();
 }
 

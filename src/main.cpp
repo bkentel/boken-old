@@ -429,13 +429,8 @@ struct game_state {
 
         auto const print_entity = [&]() noexcept {
             auto* const entity = lvl.entity_at(p);
-            if (!entity) {
-                return true;
-            }
-
-            auto const e = const_entity_descriptor {database, *entity};
-
-            return buffer.append("%s\n", name_of(ctx, e).data());
+            return !entity
+                || msg::view_entity_info(buffer, ctx, {database, *entity});
         };
 
         auto const print_items = [&]() noexcept {
@@ -444,19 +439,14 @@ struct game_state {
                 return true;
             }
 
-            auto const size = pile->size();
-            BK_ASSERT(size >= 1u);
-
-            size_t i = 0;
+            auto i = pile->size();
             for (auto const& id : *pile) {
-                auto const sep = (i++ == size - 1) ? "" : ", ";
-                auto const itm = const_item_descriptor {ctx, id};
-
-                auto const result = buffer.append("%s%s"
-                  , name_of_decorated(ctx, itm).data(), sep);
-
-                if (!result) {
+                if (!msg::view_item_info(buffer, ctx, {ctx, id})) {
                     return false;
+                }
+
+                if (i && --i) {
+                    buffer.append(", ");
                 }
             }
 
@@ -491,20 +481,8 @@ struct game_state {
 
         auto const print_entity = [&]() noexcept {
             auto* const entity = lvl.entity_at(p0);
-            if (!entity) {
-                return true;
-            }
-
-            auto* const def = database.find(entity->definition());
-
-            return buffer.append(
-                "Entities:\n"
-                " Instance  : %0#10x\n"
-                " Definition: %0#10x (%s)\n"
-                " Name      : %s\n"
-              , value_cast(entity->instance())
-              , value_cast(entity->definition()), (def ? def->id_string.c_str() : "{empty}")
-              , (def ? def->name.c_str() : "{empty}"));
+            return !entity
+                || msg::debug_entity_info(buffer, ctx, {database, *entity});
         };
 
         auto const print_items = [&]() noexcept {
@@ -513,27 +491,18 @@ struct game_state {
                 return true;
             }
 
-            buffer.append("Items:\n");
-
-            int i = 0;
+            auto i = pile->size();
             for (auto const& id : *pile) {
-                if (!buffer.append(" Item: %d\n", i++)) {
-                    break;
+                if (!msg::debug_item_info(buffer, ctx, {ctx, id})) {
+                    return false;
                 }
 
-                auto const& itm = the_world.find(id);
-                auto* const def = database.find(itm.definition());
-
-                buffer.append(
-                    " Instance  : %0#10x\n"
-                    " Definition: %0#10x (%s)\n"
-                    " Name      : %s\n"
-                  , value_cast(itm.instance())
-                  , value_cast(itm.definition()), (def ? def->id_string.c_str() : "{empty}")
-                  , (def ? def->name.c_str() : "{empty}"));
+                if (i && --i) {
+                    buffer.append("\n");
+                }
             }
 
-            return !!buffer;
+            return buffer.append("\n");
         };
 
         auto const result =
