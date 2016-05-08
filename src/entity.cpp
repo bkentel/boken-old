@@ -9,6 +9,12 @@ namespace boken {
 //                               free functions
 //=====--------------------------------------------------------------------=====
 
+string_view id_string(const_entity_descriptor const e) noexcept {
+    return e.def
+      ? string_view {e.def->id_string.data()}
+      : string_view {"{missing definition}"};
+}
+
 entity_id get_id(entity_definition const& def) noexcept {
     return def.id;
 }

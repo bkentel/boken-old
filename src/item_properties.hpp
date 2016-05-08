@@ -20,6 +20,9 @@ inline constexpr item_property_id property(item_property const p) noexcept {
     return item_property_id {static_cast<type>(p)};
 }
 
+//! Get the definition id string for the item.
+string_view id_string(const_item_descriptor i) noexcept;
+
 //! Get the simple "undecorated" name of an item.
 //! For example, "chest" and not "chest [10]"
 string_view name_of(const_context ctx, const_item_descriptor i) noexcept;

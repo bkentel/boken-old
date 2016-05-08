@@ -11,6 +11,12 @@
 
 namespace boken {
 
+string_view id_string(const_item_descriptor const i) noexcept {
+    return i.def
+      ? string_view {i.def->id_string.data()}
+      : string_view {"{missing definition}"};
+}
+
 item_id get_id(item_definition const& def) noexcept {
     return def.id;
 }

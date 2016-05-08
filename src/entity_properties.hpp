@@ -16,6 +16,9 @@ inline constexpr entity_property_id property(entity_property const p) noexcept {
     return entity_property_id {static_cast<type>(p)};
 }
 
+//! Get the definition id string for the entity.
+string_view id_string(const_entity_descriptor e) noexcept;
+
 string_view name_of(const_context ctx, const_entity_descriptor e) noexcept;
 
 std::string name_of_decorated(const_context ctx, const_entity_descriptor e);
