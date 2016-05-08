@@ -348,19 +348,17 @@ bool static_string_buffer_append(
 
 } // namespace detail
 
-template <size_t N>
-class static_string_buffer {
-    static_assert(N > 0, "");
-    static constexpr auto last_index = static_cast<ptrdiff_t>(N - 1);
+class string_buffer_base {
 public:
-    static_string_buffer() noexcept
-      : first_ {0}
-      //, buffer_()
+    string_buffer_base(char* const data, size_t const capacity) noexcept
+      : first_    {0}
+      , data_     {data}
+      , capacity_ {static_cast<ptrdiff_t>(capacity)}
     {
     }
 
     explicit operator bool() const noexcept {
-        return first_ >= 0 && first_ < last_index;
+        return first_ >= 0 && first_ < capacity_ - 1;
     }
 
 #ifndef _MSC_VER
@@ -369,48 +367,52 @@ public:
 #   define BK_PRINTF_ATTRIBUTE
 #endif
 
-    bool append(char const* const fmt, ...) noexcept BK_PRINTF_ATTRIBUTE {
-        va_list args;
-        va_start(args, fmt);
-
-        auto const result = detail::static_string_buffer_append(
-            fmt, buffer_.data(), first_, N, args);
-
-        va_end(args);
-
-        return result;
-    }
+    bool append(char const* const fmt, ...) noexcept BK_PRINTF_ATTRIBUTE;
 
 #undef BK_PRINTF_ATTRIBUTE
 
     void clear() noexcept {
-        first_ = 0;
-        buffer_[0] = '\0';
+        first_   = 0;
+        data_[0] = '\0';
     }
 
-    bool full()  const noexcept { return first_ >= last_index; }
+    bool full()  const noexcept { return first_ >= capacity_ - 1; }
     bool empty() const noexcept { return first_ == 0; }
-    size_t capacity() const noexcept { return N; }
+    size_t capacity() const noexcept { return static_cast<size_t>(capacity_); }
     size_t size() const noexcept { return static_cast<size_t>(first_); }
 
-    char const* begin() const noexcept { return buffer_.data(); }
-    char*       begin()       noexcept { return buffer_.data(); }
+    char const* begin() const noexcept { return data_; }
+    char*       begin()       noexcept { return data_; }
 
-    char const* end() const noexcept { return buffer_.data() + first_; }
-    char*       end()       noexcept { return buffer_.data() + first_; }
+    char const* end() const noexcept { return data_ + first_; }
+    char*       end()       noexcept { return data_ + first_; }
 
-    char const* data() const noexcept { return buffer_.data(); }
-    char*       data()       noexcept { return buffer_.data(); }
+    char const* data() const noexcept { return data_; }
+    char*       data()       noexcept { return data_; }
 
     string_view to_string_view() const noexcept {
-        return string_view {buffer_.data(), static_cast<size_t>(first_)};
+        return string_view {data_, static_cast<size_t>(first_)};
     }
 
     std::string to_string() const {
-        return std::string {buffer_.data(), static_cast<size_t>(first_)};
+        return std::string {data_, static_cast<size_t>(first_)};
     }
 private:
     ptrdiff_t first_;
+    char*     data_;
+    ptrdiff_t capacity_;
+};
+
+template <size_t N>
+class static_string_buffer : public string_buffer_base {
+    static_assert(N > 0, "");
+    static constexpr auto last_index = static_cast<ptrdiff_t>(N - 1);
+public:
+    static_string_buffer() noexcept
+      : string_buffer_base {buffer_.data(), N}
+    {
+    }
+private:
     std::array<char, N> buffer_;
 };
 
