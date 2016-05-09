@@ -39,6 +39,8 @@ public:
 
     item_instance_id operator[](size_t index) const noexcept;
 
+    explicit operator bool() const noexcept { return !empty(); }
+
     void add_item(unique_item item);
 
     //! return an empty unique_item if no item with id exists
