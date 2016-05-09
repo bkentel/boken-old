@@ -337,6 +337,13 @@ void item_list_controller::append(item_instance_id const id) {
     list_->add_row(id);
 }
 
+void item_list_controller::remove_rows(
+    int const* const first
+  , int const* const last
+) {
+    list_->remove_rows(first, last);
+}
+
 void item_list_controller::layout() {
     list_->layout();
 }

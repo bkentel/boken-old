@@ -112,6 +112,8 @@ public:
         });
     }
 
+    void remove_rows(int const* first, int const* last);
+
     void layout();
 
     void set_title(std::string title);

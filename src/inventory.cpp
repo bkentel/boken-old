@@ -380,6 +380,8 @@ public:
             row_data_[j] = row_data_t {};
         });
 
+        auto const i = indicated();
+
         erase_if(rows_, [](auto const& row) noexcept {
             return row.empty(); });
 
@@ -387,8 +389,8 @@ public:
             return row.id == item_instance_id {}; });
 
         auto const n = static_cast<int>(rows());
-        if (indicated() >= n) {
-            indicated_ = n ? n - 1 : 0;
+        if (n > 0) {
+            indicate(std::min(n, i));
         }
     }
 
