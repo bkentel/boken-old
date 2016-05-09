@@ -17,6 +17,9 @@ public:
     using object::object;
 };
 
+item_pile const& items(const_item_descriptor i) noexcept;
+item_pile&       items(item_descriptor       i) noexcept;
+
 namespace detail {
 
 string_view impl_can_add_item(const_context ctx, const_item_descriptor itm

@@ -11,6 +11,14 @@
 
 namespace boken {
 
+item_pile const& items(const_item_descriptor const i) noexcept {
+    return i.obj.items();
+}
+
+item_pile& items(item_descriptor const i) noexcept {
+    return i.obj.items();
+}
+
 string_view id_string(const_item_descriptor const i) noexcept {
     return i.def
       ? string_view {i.def->id_string.data()}

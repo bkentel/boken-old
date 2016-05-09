@@ -9,6 +9,14 @@ namespace boken {
 //                               free functions
 //=====--------------------------------------------------------------------=====
 
+item_pile const& items(const_entity_descriptor const e) noexcept {
+    return e.obj.items();
+}
+
+item_pile& items(entity_descriptor const e) noexcept {
+    return e.obj.items();
+}
+
 string_view id_string(const_entity_descriptor const e) noexcept {
     return e.def
       ? string_view {e.def->id_string.data()}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "context.hpp"
 #include "entity_def.hpp"
 #include "object.hpp"
 #include <cstdint>
@@ -22,6 +23,9 @@ private:
     int16_t max_health_;
     int16_t cur_health_;
 };
+
+item_pile const& items(const_entity_descriptor e) noexcept;
+item_pile&       items(entity_descriptor       e) noexcept;
 
 namespace detail {
 
