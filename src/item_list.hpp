@@ -103,6 +103,12 @@ public:
         il.layout();
     }
 
+    void assign_if(item_pile const& items, item_instance_id const id) {
+        assign_if(items, [id](item_instance_id const other_id) noexcept {
+            return other_id == id;
+        });
+    }
+
     void append(item_instance_id const id);
 
     template <typename FwdIt, typename Predicate>
@@ -205,7 +211,7 @@ public:
     }
 
     template <typename Predicate, typename BinaryF>
-    int with_selected_if(Predicate pred, BinaryF f) {
+    int for_each_selected_if(Predicate pred, BinaryF f) {
         return with_selected_range([&](int const* const first, int const* const last) {
             return std::accumulate(first, last, 0
               , [&](int const sum, int const i) {
@@ -215,7 +221,7 @@ public:
     }
 
     template <typename BinaryF>
-    int with_selected(BinaryF f) {
+    int for_each_selected(BinaryF f) {
         return with_selected_if(always_true {}, f);
     }
 private:
