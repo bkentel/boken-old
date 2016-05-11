@@ -319,7 +319,7 @@ void item_list_controller::clear() {
     il.selection_clear();
 }
 
-void item_list_controller::assign(item_pile const& items) {
+int item_list_controller::assign(item_pile const& items) {
     clear();
 
     auto& il = *list_;
@@ -331,6 +331,8 @@ void item_list_controller::assign(item_pile const& items) {
     });
 
     il.layout();
+
+    return static_cast<int>(il.rows());
 }
 
 void item_list_controller::append(item_instance_id const id) {
