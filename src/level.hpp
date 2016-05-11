@@ -156,6 +156,8 @@ public:
 
     //!@}
 
+    //! @returns an empty id if there is no entity on the level with the given
+    //!          position or instance id.
     virtual unique_entity remove_entity_at(point2i32 p) noexcept = 0;
     virtual unique_entity remove_entity(entity_instance_id id) noexcept = 0;
 
