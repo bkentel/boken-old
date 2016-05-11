@@ -164,6 +164,7 @@
       <Filter>objects</Filter>
     </ClInclude>
     <ClInclude Include="src\messages.hpp" />
+    <ClInclude Include="src\events.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

@@ -3,6 +3,7 @@
 #include "scope_guard.hpp"
 #include "command.hpp"
 #include "item_pile.hpp"
+#include "events.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -337,6 +338,10 @@ int item_list_controller::assign(item_pile const& items) {
 
 void item_list_controller::append(item_instance_id const id) {
     list_->add_row(id);
+}
+
+void item_list_controller::append(std::initializer_list<item_instance_id> const list) {
+    list_->add_rows(begin(list), end(list));
 }
 
 void item_list_controller::remove_rows(

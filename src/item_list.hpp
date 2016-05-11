@@ -10,6 +10,7 @@
 #include <memory>
 #include <functional>
 #include <string>
+#include <initializer_list>
 
 #include <cstdint>
 #include <cstddef>
@@ -20,6 +21,7 @@ namespace boken { struct kb_event; }
 namespace boken { struct text_input_event; }
 namespace boken { struct mouse_event; }
 namespace boken { enum class command_type : uint32_t; }
+namespace boken { enum class event_result : uint32_t; }
 
 namespace boken {
     namespace detail { struct tag_kb_modifiers; }
@@ -28,13 +30,6 @@ namespace boken {
 }
 
 namespace boken {
-
-enum class event_result : uint32_t {
-    filter              //!< filter the event
-  , filter_detach       //!< detach and filter the event
-  , pass_through        //!< pass through to the next handler
-  , pass_through_detach //!< detach and pass through to the next handler
-};
 
 class item_list_controller {
 public:
@@ -117,7 +112,8 @@ public:
         });
     }
 
-    void append(item_instance_id const id);
+    void append(std::initializer_list<item_instance_id> list);
+    void append(item_instance_id id);
 
     template <typename FwdIt, typename Predicate>
     void append_if(FwdIt const first, FwdIt const last, Predicate pred) {

@@ -5,6 +5,7 @@
 #include "data.hpp"
 #include "entity.hpp"       // for entity
 #include "entity_def.hpp"   // for entity_definition
+#include "events.hpp"
 #include "hash.hpp"         // for djb2_hash_32
 #include "item.hpp"
 #include "item_def.hpp"     // for item_definition
@@ -59,149 +60,6 @@ int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item
     return result;
 }
 
-//! Game input sink
-class input_context {
-public:
-    input_context() = default;
-    input_context(char const* const name)
-      : debug_name {name}
-    {
-    }
-
-    event_result on_key(kb_event const event, kb_modifiers const kmods) {
-        return on_key_handler
-          ? on_key_handler(event, kmods)
-          : event_result::pass_through;
-    }
-
-    event_result on_text_input(text_input_event const event) {
-        return on_text_input_handler
-          ? on_text_input_handler(event)
-          : event_result::pass_through;
-    }
-
-    event_result on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        return on_mouse_button_handler
-          ? on_mouse_button_handler(event, kmods)
-          : event_result::pass_through;
-    }
-
-    event_result on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        return on_mouse_move_handler
-          ? on_mouse_move_handler(event, kmods)
-          : event_result::pass_through;
-    }
-
-    event_result on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
-        return on_mouse_wheel_handler
-          ? on_mouse_wheel_handler(wy, wx, kmods)
-          : event_result::pass_through;
-    }
-
-    event_result on_command(command_type const type, uintptr_t const data) {
-        return on_command_handler
-          ? on_command_handler(type, data)
-          : event_result::pass_through;
-    }
-
-    std::function<event_result (kb_event, kb_modifiers)>    on_key_handler;
-    std::function<event_result (text_input_event)>          on_text_input_handler;
-    std::function<event_result (mouse_event, kb_modifiers)> on_mouse_button_handler;
-    std::function<event_result (mouse_event, kb_modifiers)> on_mouse_move_handler;
-    std::function<event_result (int, int, kb_modifiers)>    on_mouse_wheel_handler;
-    std::function<event_result (command_type, uintptr_t)>   on_command_handler;
-
-    char const* debug_name = "{anonymous}";
-};
-
-class input_context_stack {
-public:
-    using id_t = uint32_t;
-
-    size_t size() const noexcept {
-        return contexts_.size();
-    }
-
-    id_t push(input_context context) {
-        auto const id = get_next_id_();
-        contexts_.push_back({std::move(context), id});
-        return id;
-    }
-
-    void pop(id_t const id) {
-        BK_ASSERT(!contexts_.empty());
-
-        auto const first = contexts_.rbegin();
-        auto const last  = contexts_.rend();
-
-        auto const it = std::find_if(first, last
-          , [id](pair_t const& p) noexcept {
-                return id == p.second;
-            });
-
-        BK_ASSERT((it != last) && (it->second == id));
-
-        if (id == next_id_ - 1) {
-            --next_id_;
-        } else {
-            free_ids_.push_back(id);
-        }
-
-        contexts_.erase(std::next(it).base());
-    }
-
-    //! @returns true if the event has not been filtered, false otherwise.
-    template <typename... Args0, typename... Args1>
-    bool process(
-        event_result (input_context::* const handler)(Args0...)
-      , Args1&&... args
-    ) {
-        // as a stack: back to front
-        for (auto i = size(); i > 0; --i) {
-            auto const where   = i - 1u; // size == 1 ~> index == 0
-            auto&      context = contexts_[where].first;
-            auto const id      = contexts_[where].second;
-
-            auto const result =
-                (context.*handler)(std::forward<Args1>(args)...);
-
-            switch (result) {
-            case event_result::filter_detach :
-                pop(id);
-                BK_ATTRIBUTE_FALLTHROUGH;
-            case event_result::filter :
-                return false;
-            case event_result::pass_through_detach :
-                pop(id);
-                BK_ATTRIBUTE_FALLTHROUGH;
-            case event_result::pass_through :
-                break;
-            default:
-                BK_ASSERT(false);
-                break;
-            }
-        }
-
-        return true;
-    }
-private:
-    using pair_t = std::pair<input_context, id_t>;
-
-    id_t get_next_id_() {
-        if (!free_ids_.empty()) {
-            auto const result = free_ids_.front();
-            free_ids_.pop_front();
-            return result;
-        }
-
-        return ++next_id_;
-    }
-
-    std::deque<id_t>    free_ids_;
-    std::vector<pair_t> contexts_;
-    id_t                next_id_ {};
-};
-
 struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Convenience functions
@@ -215,17 +73,8 @@ struct game_state {
     //--------------------------------------------------------------------------
     // Player functions
     //--------------------------------------------------------------------------
-    std::pair<entity&, point2i32> get_player() noexcept {
-        constexpr auto player_id = entity_instance_id {1u};
-
-        auto const result = the_world.current_level().find(player_id);
-        BK_ASSERT(!!result.first);
-
-        return {*result.first, result.second};
-    }
-
-    std::pair<entity const&, point2i32> get_player() const noexcept {
-        return const_cast<game_state*>(this)->get_player();
+    entity_id player_definition() const noexcept {
+        return find(the_world, player_id()).definition();
     }
 
     static constexpr entity_instance_id player_id() noexcept {
@@ -690,7 +539,7 @@ struct game_state {
         auto const  win_r = os.render_get_client_rect();
 
         auto const q = current_view.center_window_on_world(
-            get_player().second, tmap.tile_width(), tmap.tile_height()
+            player_location(), tmap.tile_width(), tmap.tile_height()
           , win_r.width(), win_r.height());
 
         update_view({1.0f, 1.0f}, q);
@@ -999,7 +848,7 @@ struct game_state {
         impl_choose_items_(1, std::move(title), on_command);
     }
 
-    //! hard fail if the entity doesn't exists on the given level.
+    //! hard fail if the entity doesn't exist on the given level.
     point2i32 require_entity_on_level(
         const_entity_descriptor const  e
       , level                   const& lvl
@@ -1369,15 +1218,15 @@ struct game_state {
         update_view_trans(current_view.x_off + dx, current_view.y_off + dy);
     }
 
-    placement_result impl_player_move_by_(level& lvl, entity& player, point2i32 const p, vec2i32 const v) {
-        auto const result = lvl.move_by(player.instance(), v);
+    placement_result impl_player_move_by_(level& lvl, entity_descriptor const player, point2i32 const p, vec2i32 const v) {
+        auto const result = lvl.move_by(player.obj.instance(), v);
         if (result != placement_result::ok) {
             return result;
         }
 
         adjust_view_to_player(p + v);
 
-        renderer_update(player.definition(), p, p + v);
+        renderer_update(player.obj.definition(), p, p + v);
         advance(1);
 
         return result;
@@ -1468,22 +1317,13 @@ struct game_state {
         });
     }
 
-    void renderer_update_pile(point2i32 const p) {
-        auto const pile = the_world.current_level().item_at(p);
-        if (!pile) {
-            renderer_remove_item(p);
-            return;
-        }
-
-        auto const pile_id = get_pile_id();
-        renderer_add(get_pile_id(*pile, pile_id), p);
-    }
-
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     void do_view() {
-        set_highlighted_tile(get_player().second);
+        auto const p = player_location();
+
+        set_highlighted_tile(p);
 
         input_context c;
 
@@ -1504,7 +1344,7 @@ struct game_state {
             };
 
         c.on_command_handler =
-            [&](command_type const type, uint64_t) {
+            [=](command_type const type, uint64_t) {
                 using ct = command_type;
 
                 switch (type) {
@@ -1512,10 +1352,10 @@ struct game_state {
                 case ct::reset_zoom :
                     return event_result::pass_through;
                 case ct::cancel :
-                    highlighted_tile = point2i32 {-1, -1};
+                    highlighted_tile = point2i32 {-1, -1}; // TODO
                     renderer.clear_tile_highlight();
                     renderer.update_tool_tip_visible(false);
-                    adjust_view_to_player(get_player().second);
+                    adjust_view_to_player(p);
                     return event_result::filter_detach;
                 case ct::move_n  : update_highlighted_tile({ 0, -1}); break;
                 case ct::move_ne : update_highlighted_tile({ 1, -1}); break;
@@ -1673,150 +1513,142 @@ struct game_state {
         impl_do_drop_items_(2);
     }
 
-    void do_open() {
-        auto const  player_info = get_player();
-        auto&       player      = player_info.first;
-        auto const  player_p    = player_info.second;
-        auto&       lvl         = the_world.current_level();
 
+    //! @return A tuple {n, first, second, last} where n is {0, 1, 2} and
+    //!         indicates, respectively, no matches, 1 match, at least 2 matches.
+    //!         first is an iterator to the first match, second the second, and
+    //!         last is a past-the-end iterator for the pile.
+    template <typename Predicate>
+    auto find_matching_items(item_pile const* const pile, Predicate pred) noexcept {
+        using it_t = decltype(begin(*pile));
+
+        // empty pile
+        if (!pile) {
+            return std::make_tuple(0, it_t {}, it_t {}, it_t {});
+        }
+
+        // find matching items
+        auto const find = [=](it_t const first, it_t const last) noexcept {
+            return std::find_if(first, last, pred);
+        };
+
+        auto const last        = end(*pile);
+        auto const first_match = find(begin(*pile), last);
+
+        // no matches
+        if (first_match == last) {
+            return std::make_tuple(0, it_t {}, it_t {}, it_t {});
+        }
+
+        auto const second_match = find(std::next(first_match), last);
+
+        // one match
+        if (second_match == last) {
+            return std::make_tuple(1, first_match, first_match, last);
+        }
+
+        // at least two matches
+        return std::make_tuple(2, first_match, second_match, last);
+    };
+
+    void do_open() {
         auto const is_container = [&](item_instance_id const id) noexcept {
             return boken::is_container({ctx, id}) > 0;
         };
 
-        // check for containers at the players position
         auto const find_containers = [=](item_pile const* const pile) noexcept {
-            using it_t = decltype(begin(*pile));
-
-            // find items which are containers
-            auto const find_container = [=](it_t const first, it_t const last) noexcept {
-                return std::find_if(first, last, is_container);
-            };
-
-            // empty pile
-            if (!pile) {
-                return std::make_tuple(0, it_t {}, it_t {}, it_t {});
-            }
-
-            auto const last        = end(*pile);
-            auto const first_match = find_container(begin(*pile), last);
-
-            // no matches
-            if (first_match == last) {
-                return std::make_tuple(0, it_t {}, it_t {}, it_t {});
-            }
-
-            auto const second_match =
-                find_container(std::next(first_match), last);
-
-            // one match
-            if (second_match == last) {
-                return std::make_tuple(1, first_match, first_match, last);
-            }
-
-            // at least two matches
-            return std::make_tuple(2, first_match, second_match, last);
+            return find_matching_items(pile, is_container);
         };
 
-        // choose between multiple container choices
-        auto const choose_container = [=](auto const result) {
-            // there are at least two containers here; build a list and let the
-            // player decide which to inspect
-            BK_ASSERT(std::get<0>(result) == 2);
-
-            auto const it_1st_match = std::get<1>(result);
-            auto const it_2nd_match = std::get<2>(result);
-            auto const last         = std::get<3>(result);
-
-            auto& il = item_list;
-
-            il.clear();
-            il.append(*it_1st_match);
-            il.append(*it_2nd_match);
-            il.append_if(std::next(it_2nd_match), last, is_container);
-            il.layout();
+        auto const choose_container = [&](auto const first, auto const second, auto const last) {
+            item_list.clear();
+            item_list.append({*first, *second});
+            item_list.append_if(std::next(second), last, is_container);
+            item_list.layout();
 
             auto const handler = [&](command_type const cmd) {
-                switch (cmd) {
-                case command_type::alt_open: BK_ATTRIBUTE_FALLTHROUGH;
-                case command_type::confirm:
-                    view_indicated_container();
-                    break;
-                case command_type::cancel:
-                    message_window.println("Nevermind.");
-                    break;
-                default:
+                if (cmd == command_type::cancel) {
+                    println("Nevermind.");
+                    return event_result::filter_detach;
+                }
+
+                bool const do_open = (cmd == command_type::confirm)
+                                  || (cmd == command_type::alt_open);
+
+                if (!do_open) {
                     return event_result::filter;
                 }
 
+                view_indicated_container();
                 return event_result::filter_detach;
             };
 
             choose_single_item("Open which container?", handler);
         };
 
-        //
-        // first check for containers on the ground at the player's position
-        //
+        auto const check_floor = [&] {
+            // First, check for containers on the floor at the player's position.
+            auto&      lvl     = current_level();
+            auto const result  = find_containers(lvl.item_at(player_location()));
+            auto const matches = std::get<0>(result);
+            auto const first   = std::get<1>(result);
+            auto const second  = std::get<2>(result);
+            auto const last    = std::get<3>(result);
 
-        auto const pile    = lvl.item_at(player_p);
-        auto const result  = find_containers(pile);
+            if (matches == 1) {
+                // Just one match; view it
+                view_container({ctx, *first});
+            } else if (matches == 2) {
+                // There are at least two containers here; build a list and let
+                // the player decide which to view.
+                choose_container(first, second, last);
+            }
+
+            return matches;
+        };
+
+        if (check_floor()) {
+            return;
+        }
+
+        println("There is nothing here to open.");
+
+        // There are no containers on the floor, but check if the player is
+        // holding any.
+
+        auto const player  = entity_descriptor {ctx, player_id()};
+        auto const result  = find_containers(&items(player));
         auto const matches = std::get<0>(result);
+        auto const first   = std::get<1>(result);
+        auto const second  = std::get<2>(result);
+        auto const last    = std::get<3>(result);
 
         if (matches == 1) {
-            auto const id = *std::get<1>(result);
-            view_container({ctx, id});
-            return;
-        }
+            // The player has just one container; ask if they want to open it.
+            auto const container = item_descriptor {ctx, *first};
 
-        if (matches == 2) {
-            choose_container(result);
-            return;
-        }
+            static_string_buffer<128> buffer;
+            buffer.append("Open the %s in your inventory? y/n"
+              , name_of_decorated(ctx, container).data());
+            println(buffer.to_string());
 
-        //
-        // failing that, check if the player is holding any containers
-        //
-
-        BK_ASSERT(matches == 0);
-        message_window.println("There is nothing here to open.");
-
-        auto const& items     = player.items();
-        auto const  p_result  = find_containers(&items);
-        auto const  p_matches = std::get<0>(p_result);
-
-        if (p_matches <= 0) {
-            return;
-        }
-
-        //
-        // the player has at least one container; ask whether they want to open
-        // one of those instead.
-        //
-
-        if (p_matches == 2) {
-            message_window.println("Open a container in your inventory? y/n");
-            query_yes_no([=, &items](command_type const cmd) {
+            query_yes_no([=](command_type const cmd) {
                 if (cmd == command_type::confirm) {
-                    choose_container(p_result);
+                    view_container(container);;
                 }
             });
-            return;
+        } else if (matches == 2) {
+            // The player has more than one container; ask whether they want to
+            // open one of those instead.
+            println("Open a container in your inventory? y/n");
+            query_yes_no([=](command_type const cmd) {
+                if (cmd == command_type::confirm) {
+                    choose_container(first, second, last);
+                }
+            });
+        } else {
+            BK_ASSERT(matches == 0);
         }
-
-        BK_ASSERT(p_matches == 1);
-        auto const container_id = *std::get<1>(p_result);
-        auto const container_d  = item_descriptor {ctx, container_id};
-
-        static_string_buffer<128> buffer;
-        buffer.append("Open the %s in your inventory? y/n"
-            , name_of_decorated(ctx, container_d).data());
-        message_window.println(buffer.to_string());
-
-        query_yes_no([=](command_type const cmd) {
-            if (cmd == command_type::confirm) {
-                view_container(container_d);;
-            }
-        });
     }
 
     void do_debug_teleport_self() {
@@ -1834,21 +1666,21 @@ struct game_state {
                     do_player_move_to(window_to_world({event.x, event.y}));
 
                 if (result != placement_result::ok) {
-                    message_window.println("Invalid destination. Choose another.");
+                    println("Invalid destination. Choose another.");
                     return event_result::filter;
                 }
 
-                message_window.println("Done.");
+                println("Done.");
                 return event_result::filter_detach;
             };
 
         c.on_command_handler =
             [&](command_type const type, uint64_t) {
                 if (type == command_type::debug_teleport_self) {
-                    message_window.println("Already teleporting.");
+                    println("Already teleporting.");
                     return event_result::filter;
                 } else if (type == command_type::cancel) {
-                    message_window.println("Canceled teleporting.");
+                    println("Canceled teleporting.");
                     return event_result::filter_detach;
                 }
 
@@ -1903,34 +1735,29 @@ struct game_state {
 
         auto& cur_lvl = the_world.current_level();
 
-        auto const player          = get_player();
-        auto const player_p        = player.second;
-        auto const player_instance = player.first.instance();
-        auto const player_id       = player.first.definition();
-
         auto const delta = [&]() noexcept {
-            auto const tile = cur_lvl.at(player_p);
+            auto const tile = cur_lvl.at(player_location());
 
-            auto const tile_code = (tile.id == tile_id::stair_down)  ? 1
-                                 : (tile.id == tile_id::stair_up)    ? 2
-                                                                     : 0;
-            auto const move_code = (type == command_type::move_down) ? 1
-                                 : (type == command_type::move_up)   ? 2
-                                                                     : 0;
+            auto const tile_code = (tile.id == tile_id::stair_down)  ? 0b01
+                                 : (tile.id == tile_id::stair_up)    ? 0b10
+                                                                     : 0b00;
+            auto const move_code = (type == command_type::move_down) ? 0b01
+                                 : (type == command_type::move_up)   ? 0b10
+                                                                     : 0b00;
             switch ((move_code << 2) | tile_code) {
             case 0b0100 : // move_down & other
             case 0b1000 : // move_up   & other
-                message_window.println("There are no stairs here.");
-                break;;
+                println("There are no stairs here.");
+                break;
             case 0b0101 : // move_down & stair_down
                 return 1;
             case 0b1010 : // move_up   & stair_up
                 return -1;
             case 0b0110 : // move_down & stair_up
-                message_window.println("You can't go down here.");
+                println("You can't go down here.");
                 break;
             case 0b1001 : // move_up   & stair_down
-                message_window.println("You can't go up here.");
+                println("You can't go up here.");
                 break;
             default:
                 BK_ASSERT(false); // some other command was given
@@ -1946,13 +1773,14 @@ struct game_state {
 
         auto const id = static_cast<ptrdiff_t>(cur_lvl.id());
         if (id + delta < 0) {
-            message_window.println("You can't leave.");
+            println("You can't leave.");
             return;
         }
 
         auto const next_id = static_cast<size_t>(id + delta);
 
-        auto player_ent = cur_lvl.remove_entity(player_instance);
+        auto player_ent = cur_lvl.remove_entity(player_id());
+        BK_ASSERT(!!player_ent);
 
         if (!the_world.has_level(next_id)) {
             generate(next_id);
@@ -1960,29 +1788,28 @@ struct game_state {
             set_current_level(next_id, false);
         }
 
-        // the level has been changed at this point
+        // the level has been changed at this point; cur_lvl will have been
+        // invalidated
 
         auto const p = (delta > 0)
-          ? the_world.current_level().stair_up(0)
-          : the_world.current_level().stair_down(0);
+          ? current_level().stair_up(0)
+          : current_level().stair_down(0);
 
-        add_object_near(std::move(player_ent), player_id, p, 5, rng_substantive);
+        add_object_near(std::move(player_ent), player_definition(), p, 5, rng_substantive);
 
         reset_view_to_player();
     }
 
     placement_result do_player_move_to(point2i32 const p) {
-        auto&      lvl         = the_world.current_level();
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const p_cur       = player_info.second;
-        auto const p_dst       = p;
+        auto const p_cur = player_location();
+        auto const p_dst = p;
 
-        auto const result = lvl.move_by(player.instance(), p_dst - p_cur);
+        auto const player = const_entity_descriptor {ctx, player_id()};
+        auto const result = current_level().move_by(player_id(), p_dst - p_cur);
 
         switch (result) {
         case placement_result::ok:
-            renderer_update(player, p_cur, p_dst);
+            renderer_update(player.obj.definition(), p_cur, p_dst);
             break;
         case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
         case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
@@ -2023,14 +1850,15 @@ struct game_state {
         using namespace std::chrono;
         constexpr auto delay = duration_cast<nanoseconds>(seconds {1}) / 100;
 
-        auto&      lvl         = the_world.current_level();
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto       p           = player_info.second;
+        auto& lvl = current_level();
+        auto  p   = player_location();
 
         timers.add(timer_name, timer::duration {0}
-          , [=, &lvl, &player, count = 0]
+          , [=, &lvl, count = 0]
             (timer::duration, timer::timer_data) mutable -> timer::duration {
+                // TODO: this could be "slow"
+                auto const player = entity_descriptor {ctx, player_id()};
+
                 auto const result = impl_player_move_by_(lvl, player, p, v);
 
                 // continue running
@@ -2058,13 +1886,11 @@ struct game_state {
                && value_cast(abs(v.y)) <= 1
                && v != vec2i32 {});
 
-        auto&      lvl         = the_world.current_level();
-        auto const player_info = get_player();
-        auto&      player      = player_info.first;
-        auto const p_cur       = player_info.second;
-        auto const p_dst       = p_cur + v;
+        auto const player = entity_descriptor {ctx, player_id()};
+        auto const p_cur  = player_location();
+        auto const p_dst  = p_cur + v;
 
-        auto const result = impl_player_move_by_(lvl, player, p_cur, v);
+        auto const result = impl_player_move_by_(current_level(), player, p_cur, v);
 
         switch (result) {
         case placement_result::ok:
@@ -2181,15 +2007,19 @@ struct game_state {
     //
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    void interact_door(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
+    void interact_door(
+        entity_descriptor const e
+      , point2i32         const cur_pos
+      , point2i32         const obstacle_pos
+    ) {
         auto& lvl = the_world.current_level();
         auto const tile = lvl.at(obstacle_pos);
 
         BK_ASSERT(tile.type == tile_type::door);
 
         auto const id = (tile.id == tile_id::door_ns_closed)
-            ? tile_id::door_ns_open
-            : tile_id::door_ew_open;
+          ? tile_id::door_ns_open
+          : tile_id::door_ew_open;
 
         tile_data_set const data {
             tile_data {}
@@ -2202,7 +2032,11 @@ struct game_state {
         update_tile_at(obstacle_pos, data);
     }
 
-    void interact_obstacle(entity& e, point2i32 const cur_pos, point2i32 const obstacle_pos) {
+    void interact_obstacle(
+        entity_descriptor const e
+      , point2i32         const cur_pos
+      , point2i32         const obstacle_pos
+    ) {
         auto& lvl = the_world.current_level();
 
         auto const tile = lvl.at(obstacle_pos);
@@ -2273,6 +2107,17 @@ struct game_state {
 
     void renderer_remove_entity(point2i32 const p) {
         entity_updates_.push_back({p, p, entity_id {}});
+    }
+
+    void renderer_update_pile(point2i32 const p) {
+        auto const pile = the_world.current_level().item_at(p);
+        if (!pile) {
+            renderer_remove_item(p);
+            return;
+        }
+
+        auto const pile_id = get_pile_id();
+        renderer_add(get_pile_id(*pile, pile_id), p);
     }
 
     //! Render the game
