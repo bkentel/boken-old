@@ -86,12 +86,12 @@ public:
 
     //! Clears the list of any existing rows, adds new rows for each item in
     //! items, and adjusts the layout to fit said items.
-    void assign(item_pile const& items);
+    int assign(item_pile const& items);
 
     //! Clears the list of any existing rows, adds new rows for each item in
     //! items matching the predicate, and adjusts the layout to fit said items.
     template <typename Predicate>
-    void assign_if(item_pile const& items, Predicate pred) {
+    int assign_if(item_pile const& items, Predicate pred) {
         auto& il = get();
 
         clear();
@@ -101,11 +101,19 @@ public:
         });
 
         il.layout();
+
+        return static_cast<int>(il.rows());
     }
 
-    void assign_if(item_pile const& items, item_instance_id const id) {
-        assign_if(items, [id](item_instance_id const other_id) noexcept {
+    int assign_if(item_pile const& items, item_instance_id const id) {
+        return assign_if(items, [id](item_instance_id const other_id) noexcept {
             return other_id == id;
+        });
+    }
+
+    int assign_if_not(item_pile const& items, item_instance_id const id) {
+        return assign_if(items, [id](item_instance_id const other_id) noexcept {
+            return other_id != id;
         });
     }
 
