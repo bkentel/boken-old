@@ -284,9 +284,12 @@ public:
     }
 
     int indicate(int const n) noexcept final override {
-        BK_ASSERT(check_row_(n));
+        BK_ASSERT(n >= 0);
+        auto const r = static_cast<int>(rows());
+
         auto const result = indicated_;
-        indicated_ = n;
+        indicated_ = std::min(n, r > 0 ? r - 1 : 0);
+
         return result;
     }
 
