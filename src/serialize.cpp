@@ -499,7 +499,7 @@ private:
         }
 
         def_.properties.add_or_update_property(
-            item_property_id {last_property_name_hash_}, p.second);
+            entity_property_id {last_property_name_hash_}, p.second);
 
         return true;
     }

@@ -247,6 +247,9 @@ public:
     {
     }
 
+    template <typename U, typename Tag2>
+    tagged_value(tagged_value<U, Tag2> const n) = delete;
+
     template <typename U>
     constexpr tagged_value(tagged_value<U, Tag> const n) noexcept
       : tagged_value {value_cast(n)}
