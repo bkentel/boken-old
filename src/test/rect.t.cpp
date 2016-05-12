@@ -126,7 +126,7 @@ TEST_CASE("for_each_xy") {
     auto const count1 = [](recti32 const r) noexcept {
         int n = 0;
 
-        for_each_xy(r, [&](point2i32 const p) noexcept {
+        for_each_xy(r, [&](point2i32) noexcept {
             ++n;
         });
 
@@ -137,7 +137,7 @@ TEST_CASE("for_each_xy") {
         int n = 0;
         int m = 0;
 
-        for_each_xy(r, [&](point2i32 const p, bool const edge) noexcept {
+        for_each_xy(r, [&](point2i32, bool const edge) noexcept {
             ++(edge ? m : n);
         });
 
@@ -245,7 +245,7 @@ TEST_CASE("for_each_xy_edge") {
     auto const count = [](recti32 const r) noexcept {
         int n = 0;
 
-        for_each_xy_edge(r, [&](point2i32 const p) noexcept {
+        for_each_xy_edge(r, [&](point2i32) noexcept {
             ++n;
         });
 

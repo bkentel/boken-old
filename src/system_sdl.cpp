@@ -51,6 +51,9 @@ public:
     static constexpr auto systems =
         SDL_INIT_EVENTS | SDL_INIT_VIDEO;
 
+    sdl(sdl const&) = delete;
+    sdl& operator=(sdl const&) = delete;
+
     sdl() {
         if (SDL_WasInit(0) & systems) {
             throw sdl_error {"SDL already initialized"};
@@ -59,17 +62,6 @@ public:
         if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
             throw sdl_error {SDL_GetError()};
         }
-    }
-
-    sdl(sdl&& other) noexcept
-      : cleanup_ {other.cleanup_}
-    {
-        other.cleanup_ = false;
-    }
-
-    sdl& operator=(sdl&& rhs) noexcept {
-        std::swap(cleanup_, rhs.cleanup_);
-        return *this;
     }
 
     ~sdl() {
@@ -176,7 +168,6 @@ private:
     int width_  {};
     int height_ {};
 };
-
 
 sdl_texture create_font_texture(sdl_renderer& render) {
     auto converted = sdl_surface {

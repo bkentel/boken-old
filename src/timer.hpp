@@ -20,11 +20,11 @@ public:
     using duration   = clock_t::duration;
     using timer_data = uint64_t;
 
-    //! @param 0 The delta between the actual timer deadline and the time the
-    //!          callback was executed.
-    //! @param 1 A reference to the timer specific data.
-    //! @returns The new period of the timer. A period of 0 indicated that the
-    //!          timer should be removed after the callback completes.
+    //! param 0 The delta between the actual timer deadline and the time the
+    //!         callback was executed.
+    //! param 1 A reference to the timer specific data.
+    //! returns The new period of the timer. A period of 0 indicated that the
+    //!         timer should be removed after the callback completes.
     using callback_t = std::function<duration (duration, timer_data&)>;
 
     //! a cookie used to uniquely identify a timer

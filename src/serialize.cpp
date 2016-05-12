@@ -287,10 +287,6 @@ public:
     {
     }
 
-    state_type current_state() const noexcept {
-        return state_;
-    }
-
     void set_current_state(state_type const state) noexcept {
         state_ = state;
     }
@@ -434,10 +430,8 @@ bool item_definition_handler::run() {
                         , st::start);
     default:
         BK_ASSERT(false);
-        break;
+        return false;
     }
-
-    return false;
 }
 
 namespace {
@@ -473,10 +467,6 @@ public:
     ) : on_finish_   {on_finish}
       , on_property_ {on_property}
     {
-    }
-
-    state_type current_state() const noexcept {
-        return state_;
     }
 
     void set_current_state(state_type const state) noexcept {
@@ -623,10 +613,8 @@ bool entity_definition_handler::run() {
                         , st::start);
     default:
         BK_ASSERT(false);
-        break;
+        return false;
     }
-
-    return false;
 }
 
 namespace {

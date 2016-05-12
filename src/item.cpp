@@ -179,7 +179,7 @@ std::string name_of_decorated(
             if (n == 0) {
                 buffer.append(" <cr>[empty]</c>");
             } else {
-                buffer.append(" [%d]", n);
+                buffer.append(" [%d]", static_cast<int>(n));
             }
         }
     }

@@ -196,6 +196,8 @@ void text_layout::layout(text_renderer& trender) {
             default:
                 break;
             }
+
+            break;
         case 'c' :
             switch (markup_tag[2]) {
             case 'r' :

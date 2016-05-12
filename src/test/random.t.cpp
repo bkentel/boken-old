@@ -31,8 +31,8 @@ TEST_CASE("for_each_xy_random") {
     auto const n = std::accumulate(begin(result), end(result), ptrdiff_t {}
       , [](auto const sum, auto const& row) noexcept {
             return sum + std::count_if(begin(row), end(row)
-              , [](int const n) noexcept {
-                    return n != 0;
+              , [](int const m) noexcept {
+                    return m != 0;
                 });
         });
 

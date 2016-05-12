@@ -403,17 +403,27 @@ private:
     ptrdiff_t capacity_;
 };
 
+namespace detail {
+
 template <size_t N>
-class static_string_buffer : public string_buffer_base {
+struct static_string_buffer_base {
+    std::array<char, N> buffer_;
+};
+
+} // namespace detail
+
+template <size_t N>
+class static_string_buffer
+  : public  string_buffer_base
+  , private detail::static_string_buffer_base<N>
+{
     static_assert(N > 0, "");
     static constexpr auto last_index = static_cast<ptrdiff_t>(N - 1);
 public:
     static_string_buffer() noexcept
-      : string_buffer_base {buffer_.data(), N}
+      : string_buffer_base {detail::static_string_buffer_base<N>::buffer_.data(), N}
     {
     }
-private:
-    std::array<char, N> buffer_;
 };
 
 namespace detail {

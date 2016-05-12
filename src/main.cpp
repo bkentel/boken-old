@@ -549,7 +549,7 @@ struct game_state {
     // Events
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    //! @returns true if the event has not been filtered, false otherwise.
+    //! Process events (see docs)
     template <typename... Args0, typename... Args1>
     void process_event(
         bool (game_state::* ui_handler)(Args0...)
@@ -1549,7 +1549,7 @@ struct game_state {
 
         // at least two matches
         return std::make_tuple(2, first_match, second_match, last);
-    };
+    }
 
     void do_open() {
         auto const is_container = [&](item_instance_id const id) noexcept {

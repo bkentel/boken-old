@@ -486,7 +486,11 @@ public:
             return {merge_item_result::failed_bad_source, 0};
         }
 
-        auto const trans = [&](int const i) noexcept { return (*src_pile)[i]; };
+        auto const trans = [&](int const i) noexcept {
+            BK_ASSERT(i >= 0);
+            return (*src_pile)[static_cast<size_t>(i)];
+        };
+
         auto const n = (!first && !last)
           ? src_pile->remove_if(pred)
           : src_pile->remove_if(first, last, trans, pred);

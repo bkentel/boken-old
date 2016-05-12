@@ -51,7 +51,7 @@ bool string_buffer_base::append(char const* const fmt, ...) noexcept {
     va_start(args, fmt);
 
     auto const result = detail::static_string_buffer_append(
-        fmt, data_, first_, capacity_, args);
+        fmt, data_, first_, static_cast<size_t>(capacity_), args);
 
     va_end(args);
 
