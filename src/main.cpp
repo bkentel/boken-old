@@ -890,7 +890,7 @@ struct game_state {
         if (auto const& player_items = items(player)) {
             item_list.assign(player_items);
         } else {
-            message_window.println("You have nothing to drop.");
+            println("You have nothing to drop.");
             return;
         }
 
@@ -947,7 +947,7 @@ struct game_state {
         if (auto* const pile = lvl.item_at(p)) {
             item_list.assign(*pile);
         } else {
-            message_window.println("There is nothing here to get.");
+            println("There is nothing here to get.");
             return;
         }
 
@@ -1630,7 +1630,7 @@ struct game_state {
             static_string_buffer<128> buffer;
             buffer.append("Open the %s in your inventory? y/n"
               , name_of_decorated(ctx, container).data());
-            println(buffer.to_string());
+            println(buffer);
 
             query_yes_no([=](command_type const cmd) {
                 if (cmd == command_type::confirm) {
@@ -1652,7 +1652,7 @@ struct game_state {
     }
 
     void do_debug_teleport_self() {
-        message_window.println("Teleport where?");
+        println("Teleport where?");
 
         input_context c;
 
@@ -1698,7 +1698,7 @@ struct game_state {
 
         static_string_buffer<128> buffer;
         buffer.append("The %s dies.", name_of_decorated(ctx, {database, e}).data());
-        message_window.println(buffer.to_string());
+        println(buffer);
 
         get_entity_loot(e, rng_superficial, [&](unique_item&& itm) {
             add_object_at(std::move(itm), p);
