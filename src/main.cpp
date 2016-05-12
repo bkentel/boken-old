@@ -1556,11 +1556,11 @@ struct game_state {
             return boken::is_container({ctx, id}) > 0;
         };
 
-        auto const find_containers = [=](item_pile const* const pile) noexcept {
+        auto const find_containers = [&](item_pile const* const pile) noexcept {
             return find_matching_items(pile, is_container);
         };
 
-        auto const choose_container = [&](auto const first, auto const second, auto const last) {
+        auto const choose_container = [=](auto const first, auto const second, auto const last) {
             item_list.clear();
             item_list.append({*first, *second});
             item_list.append_if(std::next(second), last, is_container);

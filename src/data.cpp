@@ -9,6 +9,7 @@
 #include "bkassert/assert.hpp"
 
 #include <unordered_map>
+#include <cstdio>
 
 namespace boken {
 
@@ -121,7 +122,9 @@ auto load_property_(Container& c) {
             }
 
             if (it->second.type != type) {
-                BK_ASSERT(false); //TODO type differs between property usages
+                //TODO type differs between property usages
+                printf("warning type differs for property \"%s\"\n"
+                     , string.data());
             }
 
             ++it->second.count;
