@@ -87,6 +87,14 @@ struct game_state {
         return p.second;
     }
 
+    const_entity_descriptor player_descriptor() const noexcept {
+        return {ctx, player_id()};
+    }
+
+    entity_descriptor player_descriptor() noexcept {
+        return {ctx, player_id()};
+    }
+
     //--------------------------------------------------------------------------
     // Level functions
     //--------------------------------------------------------------------------
@@ -885,7 +893,7 @@ struct game_state {
     void impl_do_drop_items_(int const n) {
         BK_ASSERT(n > 0);
 
-        auto const player = entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
 
         if (auto const& player_items = items(player)) {
             item_list.assign(player_items);
@@ -951,7 +959,7 @@ struct game_state {
             return;
         }
 
-        auto const subject   = entity_descriptor {ctx, player_id()};
+        auto const subject   = player_descriptor();
         auto const subject_p = p;
         auto const from      = level_location {lvl, p};
         auto const to        = subject;
@@ -1041,7 +1049,7 @@ struct game_state {
     //! excluding the container itself if the player is holding it.
     //! @pre container must be an item that is a container.
     void insert_into_container(item_descriptor const container) {
-        auto const player = entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
 
         auto const fill_list = [=, cid = container.obj.instance()] {
             return item_list.assign_if_not(items(player), cid) > 0;
@@ -1105,7 +1113,7 @@ struct game_state {
         }
 
         auto const p      = player_location();
-        auto const player = entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
         auto const name   = name_of_decorated(ctx, container);
 
         {
@@ -1391,7 +1399,7 @@ struct game_state {
     }
 
     void do_view_inventory() {
-        auto const player = entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
 
         item_list.set_title("Inventory");
         item_list.assign(items(player));
@@ -1616,7 +1624,7 @@ struct game_state {
         // There are no containers on the floor, but check if the player is
         // holding any.
 
-        auto const player  = entity_descriptor {ctx, player_id()};
+        auto const player  = player_descriptor();
         auto const result  = find_containers(&items(player));
         auto const matches = std::get<0>(result);
         auto const first   = std::get<1>(result);
@@ -1804,7 +1812,7 @@ struct game_state {
         auto const p_cur = player_location();
         auto const p_dst = p;
 
-        auto const player = const_entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
         auto const result = current_level().move_by(player_id(), p_dst - p_cur);
 
         switch (result) {
@@ -1857,7 +1865,7 @@ struct game_state {
           , [=, &lvl, count = 0]
             (timer::duration, timer::timer_data) mutable -> timer::duration {
                 // TODO: this could be "slow"
-                auto const player = entity_descriptor {ctx, player_id()};
+                auto const player = player_descriptor();
 
                 auto const result = impl_player_move_by_(lvl, player, p, v);
 
@@ -1886,7 +1894,7 @@ struct game_state {
                && value_cast(abs(v.y)) <= 1
                && v != vec2i32 {});
 
-        auto const player = entity_descriptor {ctx, player_id()};
+        auto const player = player_descriptor();
         auto const p_cur  = player_location();
         auto const p_dst  = p_cur + v;
 
