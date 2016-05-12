@@ -27,29 +27,37 @@ public:
     }
 
     string_view find(item_property_id const id) const noexcept final override {
-        auto const it = item_properties_.find(id);
-        return it != end(item_properties_)
-          ? string_view {it->second}
-          : string_view {"{none such}"};
+        return find_(item_properties_, id);
     }
 
     string_view find(entity_property_id const id) const noexcept final override {
-        auto const it = entity_properties_.find(id);
-        return it != end(entity_properties_)
-          ? string_view {it->second}
-          : string_view {"{none such}"};
+        return find_(entity_properties_, id);
     }
 
     tile_map const& get_tile_map(tile_map_type const type) const noexcept final override;
 private:
+    template <typename Id, typename Container>
+    string_view find_(Container const& c, Id const id) const noexcept {
+        auto const it = c.find(id);
+        return it != end(c)
+          ? string_view {it->second.name}
+          : string_view {"{none such}"};
+    }
+
     void load_entity_defs_();
     void load_item_defs_();
 
     std::unordered_map<entity_id, entity_definition, identity_hash> entity_defs_;
     std::unordered_map<item_id,   item_definition,   identity_hash> item_defs_;
 
-    std::unordered_map<entity_property_id, std::string, identity_hash> entity_properties_;
-    std::unordered_map<item_property_id,   std::string, identity_hash> item_properties_;
+    struct property_data {
+        serialize_data_type type;
+        std::string         name;
+        int32_t             count;
+    };
+
+    std::unordered_map<entity_property_id, property_data, identity_hash> entity_properties_;
+    std::unordered_map<item_property_id,   property_data, identity_hash> item_properties_;
 
     tile_map tile_map_base_     {tile_map_type::base,   0, sizei32x {18}, sizei32y {18}, sizei32x {16}, sizei32y {16}};
     tile_map tile_map_entities_ {tile_map_type::entity, 1, sizei32x {18}, sizei32y {18}, sizei32x {26}, sizei32y {17}};
@@ -72,56 +80,66 @@ game_database_impl::get_tile_map(tile_map_type const type) const noexcept {
     return tile_map_base_;
 }
 
-void game_database_impl::load_entity_defs_() {
-    load_entity_definitions(
-        [&](entity_definition const& def) {
-            auto const id = def.id;
-            auto const tile_index = def.properties.value_or(djb2_hash_32c("tile_index"), 0);
+namespace {
 
-            auto const result = entity_defs_.insert({id, std::move(def)});
-            if (!result.second) {
-                BK_ASSERT(false); //TODO collision
-            }
+template <typename Container>
+auto load_definition_(Container& c, tile_map& tmap) {
+    using def_t = typename std::decay_t<Container>::mapped_type;
 
-            tile_map_entities_.add_mapping(id, tile_index);
+    return [&](def_t const& def) {
+        auto const tile_index =
+            def.properties.value_or(djb2_hash_32c("tile_index"), 0);
+
+        auto const result = c.insert({def.id, std::move(def)});
+        if (!result.second) {
+            BK_ASSERT(false); //TODO collision
         }
-      , [&](string_view const string, uint32_t const hash, serialize_data_type const type, uint32_t const value) {
-            auto const id = entity_property_id {hash};
-            auto const it = entity_properties_.find(id);
-            if (it == end(entity_properties_)) {
-                entity_properties_.insert({id, string.to_string()});
-            } else if (string != it->second) {
+
+        tmap.add_mapping(def.id, tile_index);
+    };
+}
+
+template <typename Container>
+auto load_property_(Container& c) {
+    return [&](string_view         const string
+             , uint32_t            const hash
+             , serialize_data_type const type
+             , uint32_t            const //value //TODO
+        ) {
+            using id_t = typename std::decay_t<Container>::key_type;
+
+            auto const id = id_t {hash};
+            auto const it = c.find(id);
+
+            if (it == end(c)) {
+                c.insert({id, {type, string.to_string(), 1}});
+                return true;
+            }
+
+            if (it->second.name != string) {
                 BK_ASSERT(false); //TODO collision
             }
+
+            if (it->second.type != type) {
+                BK_ASSERT(false); //TODO type differs between property usages
+            }
+
+            ++it->second.count;
 
             return true;
-        });
+        };
+}
+
+} // namespace
+
+void game_database_impl::load_entity_defs_() {
+    load_entity_definitions(load_definition_(entity_defs_, tile_map_entities_)
+                          , load_property_(entity_properties_));
 }
 
 void game_database_impl::load_item_defs_() {
-    load_item_definitions(
-        [&](item_definition const& def) {
-            auto const id = def.id;
-            auto const tile_index = def.properties.value_or(djb2_hash_32c("tile_index"), 0);
-
-            auto const result = item_defs_.insert({id, std::move(def)});
-            if (!result.second) {
-                BK_ASSERT(false); //TODO collision
-            }
-
-            tile_map_items_.add_mapping(id, tile_index);
-        }
-      , [&](string_view const string, uint32_t const hash, serialize_data_type const type, uint32_t const value) {
-            auto const id = item_property_id {hash};
-            auto const it = item_properties_.find(id);
-            if (it == end(item_properties_)) {
-                item_properties_.insert({id, string.to_string()});
-            } else if (string != it->second) {
-                BK_ASSERT(false); //TODO collision
-            }
-
-            return true;
-        });
+    load_item_definitions(load_definition_(item_defs_, tile_map_items_)
+                        , load_property_(item_properties_));
 }
 
 game_database_impl::game_database_impl() {
