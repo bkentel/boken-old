@@ -116,6 +116,32 @@ struct game_state {
         return boken::get_pile_id(ctx, pile, pile_id);
     }
 
+    //! hard fail if the entity doesn't exist on the given level.
+    point2i32 require_entity_on_level(
+        const_entity_descriptor const  e
+      , level                   const& lvl
+    ) const {
+        auto const p = lvl.find(e.obj.instance());
+        BK_ASSERT_SAFE(p.first);
+        return p.second;
+    }
+
+    template <size_t N>
+    void println(static_string_buffer<N> const& buffer) {
+        message_window.println(buffer.to_string());
+    }
+
+    void println(std::string msg) {
+        message_window.println(std::move(msg));
+    }
+
+    template <typename... Args>
+    auto msg_printer(std::string (* const f)(Args...)) {
+        return [=](Args... args) {
+            println((*f)(args...));
+        };
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Types
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -856,32 +882,6 @@ struct game_state {
         impl_choose_items_(1, std::move(title), on_command);
     }
 
-    //! hard fail if the entity doesn't exist on the given level.
-    point2i32 require_entity_on_level(
-        const_entity_descriptor const  e
-      , level                   const& lvl
-    ) const {
-        auto const p = lvl.find(e.obj.instance());
-        BK_ASSERT_SAFE(p.first);
-        return p.second;
-    }
-
-    template <size_t N>
-    void println(static_string_buffer<N> const& buffer) {
-        message_window.println(buffer.to_string());
-    }
-
-    void println(std::string msg) {
-        message_window.println(std::move(msg));
-    }
-
-    template <typename... Args>
-    auto msg_printer(std::string (* const f)(Args...)) {
-        return [=](Args... args) {
-            println((*f)(args...));
-        };
-    }
-
     //! Common implementation for dropping exactly one, or multiple items.
     //! This is used for dropping items directly from the game, not from a
     //! container or the inventory, etc.
@@ -1290,8 +1290,8 @@ struct game_state {
             };
 
             return filter(i)
-                && can_remove_item(ctx, i, from, on_fail)
-                && can_add_item(ctx, i, to, on_fail)
+                && can_remove_item(ctx, subject, subject_p, i, from, on_fail)
+                && can_add_item(ctx, subject, subject_p, i, to, on_fail)
                 && on_pass(std::move(itm), i);
         });
     }
@@ -1459,46 +1459,6 @@ struct game_state {
             , msg_printer(&msg::pickup_item));
     }
 
-    template <typename Bool>
-    Bool renderer_update_pile_if(point2i32 const p, Bool const value) {
-        if (!!value) {
-            renderer_update_pile(p);
-        }
-
-        return value;
-    }
-
-    template <typename Predicate>
-    int update_item_list_if(Predicate pred) {
-        auto const result = pred();
-        int              const n    = std::get<0>(result);
-        item_pile const* const pile = std::get<1>(result);
-
-        if (n > 0 && pile) {
-            item_list.assign(*pile);
-        }
-
-        return n;
-    }
-
-    template <typename F>
-    int with_item_list_selection(F f) {
-        auto const indicated = item_list.get().indicated();
-
-        auto const n = item_list.with_selected_range(f);
-        if (!n) {
-            return n;
-        }
-
-        auto const rows = static_cast<int>(item_list.get().rows());
-        if (rows <= 0) {
-            return n;
-        }
-
-        item_list.get().indicate(std::min(indicated, rows));
-        return n;
-    }
-
     //! Pickup 0..N items from a list at the player's current position.
     void do_get_items() {
         impl_do_get_items_(2);
@@ -1520,7 +1480,6 @@ struct game_state {
     void do_drop_some() {
         impl_do_drop_items_(2);
     }
-
 
     //! @return A tuple {n, first, second, last} where n is {0, 1, 2} and
     //!         indicates, respectively, no matches, 1 match, at least 2 matches.
@@ -2126,6 +2085,15 @@ struct game_state {
 
         auto const pile_id = get_pile_id();
         renderer_add(get_pile_id(*pile, pile_id), p);
+    }
+
+    template <typename Bool>
+    Bool renderer_update_pile_if(point2i32 const p, Bool const value) {
+        if (!!value) {
+            renderer_update_pile(p);
+        }
+
+        return value;
     }
 
     //! Render the game

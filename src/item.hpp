@@ -22,32 +22,56 @@ item_pile&       items(item_descriptor       i) noexcept;
 
 namespace detail {
 
-string_view impl_can_add_item(const_context ctx, const_item_descriptor itm
-    , const_item_descriptor dst) noexcept;
+string_view impl_can_add_item(const_context ctx
+    , const_item_descriptor itm, const_item_descriptor dst) noexcept;
 
-string_view impl_can_remove_item(const_context ctx, const_item_descriptor itm
-    , const_item_descriptor src) noexcept;
+string_view impl_can_add_item(const_context ctx
+    , const_entity_descriptor subject, point2i32 subject_p
+    , const_item_descriptor itm, const_item_descriptor dst) noexcept;
+
+string_view impl_can_remove_item(const_context ctx
+    , const_entity_descriptor subject, point2i32 subject_p
+    , const_item_descriptor itm, const_item_descriptor src) noexcept;
 
 } // namespace detail
 
+//! @returns whether @p itm can be added to the contents of @p dst.
 template <typename UnaryF>
 bool can_add_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_item_descriptor const dst
-  , UnaryF                const on_fail
+    const_context           const ctx
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const dst
+  , UnaryF                  const on_fail
 ) noexcept {
     return not_empty_or(on_fail, detail::impl_can_add_item(ctx, itm, dst));
 }
 
+//! @returns whether @p itm can be added to the contents of @p dst by the
+//!          @p subject located at @p subject_p on the current level.
+template <typename UnaryF>
+bool can_add_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const dst
+  , UnaryF                  const on_fail
+) noexcept {
+    return not_empty_or(on_fail
+      , detail::impl_can_add_item(ctx, subject, subject_p, itm, dst));
+}
+
 template <typename UnaryF>
 bool can_remove_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_item_descriptor const src
-  , UnaryF                const on_fail
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const src
+  , UnaryF                  const on_fail
 ) noexcept {
-    return not_empty_or(on_fail, detail::impl_can_remove_item(ctx, itm, src));
+    return not_empty_or(on_fail
+      , detail::impl_can_remove_item(ctx, subject, subject_p, itm, src));
 }
 
 void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm

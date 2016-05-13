@@ -32,9 +32,9 @@ item_id get_id(item_definition const& def) noexcept {
 namespace detail {
 
 string_view impl_can_add_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_item_descriptor const dest
+    const_context           const ctx
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const dest
 ) noexcept {
     constexpr auto p_capacity = property(item_property::capacity);
 
@@ -63,10 +63,23 @@ string_view impl_can_add_item(
     return {};
 }
 
+string_view impl_can_add_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const dest
+) noexcept {
+    auto const result = impl_can_add_item(ctx, itm, dest);
+    return result;
+}
+
 string_view impl_can_remove_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_item_descriptor const dest
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_item_descriptor   const dest
 ) noexcept {
     return {};
 }

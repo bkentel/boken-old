@@ -29,17 +29,21 @@ namespace boken {
 namespace detail {
 
 string_view impl_can_add_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_level_location  const dest
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_level_location    const dest
 ) noexcept {
     return {};
 }
 
 string_view impl_can_remove_item(
-    const_context         const ctx
-  , const_item_descriptor const itm
-  , const_level_location  const dest
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , const_level_location    const dest
 ) noexcept {
     return {};
 }

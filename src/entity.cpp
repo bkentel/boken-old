@@ -31,6 +31,8 @@ namespace detail {
 
 string_view impl_can_add_item(
     const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
   , const_item_descriptor   const itm
   , const_entity_descriptor const dest
 ) noexcept {
@@ -47,6 +49,8 @@ string_view impl_can_add_item(
 
 string_view impl_can_remove_item(
     const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
   , const_item_descriptor   const itm
   , const_entity_descriptor const dest
 ) noexcept {
