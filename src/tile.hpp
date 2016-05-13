@@ -140,7 +140,7 @@ public:
     template <typename T, typename Tag>
     uint32_t find(tagged_value<T, Tag> const id) const noexcept {
         auto const it = mappings_.find(value_cast(id));
-        return it == std::end(mappings_) ? 0 : it->second;
+        return it == std::end(mappings_) ? 0u : it->second;
     }
 private:
     tile_map_type type_;

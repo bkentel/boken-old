@@ -91,7 +91,7 @@ auto load_definition_(Container& c, tile_map& tmap) {
         auto const tile_index =
             def.properties.value_or(djb2_hash_32c("tile_index"), 0);
 
-        auto const result = c.insert({def.id, std::move(def)});
+        auto const result = c.emplace(def.id, std::move(def));
         if (!result.second) {
             BK_ASSERT(false); //TODO collision
         }
@@ -107,13 +107,14 @@ auto load_property_(Container& c) {
              , serialize_data_type const type
              , uint32_t            const //value //TODO
         ) {
-            using id_t = typename std::decay_t<Container>::key_type;
+            using id_t  = typename std::decay_t<Container>::key_type;
+            using map_t = typename std::decay_t<Container>::mapped_type;
 
             auto const id = id_t {hash};
             auto const it = c.find(id);
 
             if (it == end(c)) {
-                c.insert({id, {type, string.to_string(), 1}});
+                c.emplace(id, map_t {type, string.to_string(), 1});
                 return true;
             }
 
