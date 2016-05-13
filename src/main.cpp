@@ -2024,6 +2024,7 @@ struct game_state {
     //! Advance the game time by @p steps
     void advance(int const steps) {
         auto const player = player_id();
+
         current_level().transform_entities(
             [&](entity_instance_id const id, point2i32 const p) noexcept {
                 auto const e = entity_descriptor {ctx, id};
@@ -2041,7 +2042,11 @@ struct game_state {
 
                 return std::make_pair(e, q);
             }
-          , [&](entity_descriptor const e, placement_result const result, point2i32 const p_before, point2i32 const p_after) {
+          , [&](entity_descriptor const e
+              , placement_result  const result
+              , point2i32         const p_before
+              , point2i32         const p_after
+            ) {
                 if (result != placement_result::ok) {
                     return;
                 }
