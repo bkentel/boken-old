@@ -873,21 +873,18 @@ region_id level_impl::dig_at(
     auto& to_flags = data_at_(data_.flags,      p);
     auto& to_id    = data_at_(data_.region_ids, p);
 
-    auto const result = (to_type != tile_type::empty)
-      ? to_id
-      : src_id;
-
     if (to_type == tile_type::empty) {
         to_type = tile_type::tunnel;
         to_flags.clear(tile_flag::solid);
+        to_id = src_id;
+        return src_id;
     } else if (to_type == tile_type::wall) {
         to_type = tile_type::floor;
         to_flags.clear(tile_flag::solid);
+        to_id = src_id;
     }
 
-    to_id = src_id;
-
-    return result;
+    return to_id;
 }
 
 template <typename UnaryF, typename Read, typename Check>
@@ -910,7 +907,7 @@ point2i32 level_impl::dig_path_segment_impl(
 
         auto const next_ok =
             check(p_nxt)
-            && can_gen_tunnel_at(p_nxt, read, check);
+         && can_gen_tunnel_at(p_nxt, read, check);
 
         auto const is_last = (i == len - 1);
 
@@ -937,13 +934,34 @@ point2i32 level_impl::dig_path_segment_impl(
         }
 
         auto const q = p + dir;
-
         if (must_stop(p, q, i)) {
             break;
         }
 
         // otherwise, just dig
-        on_connect(dig_at(p, src_id));
+        auto const dig_id = dig_at(p, src_id);
+        if (dig_id != src_id) {
+            on_connect(dig_id, p);
+        }
+
+        for_each_xy_edge(grow_rect(recti32 {p, p}), [&](point2i32 const p0) {
+            // out of bounds
+            if (!check(p0)) {
+                return;
+            }
+
+            // solid
+            if (data_at_(data_.flags, p0).test(tile_flag::solid)) {
+                return;
+            }
+
+            auto const id = data_at_(data_.region_ids, p0);
+            if (id == region_id {} || id == src_id) {
+                return;
+            }
+
+            on_connect(id, p0);
+        });
 
         last_p = p;
         p = q;
@@ -966,7 +984,7 @@ point2i32 level_impl::dig_path_segment(
     auto const read = make_data_reader();
 
     auto const no_check = intersects(p,     shrink_rect(bounds(), 1))
-                        && intersects(p_end, shrink_rect(bounds(), 2));
+                       && intersects(p_end, shrink_rect(bounds(), 2));
 
     return no_check
         // no need to check bounds
@@ -1096,17 +1114,16 @@ void level_impl::generate_make_connections(random_state& rng) {
 
         for (vertex_t const i : component_indicies) {
            // components are 1-based
-           auto const c     = static_cast<vertex_t>(i + 1);
-           auto const off   = find_nth_random(graph_data, min_component_n, c);
-           auto const index = static_cast<size_t>(off);
-
-           region_id const src_id = static_cast<region_id::type>(c);
+           auto const c      = static_cast<vertex_t>(i + 1);
+           auto const off    = find_nth_random(graph_data, min_component_n, c);
+           auto const index  = static_cast<size_t>(off);
+           auto const src_id =
+               region_id {static_cast<uint16_t>(region(index).id)};
 
            dig_random(rng, region(index).bounds
-             , [&](region_id const id) noexcept {
+             , [&](region_id const id, point2i32) noexcept {
                    add_connection(src_id, id);
-               }
-            );
+               });
         }
 
         return true;

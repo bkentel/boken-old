@@ -83,9 +83,7 @@ axis_aligned_rect<T> grow_rect(
     axis_aligned_rect<T> const r
   , U                    const size = U {1}
 ) noexcept {
-    BK_ASSERT(size >= 0
-           && size <= value_cast(r.width())
-           && size <= value_cast(r.height()));
+    BK_ASSERT(size >= 0);
 
     auto const v = vec2<U> {size, size};
     return {r.top_left() - v, r.bottom_right() + v};
