@@ -1073,6 +1073,8 @@ struct game_state {
                 return event_result::filter;
             }
 
+            auto const indicated = item_list.get().indicated();
+
             auto const result = move_selected_items(
                 player                           // subject
               , player_location()                // subject_p
@@ -1083,6 +1085,8 @@ struct game_state {
             if (result > 0 && !fill_list()) {
                 return event_result::filter_detach;
             }
+
+            item_list.get().indicate(indicated);
 
             return event_result::filter;
         };
