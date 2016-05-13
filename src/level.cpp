@@ -292,8 +292,8 @@ public:
     }
 
     void transform_entities(
-        std::function<point2i32 (entity&, point2i32)>&& transform
-      , std::function<void (entity&, point2i32, point2i32)>&& on_success
+        transform_f          transform
+      , transform_callback_f callback
     ) final override {
         auto const values    = entities_.values_range();
         auto const positions = entities_.positions_range();
@@ -302,17 +302,17 @@ public:
         auto p_it = positions.first;
 
         for (size_t i = 0; i < entities_.size(); ++i, ++v_it, ++p_it) {
-            auto const p = *p_it;
-            auto&      e = boken::find(world_, *v_it);
+            auto const p  = *p_it;
+            auto const id = *v_it;
 
-            auto const q = transform(e, p);
+            auto const result = transform(id, p);
+
+            auto const q = std::get<1>(result);
             if (p == q) {
                 continue;
             }
 
-            if (move_by(get_instance(e), q - p) == placement_result::ok) {
-                on_success(e, p, q);
-            }
+            callback(std::get<0>(result), move_by(id, q - p), p, q);
         }
     }
 

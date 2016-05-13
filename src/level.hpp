@@ -140,11 +140,14 @@ public:
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
-    virtual void transform_entities(
-        std::function<point2i32 (entity&, point2i32)>&& tranform
-      , std::function<void (entity&, point2i32, point2i32)>&& on_success
-    ) = 0;
+    using transform_f = std::function<
+        std::pair<entity_descriptor, point2i32> (entity_instance_id, point2i32)>;
 
+    using transform_callback_f = std::function<
+        void (entity_descriptor, placement_result, point2i32, point2i32)>;
+
+    virtual void transform_entities(
+        transform_f tranform, transform_callback_f callback) = 0;
 
     //!@{
     //! Add an object at the position given by @p p.
@@ -153,7 +156,6 @@ public:
 
     virtual item_instance_id   add_object_at(unique_item&&   i, point2i32 p) = 0;
     virtual entity_instance_id add_object_at(unique_entity&& e, point2i32 p) = 0;
-
     //!@}
 
     //! @returns an empty id if there is no entity on the level with the given

@@ -2012,33 +2012,42 @@ struct game_state {
         }
     }
 
+    static vec2i32 random_direction(random_state& rng) noexcept {
+        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
+        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+
+        auto const i = static_cast<size_t>(random_uniform_int(rng, 0, 3));
+
+        return {dir_x[i], dir_y[i]};
+    }
+
     //! Advance the game time by @p steps
     void advance(int const steps) {
-        auto& lvl = the_world.current_level();
+        auto const player = player_id();
+        current_level().transform_entities(
+            [&](entity_instance_id const id, point2i32 const p) noexcept {
+                auto const e = entity_descriptor {ctx, id};
 
-        lvl.transform_entities(
-            [&](entity& e, point2i32 const p) noexcept {
-                // the player
-                if (e.instance() == entity_instance_id {1u}) {
-                    return p;
+                // don't move the player this way
+                if (id == player) {
+                    return std::make_pair(e, p);
                 }
 
-                if (!random_chance_in_x(rng_superficial, 1, 10)) {
-                    return p;
+                if (random_chance_in_x(rng_superficial, 9, 10)) {
+                    return std::make_pair(e, p);
                 }
 
-                constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-                constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
+                auto const q = p + random_direction(rng_superficial);
 
-                auto const dir = static_cast<size_t>(random_uniform_int(rng_superficial, 0, 3));
-                auto const d   = vec2i32 {dir_x[dir], dir_y[dir]};
+                return std::make_pair(e, q);
+            }
+          , [&](entity_descriptor const e, placement_result const result, point2i32 const p_before, point2i32 const p_after) {
+                if (result != placement_result::ok) {
+                    return;
+                }
 
-                return p + d;
-            }
-          , [&](entity& e, point2i32 const p, point2i32 const q) noexcept {
-                entity_updates_.push_back({p, q, e.definition()});
-            }
-        );
+                renderer_update(e.obj.definition(), p_before, p_after);
+            });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
