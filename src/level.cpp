@@ -195,7 +195,38 @@ struct level_data_t {
     std::vector<region_id>  region_ids;
 };
 
+class level_impl;
+
+//! adapt level's interface to what the a_star_pather expects
+class level_adapter {
+public:
+    using point = point2i32;
+
+    level_adapter(level_impl const& lvl) noexcept : lvl_ {lvl} {}
+
+    bool is_passable(point p) const noexcept;
+
+    bool is_in_bounds(point p) const noexcept;
+
+    int32_t cost(point from, point to) const noexcept;
+
+    template <typename Predicate, typename UnaryF>
+    void for_each_neighbor_if(point p, Predicate pred, UnaryF f) const noexcept;
+
+    template <typename UnaryF>
+    void for_each_neighbor(point const p, UnaryF f) const noexcept {
+        for_each_neighbor_if(p, [](auto&&) noexcept { return true; }, f);
+    }
+
+    int32_t width()  const noexcept;
+    int32_t height() const noexcept;
+    int32_t size()   const noexcept;
+private:
+    level_impl const& lvl_;
+};
+
 class level_impl : public level {
+    friend level_adapter; // TODO consider add accessor functions instead
 public:
     level_impl(random_state& rng, world& w, sizei32x width, sizei32y height
              , size_t id);
@@ -541,6 +572,20 @@ public:
         entities_.for_each(f);
     }
 
+    std::vector<point2i32> const&
+    find_path(point2i32 const from, point2i32 const to) const final override {
+        BK_ASSERT(check_bounds_(from)
+               && check_bounds_(to));
+
+        last_path.clear();
+
+        pather.search({*this}, from, to, diagonal_heuristic());
+        pather.reverse_copy_path(from, to, back_inserter(last_path));
+        std::reverse(begin(last_path), end(last_path));
+
+        return last_path;
+    }
+
     const_sub_region_range<tile_id>
     update_tile_at(random_state& rng, point2i32 p
                  , tile_data_set const& data) noexcept final override;
@@ -650,6 +695,11 @@ private:
 
     world& world_;
     size_t id_;
+
+    // logically const, but keeps a mutable buffer internally used across
+    // invocations
+    a_star_pather<level_adapter> mutable pather;
+    std::vector<point2i32> mutable last_path;
 private:
     template <typename T>
     class data_read_write_base {
@@ -709,6 +759,52 @@ std::unique_ptr<level> make_level(
 ) {
     return std::make_unique<level_impl>(rng, w, width, height, id);
 }
+
+//===------------------------------------------------------------------------===
+// level_adapter
+//===------------------------------------------------------------------------===
+
+bool level_adapter::is_passable(point const p) const noexcept {
+    return !lvl_.data_at_(lvl_.data_.flags, p).test(tile_flag::solid);
+}
+
+bool level_adapter::is_in_bounds(point const p) const noexcept {
+    return lvl_.check_bounds_(p);
+}
+
+int32_t level_adapter::cost(
+    point const // from
+  , point const // to
+) const noexcept {
+    return 1;
+}
+
+template <typename Predicate, typename UnaryF>
+void level_adapter::for_each_neighbor_if(
+    point const p
+  , Predicate pred
+  , UnaryF f
+) const noexcept {
+    using v = vec2<int>;
+    constexpr std::array<v, 8> dir {
+        v {-1, -1}, v { 0, -1}, v { 1, -1}
+      , v {-1,  0},             v { 1,  0}
+      , v {-1,  1}, v { 0,  1}, v { 1,  1}
+    };
+
+    for (auto const& d : dir) {
+        point const p0 = p + d;
+        if (is_in_bounds(p0) && pred(p0) && is_passable(p0)) {
+            f(p0);
+        }
+    }
+}
+
+int32_t level_adapter::width()  const noexcept { return value_cast(lvl_.width()); }
+int32_t level_adapter::height() const noexcept { return value_cast(lvl_.height()); }
+int32_t level_adapter::size()   const noexcept { return width() * height(); }
+
+//===------------------------------------------------------------------------===
 
 tile_view level_impl::at(point2i32 const p) const noexcept {
     if (!check_bounds_(p)) {

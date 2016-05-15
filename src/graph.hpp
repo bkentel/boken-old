@@ -1,8 +1,11 @@
 #pragma once
 
+#include "math_types.hpp"
+
 #include "bkassert/assert.hpp"
 
 #include <vector>
+#include <queue>
 #include <type_traits>
 #include <limits>
 #include <iterator>
@@ -257,6 +260,167 @@ auto count_components(vertex_data<T> const& data, Container& out) {
     }
 
     return std::make_tuple(min_i, max_i, out[min_i], out[max_i]);
+}
+
+template <typename Graph>
+struct a_star_pather {
+    using Point = typename Graph::point;
+    using Width = decltype(std::declval<Graph>().width());
+
+    //! @param h A binary function of the form f(point p, point goal) -> int
+    template <typename Heuristic>
+    void search(
+        Graph const& graph
+      , Point const  start
+      , Point const  goal
+      , Heuristic h
+    ) {
+        w_ = graph.width();
+        clear();
+        data_.resize(static_cast<size_t>(graph.size()));
+
+        auto& frontier = pqueue_;
+
+        frontier.push({start, 0});
+        visit(start, start, 0);
+
+        while (!frontier.empty()) {
+            auto const current = frontier.top().first;
+            frontier.pop();
+
+            if (current == goal) {
+                break;
+            }
+
+            auto const current_cost = cost_so_far(current).first;
+            int32_t new_cost = 0;
+
+            graph.for_each_neighbor_if(current
+              , [&](Point const next) noexcept {
+                    new_cost = current_cost + graph.cost(current, next);
+                    auto const cost = cost_so_far(next);
+                    return !cost.second || new_cost < cost.first;
+                }
+              , [&](Point const next) noexcept {
+                    visit(next, current, new_cost);
+                    frontier.push({next, new_cost + h(next, goal)});
+                });
+        }
+    }
+
+    template <typename OutputIt>
+    void reverse_copy_path(
+        Point    const start
+      , Point    const goal
+      , OutputIt       it
+    ) const noexcept {
+        // no path to goal
+        if (data_[index_of(goal)] == 0) {
+            return;
+        }
+
+        for (auto p = goal; p != start; ++it) {
+            *it = p;
+            p = came_from(p);
+        }
+
+        *it = start;
+    }
+private:
+    void clear() {
+        // nasty hack around the lack of a clear() function for queues.
+        // this uses a trick to "subvert" the access to the protected c member.
+        using queue_t = std::decay_t<decltype(pqueue_)>;
+        struct clear_t : queue_t {
+            static void clear(queue_t& q) noexcept {
+                (q.*&clear_t::c).clear();
+            }
+        };
+
+        clear_t::clear(pqueue_);
+        data_.clear();
+    }
+
+    size_t index_of(Point const p) const noexcept {
+        return static_cast<size_t>(value_cast(p.x) + value_cast(p.y) * w_);
+    }
+
+    static uint32_t encode_dir(Point const p, Point const from) noexcept {
+        auto const encode = [](auto const n) noexcept -> uint32_t {
+            auto const n0 = value_cast(n);
+            return (n0 <  0) ? 0b11u
+                 : (n0 == 0) ? 0b01u
+                 : (n0 >  0) ? 0b10u : 0b00u;
+        };
+
+        auto const v = from - p;
+        return (encode(v.y) << 28) | (encode(v.x) << 30);
+    }
+
+    static vec2<int> decode_dir(uint32_t const n) noexcept {
+        switch (n >> 28) {
+        //   0bXXYY
+        case 0b1111 : return {-1, -1};
+        case 0b1101 : return {-1,  0};
+        case 0b1110 : return {-1,  1};
+        case 0b0111 : return { 0, -1};
+        case 0b0101 : return { 0,  0};
+        case 0b0110 : return { 0,  1};
+        case 0b1011 : return { 1, -1};
+        case 0b1001 : return { 1,  0};
+        case 0b1010 : return { 1,  1};
+        default     : break;
+        }
+
+        return {0, 0};
+    }
+
+    void visit(Point const p, Point const from, int32_t const cost) noexcept {
+        auto const d = encode_dir(p, from);
+        auto const c = static_cast<uint32_t>(cost) & ~(0b1111u << 28);
+        data_[index_of(p)] = c | d;
+    }
+
+    std::pair<int32_t, bool> cost_so_far(Point const p) const noexcept {
+        auto const n = data_[index_of(p)];
+        return {static_cast<int32_t>(n & ~(0b1111u << 28)), !!(n >> 28)};
+    }
+
+    Point came_from(Point const p) const noexcept {
+        return p + decode_dir(data_[index_of(p)]);
+    }
+private:
+    Width w_;
+
+    using cost_t = std::pair<Point, int32_t>;
+
+    struct greater {
+        constexpr bool operator()(cost_t const a, cost_t const b) const noexcept {
+            return a.second > b.second;
+        }
+    };
+
+    std::priority_queue<cost_t, std::vector<cost_t>, greater> pqueue_;
+
+    // XX'YY'CCCC'CCCCCCCC'CCCCCCCC'CCCCCCCC
+    // 28 bits for cost, 4 bits for "from" direction
+    // 00 ->  unvisited
+    // 01 ->  0
+    // 10 ->  1
+    // 11 -> -1
+    std::vector<uint32_t> data_;
+};
+
+template <typename Graph>
+auto make_a_star_pather(Graph const&) {
+    return a_star_pather<Graph> {};
+}
+
+inline auto diagonal_heuristic() noexcept {
+    return [](auto const p, auto const goal) noexcept {
+        auto const v = abs(goal - p);
+        return std::max(value_cast(v.x), value_cast(v.y));
+    };
 }
 
 } // namespace boken

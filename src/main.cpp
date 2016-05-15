@@ -700,7 +700,14 @@ struct game_state {
         using mbc = mouse_event::button_change_t;
 
         switch (event.button_state_bits()) {
-        case 0b0000 : break;
+        case 0b0000 :
+            if (event.button_change[1] == mbc::went_up) {
+                do_follow_path(
+                    player_location()
+                  , window_to_world({event.x, event.y}));
+            }
+
+            break;
         case 0b0001 :
             if (event.button_change[0] == mbc::went_down) {
                 if (kmods.exclusive_any(kb_mod::alt)) {
@@ -1332,6 +1339,66 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Commands
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    void do_follow_path(point2i32 const from, point2i32 const to) {
+        auto const& path = current_level().find_path(from, to);
+        if (path.empty()) {
+            println("You don't know how to get there from here.");
+            return;
+        }
+
+        player_path_.assign(begin(path), end(path));
+
+        constexpr auto timer_name = djb2_hash_32c("do_follow_path timer");
+
+        // add an input context that automatically terminates the run on
+        // player input
+        input_context c {__func__};
+
+        c.on_mouse_button_handler = [=](auto, auto) {
+            timers.remove(timer_name);
+            return event_result::filter_detach;
+        };
+
+        c.on_command_handler = [=](auto, auto) {
+            timers.remove(timer_name);
+            return event_result::filter_detach;
+        };
+
+        auto const context_id = context_stack.push(std::move(c));
+
+        using namespace std::chrono;
+        constexpr auto delay = duration_cast<nanoseconds>(seconds {1}) / 100;
+
+        auto& lvl = current_level();
+        auto  p   = player_location();
+        auto  it  = begin(player_path_);
+
+        timers.add(timer_name, timer::duration {0}
+          , [=, &lvl]
+            (timer::duration, timer::timer_data) mutable -> timer::duration {
+                if (*it == to) {
+                    context_stack.pop(context_id);
+                    return timer::duration {};
+                }
+
+                auto const next_p = *++it;
+
+                // TODO: this could be "slow"
+                auto const player = player_descriptor();
+                auto const result = impl_player_move_by_(lvl, player, p, next_p - p);
+
+                // continue running
+                if (result == placement_result::ok) {
+                    p = next_p;
+                    return delay;
+                }
+
+                context_stack.pop(context_id);
+                return timer::duration {};
+          });
+
+    }
+
     void do_view() {
         auto const p = player_location();
 
@@ -2200,6 +2267,8 @@ struct game_state {
 
     std::vector<game_renderer::update_t<item_id>>   item_updates_;
     std::vector<game_renderer::update_t<entity_id>> entity_updates_;
+
+    std::vector<point2i32> player_path_;
 
     timepoint_t last_frame_time {};
 };

@@ -137,6 +137,10 @@ public:
     virtual void for_each_entity(
         std::function<void (entity_instance_id, point2i32)> const& f) = 0;
 
+    //! The vector will have its contents cleared and will then be filled with a
+    //! path from @p from to @p to.
+    virtual std::vector<point2i32> const& find_path(point2i32 from, point2i32 to) const = 0;
+
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===

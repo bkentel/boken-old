@@ -2,6 +2,100 @@
 #include "catch.hpp"
 #include "graph.hpp"
 
+#include "math_types.hpp"
+#include "math.hpp"
+#include <queue>
+#include <array>
+
+namespace boken {
+
+template <typename T = int32_t>
+class grid_graph {
+public:
+    using point = point2<T>;
+
+    grid_graph(int32_t const width, int32_t const height) noexcept
+      : width_  {width}
+      , height_ {height}
+    {
+    }
+
+    bool is_passable(point const p) const noexcept {
+        if (value_cast(p.x) == 1 && value_cast(p.y) < 15) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool is_in_bounds(point const p) const noexcept {
+        auto const x = value_cast(p.x);
+        auto const y = value_cast(p.y);
+
+        return (x >= 0 && x < width_)
+            && (y >= 0 && y < height_);
+    }
+
+    int32_t cost(
+        point const //from
+      , point const //to
+    ) const noexcept {
+        return 1;
+    }
+
+    template <typename Predicate, typename UnaryF>
+    void for_each_neighbor_if(point const p, Predicate pred, UnaryF f) const noexcept {
+        using v = vec2<int>;
+        constexpr std::array<v, 8> dir {
+            v {-1, -1}, v { 0, -1}, v { 1, -1}
+          , v {-1,  0},             v { 1,  0}
+          , v {-1,  1}, v { 0,  1}, v { 1,  1}
+        };
+
+        for (auto const& d : dir) {
+            point const p0 = p + underlying_cast_unsafe<T>(d);
+            if (is_in_bounds(p0) && pred(p0) && is_passable(p0)) {
+                f(p0);
+            }
+        }
+    }
+
+    template <typename UnaryF>
+    void for_each_neighbor(point const p, UnaryF f) const noexcept {
+        for_each_neighbor_if(p, [](auto&&) noexcept { return true; }, f);
+    }
+
+    int32_t width()  const noexcept { return width_; }
+    int32_t height() const noexcept { return height_; }
+    int32_t size()   const noexcept { return width_ * height_; }
+private:
+    int32_t width_;
+    int32_t height_;
+};
+
+} // namespace boken
+
+TEST_CASE("a_star_pather") {
+    using namespace boken;
+
+    grid_graph<> graph {20, 20};
+
+    auto pather = make_a_star_pather(graph);
+
+    auto const start = point2i32 {0, 0};
+    auto const goal  = point2i32 {10, 10};
+
+    pather.search(graph, start, goal, diagonal_heuristic());
+
+    std::vector<point2i32> path;
+    pather.reverse_copy_path(start, goal, back_inserter(path));
+    std::reverse(begin(path), end(path));
+
+    REQUIRE(path.size() >= 10u);
+    REQUIRE(path.front() == start);
+    REQUIRE(path.back() == goal);
+}
+
 TEST_CASE("graph connected_components 1") {
     using namespace boken;
 
