@@ -262,14 +262,27 @@ auto count_components(vertex_data<T> const& data, Container& out) {
     return std::make_tuple(min_i, max_i, out[min_i], out[max_i]);
 }
 
+//! Graph must support the following interface:
+//! Graph {
+//!   using point = <point type>
+//!   bool is_passable(point) const;
+//!   bool is_in_bounds(point) const;
+//!   int32_t cost(point from, point to) const;
+//!   int32_t width() const;
+//!   int32_t height() const;
+//!   int32_t size() const;
+//!   void for_each_neighbor_if(point, Predicate, UnaryF) const;
+//! }
 template <typename Graph>
 struct a_star_pather {
     using Point = typename Graph::point;
     using Width = decltype(std::declval<Graph>().width());
 
+    //! @returns goal if a path exits from start to goal; otherwise returns the
+    //!          best point that is reachable with respect to the heuristic.
     //! @param h A binary function of the form f(point p, point goal) -> int
     template <typename Heuristic>
-    void search(
+    Point search(
         Graph const& graph
       , Point const  start
       , Point const  goal
@@ -281,6 +294,10 @@ struct a_star_pather {
 
         auto& frontier = pqueue_;
 
+        // keep track of the 'best' node with respect to the heuristic
+        int32_t min_h   = std::numeric_limits<int32_t>::max();
+        Point   closest = start;
+
         frontier.push({start, 0});
         visit(start, start, 0);
 
@@ -289,6 +306,7 @@ struct a_star_pather {
             frontier.pop();
 
             if (current == goal) {
+                closest = goal;
                 break;
             }
 
@@ -299,13 +317,27 @@ struct a_star_pather {
               , [&](Point const next) noexcept {
                     new_cost = current_cost + graph.cost(current, next);
                     auto const cost = cost_so_far(next);
+
+                    // the node hasn't been visited, or the new cost to the node
+                    // is lower than the existing one
                     return !cost.second || new_cost < cost.first;
                 }
               , [&](Point const next) noexcept {
                     visit(next, current, new_cost);
-                    frontier.push({next, new_cost + h(next, goal)});
+
+                    // update the best node
+                    // TODO: consider using the cross product to break ties
+                    auto const h_value = h(next, goal);
+                    if (h_value < min_h) {
+                        min_h = h_value;
+                        closest = next;
+                    }
+
+                    frontier.push({next, new_cost + h_value});
                 });
         }
+
+        return closest;
     }
 
     template <typename OutputIt>

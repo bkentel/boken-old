@@ -60,11 +60,6 @@ public:
         }
     }
 
-    template <typename UnaryF>
-    void for_each_neighbor(point const p, UnaryF f) const noexcept {
-        for_each_neighbor_if(p, [](auto&&) noexcept { return true; }, f);
-    }
-
     int32_t width()  const noexcept { return width_; }
     int32_t height() const noexcept { return height_; }
     int32_t size()   const noexcept { return width_ * height_; }
@@ -85,7 +80,8 @@ TEST_CASE("a_star_pather") {
     auto const start = point2i32 {0, 0};
     auto const goal  = point2i32 {10, 10};
 
-    pather.search(graph, start, goal, diagonal_heuristic());
+    auto const p = pather.search(graph, start, goal, diagonal_heuristic());
+    REQUIRE(p == goal);
 
     std::vector<point2i32> path;
     pather.reverse_copy_path(start, goal, back_inserter(path));

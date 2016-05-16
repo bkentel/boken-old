@@ -579,8 +579,8 @@ public:
 
         last_path.clear();
 
-        pather.search({*this}, from, to, diagonal_heuristic());
-        pather.reverse_copy_path(from, to, back_inserter(last_path));
+        auto const p = pather.search({*this}, from, to, diagonal_heuristic());
+        pather.reverse_copy_path(from, p, back_inserter(last_path));
         std::reverse(begin(last_path), end(last_path));
 
         return last_path;

@@ -1369,19 +1369,22 @@ struct game_state {
         using namespace std::chrono;
         constexpr auto delay = duration_cast<nanoseconds>(seconds {1}) / 100;
 
-        auto& lvl = current_level();
-        auto  p   = player_location();
-        auto  it  = begin(player_path_);
+        auto&      lvl  = current_level();
+        auto       p    = player_location();
+        auto       it   = begin(player_path_);
+        auto const last = end(player_path_);
+
+        BK_ASSERT(it != last && p == *it);
 
         timers.add(timer_name, timer::duration {0}
           , [=, &lvl]
             (timer::duration, timer::timer_data) mutable -> timer::duration {
-                if (*it == to) {
+                if (++it == last) {
                     context_stack.pop(context_id);
                     return timer::duration {};
                 }
 
-                auto const next_p = *++it;
+                auto const next_p = *it;
 
                 // TODO: this could be "slow"
                 auto const player = player_descriptor();
