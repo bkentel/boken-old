@@ -1388,16 +1388,15 @@ struct game_state {
 
                 // TODO: this could be "slow"
                 auto const player = player_descriptor();
-                auto const result = impl_player_move_by_(lvl, player, p, next_p - p);
 
-                // continue running
-                if (result == placement_result::ok) {
-                    p = next_p;
-                    return delay;
+                auto const result = impl_player_move_by_(lvl, player, p, next_p - p);
+                if (result != placement_result::ok) {
+                    context_stack.pop(context_id);
+                    return timer::duration {};
                 }
 
-                context_stack.pop(context_id);
-                return timer::duration {};
+                p = next_p;
+                return delay;
           });
 
     }
