@@ -45,6 +45,10 @@ uint32_t is_container(const_item_descriptor i) noexcept;
 //! return a positive integer indicating the identification state of the item
 uint32_t is_identified(const_item_descriptor i) noexcept;
 
+//! return a positive integer for the current stack size; return 1 for items
+//! which cannot stack.
+uint32_t current_stack_size(const_item_descriptor i) noexcept;
+
 //! return a detailed description of the item
 //! @note This builds a new description every time it is called; it is meant for
 //!       generating descriptions to display to the player only.
