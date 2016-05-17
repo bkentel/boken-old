@@ -2311,6 +2311,10 @@ int main(int const argc, char const* argv[]) try {
     game.run();
 
     return 0;
+} catch (std::exception const& e) {
+    std::printf("Failed: %s.\n", e.what());
+    return 1;
 } catch (...) {
+    std::printf("Unexpected failure.\n");
     return 1;
 }
