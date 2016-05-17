@@ -169,16 +169,25 @@ struct game_state {
             return name_of_decorated(ctx, i);
         });
 
-        item_list.add_column("Weight", [&](const_item_descriptor const i) {
-            return std::to_string(weight_of_inclusive(ctx, i));
-        });
+        item_list.add_column("Weight"
+          , [&](const_item_descriptor const i) {
+                return std::to_string(weight_of_inclusive(ctx, i));
+            }
+          , [&](const_item_descriptor const lhs, string_view
+              , const_item_descriptor const rhs, string_view
+            ) {
+                return compare(weight_of_inclusive(ctx, lhs), weight_of_inclusive(ctx, rhs));
+            });
 
-        item_list.add_column("Count", [&](const_item_descriptor const i) {
-            auto const stack = get_property_value_or(
-                i, property(item_property::current_stack_size), 1);
-
-            return std::to_string(stack);
-        });
+        item_list.add_column("Count"
+          , [&](const_item_descriptor const i) {
+                return std::to_string(current_stack_size(i));
+            }
+          , [&](const_item_descriptor const lhs, string_view
+              , const_item_descriptor const rhs, string_view
+            ) {
+                return compare(current_stack_size(lhs), current_stack_size(rhs));
+            });
 
         item_list.layout();
 

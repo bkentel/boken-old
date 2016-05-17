@@ -1,4 +1,5 @@
 #include "inventory.hpp"
+#include "algorithm.hpp"
 #include "text.hpp"
 #include "math.hpp"
 #include "rect.hpp"
@@ -171,7 +172,7 @@ public:
         auto const frame = metrics_.client_frame;
 
         // translate the cell into screen space
-        auto const cell = rows_[ri][ci].extent()
+        auto const cell = get_row_(ri)[ci].extent()
             + (frame.top_left() - point2i32 {})
             - scroll_offset();
 
@@ -322,6 +323,72 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    void sort(std::initializer_list<int> const cols) noexcept final override {
+        std::sort(begin(sorted_), end(sorted_), [&](size_t const lhs, size_t const rhs) {
+            for (int const c : cols) {
+                BK_ASSERT(c != 0);
+
+                auto const ascending = c > 0;
+                auto const i = static_cast<size_t>((ascending ? c : -c) - 1);
+
+                auto const lhs_t = rows_[lhs][i].text();
+                auto const lhs_i = row_data_[lhs].id;
+                auto const lhs_d = const_item_descriptor {ctx_, lhs_i};
+
+                auto const rhs_t = rows_[rhs][i].text();
+                auto const rhs_i = row_data_[rhs].id;
+                auto const rhs_d = const_item_descriptor {ctx_, rhs_i};
+
+                auto const n = cols_[i].sorter(lhs_d, lhs_t, rhs_d, rhs_t);
+                if (n < 0) {
+                    return ascending;
+                } else if (n > 0) {
+                    return !ascending;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    void sort(int const* const first, int const* const last) noexcept final override {
+        BK_ASSERT(( !first &&  !last)
+               || (!!first && !!last));
+
+        if (!first) {
+            std::iota(begin(sorted_), end(sorted_), int16_t {0});
+            return;
+        }
+
+        std::sort(begin(sorted_), end(sorted_), [&](size_t const lhs, size_t const rhs) {
+            for (auto it = first; it != last; ++it) {
+                auto const c = *it;
+                BK_ASSERT(c != 0);
+
+                auto const ascending = c > 0;
+                auto const i = static_cast<size_t>((ascending ? c : -c) - 1);
+
+                auto const lhs_t = rows_[lhs][i].text();
+                auto const lhs_i = row_data_[lhs].id;
+                auto const lhs_d = const_item_descriptor {ctx_, lhs_i};
+
+                auto const rhs_t = rows_[rhs][i].text();
+                auto const rhs_i = row_data_[rhs].id;
+                auto const rhs_d = const_item_descriptor {ctx_, rhs_i};
+
+                auto const n = cols_[i].sorter(lhs_d, lhs_t, rhs_d, rhs_t);
+                if (n < 0) {
+                    return ascending;
+                } else if (n > 0) {
+                    return !ascending;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    //--------------------------------------------------------------------------
     void reserve(size_t const cols, size_t const rows) final override {
         cols_.reserve(cols);
         rows_.reserve(rows);
@@ -331,6 +398,7 @@ public:
         uint8_t     id
       , std::string label
       , get_f       get
+      , sort_f      sort
       , int         insert_before
       , sizei16x    width
     ) final override;
@@ -363,6 +431,9 @@ public:
         auto const make_data = [&](item_instance_id const id) {
             return row_data_t {id, false};
         };
+
+        std::generate_n(back_inserter(sorted_), std::distance(first, last)
+          , [n = static_cast<int16_t>(rows_.size())]() mutable { return n++; });
 
         std::transform(first, last, back_inserter(rows_), make_row);
         std::transform(first, last, back_inserter(row_data_), make_data);
@@ -401,6 +472,7 @@ public:
         scroll_pos_.y = 0;
         rows_.clear();
         row_data_.clear();
+        sorted_.clear();
         indicated_ = 0;
     }
 
@@ -413,36 +485,18 @@ public:
     //--------------------------------------------------------------------------
     bool selection_toggle(int const row) final override {
         BK_ASSERT(check_row_(row));
-        auto const r = static_cast<size_t>(row);
-        return row_data_[r].selected = !row_data_[r].selected;
+        return get_row_data_(row).selected = !get_row_data_(row).selected;
     }
 
     void selection_set(std::initializer_list<int> const rows) final override {
-        auto const first = begin(rows);
-        auto const last  = end(rows);
-        auto       it    = first;
-
-        for (size_t i = 0; i < row_data_.size(); ++i) {
-            if (it != last && *it == static_cast<int>(i)) {
-                row_data_[i].selected = true;
-                ++it;
-            } else {
-                row_data_[i].selected = false;
-            }
-        }
+        selection_clear();
+        selection_union(rows);
     }
 
     void selection_union(std::initializer_list<int> const rows) final override {
-        auto const first = begin(rows);
-        auto const last  = end(rows);
-        auto       it    = first;
-
-        for (size_t i = 0; i < row_data_.size() && it != last; ++i) {
-            if (*it == static_cast<int>(i)) {
-                row_data_[i].selected = true;
-                ++it;
-            }
-        }
+        for_each_index_of(sorted_, begin(rows), end(rows), [&](size_t const i) {
+            row_data_[i].selected = true;
+        });
     }
 
     void selection_clear() final override {
@@ -454,15 +508,20 @@ public:
     std::pair<int const*, int const*> get_selection() const final override {
         selected_.clear();
 
-        for (size_t i = 0; i < row_data_.size(); ++i) {
-            if (row_data_[i].selected) {
-                selected_.push_back(static_cast<int>(i));
-            }
-        }
+        // fill with the sorted indicies
+        fill_with_index_if(sorted_, 0, back_inserter(selected_)
+          , [&](size_t const r) noexcept { return row_data_[r].selected; });
 
         if (selected_.empty()) {
             return {nullptr, nullptr};
         }
+
+        // sort according to the original item order
+        std::sort(begin(selected_), end(selected_)
+          , [&](int const lhs, int const rhs) {
+                return sorted_[static_cast<size_t>(lhs)]
+                     < sorted_[static_cast<size_t>(rhs)];
+            });
 
         return {selected_.data()
               , selected_.data() + selected_.size()};
@@ -470,7 +529,7 @@ public:
 
     bool is_selected(int const row) const noexcept final override {
         BK_ASSERT(check_row_(row));
-        return row_data_[static_cast<size_t>(row)].selected;
+        return get_row_data_(row).selected;
     }
 
     column_info col(int const index) const noexcept final override {
@@ -490,14 +549,13 @@ public:
     std::pair<text_layout const*, text_layout const*>
     row(int const index) const noexcept final override {
         BK_ASSERT(check_row_(index));
-        auto const& row = rows_[static_cast<size_t>(index)];
-        return {row.data()
-              , row.data() + row.size()};
+        auto const& row = get_row_(index);
+        return {row.data(), row.data() + row.size()};
     }
 
     item_instance_id row_data(int const index) const noexcept final override {
         BK_ASSERT(check_row_(index));
-        return row_data_[static_cast<size_t>(index)].id;
+        return get_row_data_(index).id;
     }
 
     //--------------------------------------------------------------------------
@@ -518,6 +576,7 @@ private:
     struct col_data {
         text_layout text;
         get_f       getter;
+        sort_f      sorter;
         offi16x     left;
         offi16x     right;
         sizei16x    min_width;
@@ -547,12 +606,33 @@ private:
     std::vector<col_data>   cols_;
     std::vector<row_t>      rows_;
     std::vector<row_data_t> row_data_;
+    std::vector<int16_t>    sorted_;
 
     //!< temporary buffer used by get_selection
     std::vector<int> mutable selected_;
 
     int  indicated_  {0};
     bool is_visible_ {true};
+private:
+    template <typename T>
+    row_t& get_row_(T const index) noexcept {
+        return rows_[sorted_[static_cast<size_t>(index)]];
+    }
+
+    template <typename T>
+    row_t const& get_row_(T const index) const noexcept {
+        return const_cast<inventory_list_impl*>(this)->get_row_(index);
+    }
+
+    template <typename T>
+    row_data_t& get_row_data_(T const index) noexcept {
+        return row_data_[sorted_[static_cast<size_t>(index)]];
+    }
+
+    template <typename T>
+    row_data_t const& get_row_data_(T const index) const noexcept {
+        return const_cast<inventory_list_impl*>(this)->get_row_data_(index);
+    }
 };
 
 std::unique_ptr<inventory_list> make_inventory_list(
@@ -566,6 +646,7 @@ void inventory_list_impl::add_column(
     uint8_t const  id
   , std::string    label
   , get_f          get
+  , sort_f         sort
   , int const      insert_before
   , sizei16x const width
 ) {
@@ -604,6 +685,7 @@ void inventory_list_impl::add_column(
       , col_data {
             std::move(text)
           , std::move(get)
+          , std::move(sort)
           , left
           , left + min_w
           , min_w
@@ -666,8 +748,9 @@ inventory_list_impl::hit_test(point2i32 const p0) const noexcept {
             return p.x >= col.left && p.x < col.right;
         }));
 
-    auto const row_i = static_cast<int32_t>(distance_to_matching_or(rows_, -1
-        , [p](row_t const& row) noexcept {
+    auto const row_i = static_cast<int32_t>(distance_to_matching_or(sorted_, -1
+        , [&](size_t const r) noexcept {
+            auto const& row = rows_[r];
             if (row.empty()) {
                 return false;
             }
@@ -735,7 +818,7 @@ void inventory_list_impl::layout() noexcept {
         int32_t max_h = 0;
         x = 0;
 
-        auto& row = rows_[yi];
+        auto& row = get_row_(yi);
 
         for (size_t xi = 0; xi < cols(); ++xi) {
             auto const& col  = cols_[xi];

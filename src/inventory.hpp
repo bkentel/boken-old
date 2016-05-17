@@ -21,6 +21,10 @@ public:
     //! function used to get the text for a cell from an item instance.
     using get_f = std::function<std::string (const_item_descriptor)>;
 
+    //! function that has the semantics of std::sting::compare.
+    using sort_f = std::function<int (const_item_descriptor, string_view
+                                    , const_item_descriptor, string_view)>;
+
     //! insert new column of row and the end
     static int const insert_at_end = -1;
 
@@ -123,6 +127,17 @@ public:
     virtual int indicate_prev(int n = 1) noexcept = 0;
 
     //--------------------------------------------------------------------------
+
+    //! @param cols A set of successive columns to sort by: first by cols[0],
+    //!             then by cols[1] if cols[0] compare equal, and so on.
+    //!             If cols[i] is negative, sort in descending order, ascending
+    //!             oder otherwise.
+    //! @note column indicies are 1 based
+    virtual void sort(std::initializer_list<int> cols) noexcept = 0;
+
+    virtual void sort(int const* first, int const* last) noexcept = 0;
+
+    //--------------------------------------------------------------------------
     virtual void reserve(size_t cols, size_t rows) = 0;
 
     //! @note The functor get_f is copied internally; any state must be captured
@@ -131,6 +146,7 @@ public:
         uint8_t     id
       , std::string label
       , get_f       get
+      , sort_f      sort
       , int         insert_before = insert_at_end
       , sizei16x    width         = adjust_to_fit) = 0;
 

@@ -36,11 +36,16 @@ public:
     using on_command_t = std::function<event_result (command_type type)>;
     using on_focus_change_t = std::function<void (bool)>;
     using on_selection_change_t = std::function<void (int)>;
-    using get_f = inventory_list::get_f;
+    using get_f  = inventory_list::get_f;
+    using sort_f = inventory_list::sort_f;
 
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
 
+    //! use a custom sort
+    void add_column(std::string heading, get_f getter, sort_f sorter);
+
+    //! use a string based sort
     void add_column(std::string heading, get_f getter);
 
     //--------------------------------------------------------------------------
@@ -247,6 +252,9 @@ private:
 
     point2i32    last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};
+
+    // The current set of columns to sort by.
+    std::vector<int> sort_cols_;
 
     bool is_moving_       {false};
     bool is_sizing_       {false};

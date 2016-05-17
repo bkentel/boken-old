@@ -208,6 +208,11 @@ uint32_t is_container(const_item_descriptor const itm) noexcept {
     return get_property_value_or(itm, property(item_property::capacity), 0);
 }
 
+uint32_t current_stack_size(const_item_descriptor const itm) noexcept {
+    return get_property_value_or(itm
+        , property(item_property::current_stack_size), 1u);
+}
+
 string_view name_of(const_context const ctx, const_item_descriptor const i) noexcept {
     return i
       ? string_view {i.def->name}

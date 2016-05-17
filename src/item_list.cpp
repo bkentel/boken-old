@@ -20,10 +20,23 @@ item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
     set_on_selection_change();
 }
 
-void item_list_controller::add_column(std::string heading, get_f getter) {
+void item_list_controller::add_column(std::string heading, get_f getter, sort_f sorter) {
     auto const id = static_cast<uint8_t>(list_->cols() & 0xFFu);
-    list_->add_column(id, std::move(heading), std::move(getter));
+    list_->add_column(id, std::move(heading), std::move(getter), std::move(sorter));
 }
+
+
+void item_list_controller::add_column(std::string heading, get_f getter) {
+    auto const by_string = [](
+        const_item_descriptor, string_view const lhs
+      , const_item_descriptor, string_view const rhs
+    ) noexcept {
+        return lhs.compare(rhs);
+    };
+
+    add_column(std::move(heading), std::move(getter), by_string);
+}
+
 
 //--------------------------------------------------------------------------
 void item_list_controller::set_on_command(on_command_t handler) {
@@ -153,6 +166,24 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
             } else {
                 il.selection_set({hit_test.y});
             }
+        } else if (hit_test.what == type::header) {
+            auto const first = begin(sort_cols_);
+            auto const last  = end(sort_cols_);
+            auto const value = hit_test.x + 1;
+            auto const it = std::lower_bound(first, last, value
+              , [&](int const lhs, int const rhs) {
+                    return std::abs(lhs) < std::abs(rhs);
+                });
+
+            if (it == last || std::abs(*it) != value) {
+                sort_cols_.insert(it, value);
+            } else {
+                *it = -*it;
+            }
+
+            il.sort(sort_cols_.data(), sort_cols_.data() + sort_cols_.size());
+            il.layout();
+            return false;
         }
     }
 
