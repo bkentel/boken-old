@@ -226,4 +226,29 @@ inline constexpr R round_as(T const n) noexcept {
     return static_cast<R>(std::round(n));
 }
 
+template <typename T, typename SetPixel>
+void bresenham_line(T const x0, T const y0, T const x1, T const y1, SetPixel set_pixel) {
+    static_assert(std::is_signed<T>::value, "");
+
+    T const dx = std::abs(x1 - x0);
+    T const dy = std::abs(y1 - y0);
+    T const sx = (x0 < x1) ? 1 : -1;
+    T const sy = (y0 < y1) ? 1 : -1;
+    T       x  = x0;
+    T       y  = y0;
+
+    for (T err = (dx > dy ? dx : -dy) / 2; ; ) {
+        set_pixel(x, y);
+
+        if (x == x1 && y == y1) {
+            break;
+        }
+
+        T const prev_err = err;
+
+        if (prev_err > -dx) { err -= dy; x += sx; }
+        if (prev_err <  dy) { err += dx; y += sy; }
+    }
+}
+
 } //namespace boken
