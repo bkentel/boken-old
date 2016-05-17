@@ -1157,7 +1157,7 @@ void level_impl::generate_make_connections(random_state& rng) {
         fill_with_index_if(first, last, i, back_inserter(component_indicies)
           , [n](vertex_t const m) noexcept { return m == n; });
 
-        shuffle(begin(component_indicies), end(component_indicies), rng);
+        shuffle(rng, begin(component_indicies), end(component_indicies));
     };
 
     // return 'to' if an edge between from<->to is added to graph, otherwise

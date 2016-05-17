@@ -47,4 +47,13 @@ Result const& random_weighted(random_state& rng, weight_list<Weight, Result> con
     return weights[roll];
 }
 
+template <typename RanIt>
+inline void shuffle(random_state& rng, RanIt const first, RanIt const last) noexcept {
+    RanIt next = first;
+    for (int32_t i = 1; ++next != last; ++i) {
+        auto const off = random_uniform_int(rng, 0, i);
+        std::swap(*next, *(first + off));
+    }
+}
+
 } //namespace boken

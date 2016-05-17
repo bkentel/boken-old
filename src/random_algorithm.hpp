@@ -61,7 +61,7 @@ find_random_nearest(
     for (T d = 0; d <= max_distance; ++d) {
         auto const last = fill_with_points_around(origin, d, p_first, p_last);
 
-        std::shuffle(p_first, last, rng);
+        shuffle(rng, p_first, last);
         auto const it = std::find_if(p_first, last, pred);
 
         if (it != last) {
@@ -87,7 +87,7 @@ void for_each_xy_random(random_state& rng, axis_aligned_rect<T> const r, UnaryF 
     auto const last  = end(points);
     auto const it    = fill_with_points_in(r, first, last);
 
-    std::shuffle(first, it, rng);
+    shuffle(rng, first, it);
     std::for_each(first, it, f);
 }
 
@@ -107,7 +107,7 @@ find_if_random(random_state& rng, axis_aligned_rect<T> const r, Predicate pred) 
     auto const p_last  = end(points);
     auto const last    = fill_with_points_in(r, p_first, p_last);
 
-    std::shuffle(p_first, last, rng);
+    shuffle(rng, p_first, last);
 
     auto const it = std::find_if(p_first, last, [&](auto const p) noexcept {
         return pred(p);
