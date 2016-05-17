@@ -1,5 +1,6 @@
 #include "system.hpp"           // for read_only_pointer_t, etc
 #include "math.hpp"             // for ceil_as
+#include "config.hpp"
 
 #include <bkassert/assert.hpp>
 
@@ -13,6 +14,8 @@
 #include <utility>              // for move, pair, swap
 
 #include <cstdint>              // for uint16_t, uint8_t, uint32_t
+
+namespace boken {
 
 namespace {
 
@@ -204,25 +207,34 @@ sdl_texture create_font_texture(sdl_renderer& render) {
     return result;
 }
 
-} //namespace
+sdl_texture create_texture_from_file(sdl_renderer& render, string_view const filename) {
+    auto result = sdl_texture {SDL_CreateTextureFromSurface(render
+        , sdl_surface {SDL_LoadBMP(filename.data())})};
 
-namespace boken {
+    if (!result) {
+        throw sdl_error {SDL_GetError()};
+    }
+
+    if (SDL_SetTextureBlendMode(result, SDL_BLENDMODE_BLEND)) {
+        throw sdl_error {SDL_GetError()};
+    }
+
+    return result;
+}
+
+} //namespace
 
 system::~system() = default;
 
 class sdl_system final : public system {
 public:
     sdl_system()
-      : renderer_ {window_}
-      , base_tiles_ {SDL_CreateTextureFromSurface(
-          renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
-      , entity_tiles_ {SDL_CreateTextureFromSurface(
-          renderer_, sdl_surface {SDL_LoadBMP("./data/entities.bmp")})}
-      , item_tiles_ {SDL_CreateTextureFromSurface(
-          renderer_, sdl_surface {SDL_LoadBMP("./data/tiles.bmp")})}
-      , font_cache_ {create_font_texture(renderer_)}
-      , background_{SDL_CreateTextureFromSurface(
-          renderer_, sdl_surface {SDL_LoadBMP("./data/background.bmp")})}
+      : renderer_     {window_}
+      , base_tiles_   {create_texture_from_file(renderer_, "./data/tiles.bmp")}
+      , entity_tiles_ {create_texture_from_file(renderer_, "./data/entities.bmp")}
+      , item_tiles_   {create_texture_from_file(renderer_, "./data/tiles.bmp")}
+      , font_cache_   {create_font_texture(renderer_)}
+      , background_   {create_texture_from_file(renderer_, "./data/background.bmp")}
     {
         SDL_GetWindowSize(window_, &window_w_, &window_h_);
 
