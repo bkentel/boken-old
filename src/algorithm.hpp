@@ -73,6 +73,40 @@ void fill_with_index_if(FwdIt first, FwdIt last, Index i, Out out, Predicate pre
     }
 }
 
+template <typename Container, typename Index, typename Out, typename Predicate>
+void fill_with_index_if(Container&& c, Index i, Out out, Predicate pred) {
+    fill_with_index_if(begin(c), end(c), i , out, pred);
+}
+
+//! Invoke f for each index i in the range [first, last) with the ith element
+//! of c. For values of i which are out of range, do nothing.
+template <typename Container, typename FwdIt, typename UnaryF>
+void for_each_index_of(Container&& c, FwdIt first, FwdIt last, UnaryF f) {
+    using index_t = std::decay_t<decltype(*first)>;
+    static_assert(std::is_arithmetic<index_t> {}, "");
+
+    if (first == last) {
+        return;
+    }
+
+    auto i = index_t {};
+    auto j = *first;
+
+    for (auto&& e : c) {
+        if (i++ != j) {
+            continue;
+        }
+
+        f(e);
+
+        if (++first == last) {
+            return;
+        }
+
+        j = *first;
+    }
+}
+
 //! A 2d-array adapter for a linear array.
 template <typename Container, typename T, typename U>
 auto&& at_xy(Container&& c, T const x, T const y, U const w) noexcept {
@@ -126,6 +160,13 @@ void for_each_matching(
     using std::end;
 
     for_each_matching(begin(c), end(c), pred, callback);
+}
+
+template <typename T, typename U>
+constexpr int compare(T const& lhs, U const& rhs) noexcept {
+    return lhs <  rhs ? -1
+         : lhs == rhs ? 0
+                      : 1;
 }
 
 } //namespace boken
