@@ -586,6 +586,17 @@ public:
         return last_path;
     }
 
+    bool has_line_of_sight(point2i32 const from, point2i32 const to) const final override {
+        bool result = true;
+
+        bresenham_line(from, to, [&](point2i32 const p) {
+            return result = !data_at_(data_.flags, p).test(tile_flag::solid)
+                         || (p == to);
+        });
+
+        return result;
+    }
+
     const_sub_region_range<tile_id>
     update_tile_at(random_state& rng, point2i32 p
                  , tile_data_set const& data) noexcept final override;

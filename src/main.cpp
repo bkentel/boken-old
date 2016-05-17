@@ -399,10 +399,10 @@ struct game_state {
 
         auto const result =
             buffer.append(
-                "Position: %d, %d\n"
+                "Position: %d, %d (%s)\n"
                 "Region  : %d\n"
                 "Tile    : %s\n"
-              , value_cast(p0.x), value_cast(p0.y)
+              , value_cast(p0.x), value_cast(p0.y), lvl.has_line_of_sight(player_location(), p0) ? "seen" : "unseen"
               , value_cast<int>(tile.rid)
               , enum_to_string(lvl.at(p0).id).data())
          && print_entity()

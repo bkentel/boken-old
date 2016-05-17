@@ -141,6 +141,8 @@ public:
     //! path from @p from to @p to.
     virtual std::vector<point2i32> const& find_path(point2i32 from, point2i32 to) const = 0;
 
+    virtual bool has_line_of_sight(point2i32 from, point2i32 to) const = 0;
+
     //===--------------------------------------------------------------------===
     //                          State Mutation
     //===--------------------------------------------------------------------===
