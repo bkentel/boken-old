@@ -1,45 +1,16 @@
 #pragma once
 
-#include <bkassert/assert.hpp>
-
+#include "functional.hpp"
 #include "math.hpp"
 #include "random.hpp"
+
+#include "bkassert/assert.hpp"
 
 #include <array>
 #include <cstdint>
 #include <cstddef>
 
 namespace boken {
-
-//! Type trait for the number of parameters a function (object) takes.
-template <typename F>
-struct arity_of;
-
-template <typename R, typename... Args>
-struct arity_of<R (*)(Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename C, typename R, typename... Args>
-struct arity_of<R (C::*)(Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename C, typename R, typename... Args>
-struct arity_of<R (C::*)(Args...) const> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename R, typename... Args>
-struct arity_of<R (Args...)> {
-    static constexpr size_t value = sizeof...(Args);
-};
-
-template <typename F>
-struct arity_of {
-    static_assert(std::is_class<std::decay_t<F>>::value, "");
-    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
-};
 
 template <typename T, typename U>
 constexpr bool contains(
@@ -390,7 +361,7 @@ void for_each_xy_impl(
 //! @param f can be of the form:
 //! (1) void f(point2<T>) or
 //! (2) void f(point2<T>, bool)
-//! For (2), the bool parameter indicated whether the first parameter is on the
+//! For (2), the bool parameter indicates whether the first parameter is on the
 //! the perimeter of @p r.
 template <typename T, typename F>
 void for_each_xy(axis_aligned_rect<T> const r, F f) {

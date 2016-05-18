@@ -11,19 +11,16 @@
 
 namespace boken {
 
-struct always_true {
+template <typename T, T Value>
+struct always_same {
     template <typename... Args>
-    inline constexpr bool operator()(Args&&...) const noexcept {
-        return true;
+    inline constexpr T operator()(Args&&...) const noexcept {
+        return Value;
     }
 };
 
-struct always_false {
-    template <typename... Args>
-    inline constexpr bool operator()(Args&&...) const noexcept {
-        return false;
-    }
-};
+using always_true  = always_same<bool, true>;
+using always_false = always_same<bool, false>;
 
 struct ignore {
     template <typename... Args>
@@ -52,7 +49,7 @@ auto find_nth(Container&& c, Count const n, Value const& value) noexcept {
     return find_nth(begin(c), end(c), n, value);
 }
 
-//! Container wide verion of std::fill.
+//! Container wide version of std::fill.
 template <typename Container, typename Value>
 void fill(Container& c, Value const& v) {
     using std::begin;

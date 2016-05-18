@@ -5,6 +5,36 @@ namespace boken {
 #include <type_traits>
 #include <utility>
 
+//! Type trait for the number of parameters a function (object) takes.
+template <typename F>
+struct arity_of;
+
+template <typename R, typename... Args>
+struct arity_of<R (*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename C, typename R, typename... Args>
+struct arity_of<R (C::*)(Args...) const> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename R, typename... Args>
+struct arity_of<R (Args...)> {
+    static constexpr size_t value = sizeof...(Args);
+};
+
+template <typename F>
+struct arity_of {
+    static_assert(std::is_class<std::decay_t<F>>::value, "");
+    static constexpr size_t value = arity_of<decltype(&F::operator())>::value;
+};
+
 template <bool Result, typename F>
 struct void_as_bool_t {
     F f_;
