@@ -564,12 +564,71 @@ public:
         return stair_down_;
     }
 
-    void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) final override {
-        items_.for_each(f);
+    template <typename Objects, typename F>
+    static void for_each_object_impl_(Objects&& objs, F&& f) {
+        objs.for_each(f);
     }
 
-    void for_each_entity(std::function<void (entity_instance_id, point2i32)> const& f) final override {
-        entities_.for_each(f);
+    template <typename F>
+    void for_each_entity_near_impl_(
+        point2i32 const p
+      , int32_t   const distance
+      , F&&             f
+    ) const {
+        BK_ASSERT(distance > 0);
+        auto const g = void_as_bool<true>(f);
+        auto const r = grow_rect(recti32 {p, p}, distance);
+        for_each_object_impl_(entities_, [&](entity_instance_id const id, point2i32 const p) {
+            return !intersects(r, p) || g(entity_position {p, id});
+        });
+    }
+
+    void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) const final override {
+        for_each_object_impl_(items_, f);
+    }
+
+    void for_each_pile_while(std::function<bool (item_pile const&, point2i32)> const& f) const final override {
+        for_each_object_impl_(items_, f);
+    }
+
+    void for_each_entity(std::function<void (entity_instance_id, point2i32)> const& f) const final override {
+        for_each_object_impl_(entities_, f);
+    }
+
+    void for_each_entity_while(std::function<bool (entity_instance_id, point2i32)> const& f) const final override {
+        for_each_object_impl_(entities_, f);
+    }
+
+    void for_each_entity_near_while(
+        point2i32 const p
+      , int32_t const distance
+      , std::function<bool (entity_position)> const& f
+    ) const final override {
+        for_each_entity_near_impl_(p, distance, f);
+    }
+
+    void for_each_entity_near(
+        point2i32 const p
+      , int32_t const distance
+      , std::function<void (entity_position)> const& f
+    ) const final override {
+        for_each_entity_near_impl_(p, distance, f);
+    }
+
+    const_range<entity_position> entities_near(
+        point2i32 const p
+      , int32_t   const distance
+    ) const final override {
+        nearby_entities_.clear();
+
+        for_each_entity_near_impl_(p, distance, [&](entity_position const e) {
+            return nearby_entities_.push_back(e), true;
+        });
+
+        auto const first = nearby_entities_.data();
+        auto const size  = static_cast<ptrdiff_t>(nearby_entities_.size());
+
+        return {first, first + size};
     }
 
     std::vector<point2i32> const&
@@ -577,13 +636,13 @@ public:
         BK_ASSERT(check_bounds_(from)
                && check_bounds_(to));
 
-        last_path.clear();
+        last_path_.clear();
 
-        auto const p = pather.search({*this}, from, to, diagonal_heuristic());
-        pather.reverse_copy_path(from, p, back_inserter(last_path));
-        std::reverse(begin(last_path), end(last_path));
+        auto const p = pather_.search({*this}, from, to, diagonal_heuristic());
+        pather_.reverse_copy_path(from, p, back_inserter(last_path_));
+        std::reverse(begin(last_path_), end(last_path_));
 
-        return last_path;
+        return last_path_;
     }
 
     bool has_line_of_sight(point2i32 const from, point2i32 const to) const final override {
@@ -709,8 +768,12 @@ private:
 
     // logically const, but keeps a mutable buffer internally used across
     // invocations
-    a_star_pather<level_adapter> mutable pather;
-    std::vector<point2i32> mutable last_path;
+    a_star_pather<level_adapter> mutable pather_;
+    std::vector<point2i32> mutable last_path_;
+
+    // logically const, but keeps a mutable buffer internally used across
+    // invocations
+    std::vector<entity_position> mutable nearby_entities_;
 private:
     template <typename T>
     class data_read_write_base {

@@ -132,16 +132,40 @@ public:
     virtual point2i32 stair_down(int const i) const noexcept = 0;
 
     virtual void for_each_pile(
-        std::function<void (item_pile const&, point2i32)> const& f) = 0;
+        std::function<void (item_pile const&, point2i32)> const& f) const = 0;
+
+    virtual void for_each_pile_while(
+        std::function<bool (item_pile const&, point2i32)> const& f) const = 0;
 
     virtual void for_each_entity(
-        std::function<void (entity_instance_id, point2i32)> const& f) = 0;
+        std::function<void (entity_instance_id, point2i32)> const& f) const = 0;
+
+    virtual void for_each_entity_while(
+        std::function<bool (entity_instance_id, point2i32)> const& f) const = 0;
 
     //! The vector will have its contents cleared and will then be filled with a
     //! path from @p from to @p to.
+    //! @note not thread safe
     virtual std::vector<point2i32> const& find_path(point2i32 from, point2i32 to) const = 0;
 
     virtual bool has_line_of_sight(point2i32 from, point2i32 to) const = 0;
+
+    template <typename T>
+    using const_range = std::pair<T const*, T const*>;
+
+    template <typename T>
+    using object_position = std::pair<point2i32, T>;
+
+    using entity_position = object_position<entity_instance_id>;
+
+    virtual const_range<entity_position>
+        entities_near(point2i32 p, int32_t distance) const = 0;
+
+    virtual void for_each_entity_near_while(point2i32 p, int32_t distance
+        , std::function<bool (entity_position)> const& f) const = 0;
+
+    virtual void for_each_entity_near(point2i32 p, int32_t distance
+        , std::function<void (entity_position)> const& f) const = 0;
 
     //===--------------------------------------------------------------------===
     //                          State Mutation

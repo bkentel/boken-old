@@ -1246,20 +1246,6 @@ struct game_state {
         update_view_trans(current_view.x_off + dx, current_view.y_off + dy);
     }
 
-    placement_result impl_player_move_by_(level& lvl, entity_descriptor const player, point2i32 const p, vec2i32 const v) {
-        auto const result = lvl.move_by(player.obj.instance(), v);
-        if (result != placement_result::ok) {
-            return result;
-        }
-
-        adjust_view_to_player(p + v);
-
-        renderer_update(player.obj.definition(), p, p + v);
-        advance(1);
-
-        return result;
-    }
-
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Item transfer
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1849,30 +1835,6 @@ struct game_state {
         reset_view_to_player();
     }
 
-    placement_result do_player_move_to(point2i32 const p) {
-        auto const p_cur = player_location();
-        auto const p_dst = p;
-
-        auto const player = player_descriptor();
-        auto const result = current_level().move_by(player_id(), p_dst - p_cur);
-
-        switch (result) {
-        case placement_result::ok:
-            renderer_update(player.obj.definition(), p_cur, p_dst);
-            break;
-        case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_bounds:   BK_ATTRIBUTE_FALLTHROUGH;
-        case placement_result::failed_bad_id:
-            break;
-        default:
-            BK_ASSERT(false);
-            break;
-        }
-
-        return result;
-    }
-
     void do_player_run(vec2i32 const v) {
         BK_ASSERT(value_cast(abs(v.x)) <= 1
                && value_cast(abs(v.y)) <= 1
@@ -1930,6 +1892,41 @@ struct game_state {
           });
     }
 
+    placement_result impl_player_move_by_(level& lvl, entity_descriptor const player, point2i32 const p, vec2i32 const v) {
+        auto const result = lvl.move_by(player.obj.instance(), v);
+        if (result != placement_result::ok) {
+            return result;
+        }
+
+        auto const p0 = p + v;
+        BK_ASSERT(player_location() == p0);
+
+        adjust_view_to_player(p0);
+        renderer_update(player.obj.definition(), p, p0);
+
+        auto const pid = player_id();
+        static_string_buffer<128> buffer;
+        lvl.for_each_entity_near(p0, 5, [&](level::entity_position const pos) {
+            if (pos.second == pid) {
+                return;
+            }
+
+            auto const has_los = lvl.has_line_of_sight(p0, pos.first);
+            auto const e = const_entity_descriptor {ctx, pos.second};
+
+            buffer.clear();
+            buffer.append("You %s a %s nearby."
+              , (has_los ? "see" : "sense")
+              , name_of_decorated(ctx, e).data());
+
+            println(buffer);
+        });
+
+        advance(1);
+
+        return result;
+    }
+
     placement_result do_player_move_by(vec2i32 const v) {
         BK_ASSERT(value_cast(abs(v.x)) <= 1
                && value_cast(abs(v.y)) <= 1
@@ -1956,6 +1953,30 @@ struct game_state {
             // the player id should always be valid
             BK_ATTRIBUTE_FALLTHROUGH;
         default :
+            BK_ASSERT(false);
+            break;
+        }
+
+        return result;
+    }
+
+    placement_result do_player_move_to(point2i32 const p) {
+        auto const p_cur = player_location();
+        auto const p_dst = p;
+
+        auto const player = player_descriptor();
+        auto const result = current_level().move_by(player_id(), p_dst - p_cur);
+
+        switch (result) {
+        case placement_result::ok:
+            renderer_update(player.obj.definition(), p_cur, p_dst);
+            break;
+        case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bounds:   BK_ATTRIBUTE_FALLTHROUGH;
+        case placement_result::failed_bad_id:
+            break;
+        default:
             BK_ASSERT(false);
             break;
         }

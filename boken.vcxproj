@@ -153,6 +153,7 @@
     <ClInclude Include="src\events.hpp" />
     <ClInclude Include="src\flag_set.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
+    <ClInclude Include="src\functional.hpp" />
     <ClInclude Include="src\graph.hpp" />
     <ClInclude Include="src\hash.hpp" />
     <ClInclude Include="src\inventory.hpp" />
