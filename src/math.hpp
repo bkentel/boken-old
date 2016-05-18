@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math_types.hpp"
+#include "functional.hpp"
 
 #include <type_traits>
 #include <functional>
@@ -226,58 +227,11 @@ inline constexpr R round_as(T const n) noexcept {
     return static_cast<R>(std::round(n));
 }
 
-namespace detail {
-
-template <typename T, typename SetPixel>
-auto bresenham_line_condition(T const x1, T const y1, SetPixel set_pixel, std::true_type) noexcept {
-    return [=](T const x, T const y) {
-        return !set_pixel(x, y) || (x == x1 && y == y1);
-    };
-}
-
-template <typename T, typename SetPixel>
-auto bresenham_line_condition(T const x1, T const y1, SetPixel set_pixel, std::false_type) noexcept {
-    return [=](T const x, T const y) {
-        return (void)set_pixel(x, y), (x == x1 && y == y1);
-    };
-}
-
-//! functions that return void -> always true
-template <typename T, typename SetPixel>
-auto bresenham_line_set_pixel_point(SetPixel set_pixel, std::false_type) {
-    return [=](T const x, T const y) {
-        set_pixel(point2<T> {x, y});
-    };
-}
-
-//! functions that already return a bool
-template <typename T, typename SetPixel>
-auto bresenham_line_set_pixel_point(SetPixel set_pixel, std::true_type) {
-    return [=](T const x, T const y) {
-        return set_pixel(point2<T> {x, y});
-    };
-}
-
-template <typename T>
-struct bool_or_void_t {
-    using type = std::conditional_t<std::is_void<T>::value,       std::false_type
-               , std::conditional_t<std::is_same<T, bool>::value, std::true_type, void>>;
-
-    static_assert(!std::is_void<type>::value, "");
-};
-
-template <typename F, typename... Args>
-constexpr auto bool_or_void(F&& f, Args&&... args) noexcept
-  -> typename bool_or_void_t<std::decay_t<decltype(f(std::forward<Args>(args)...))>>::type;
-
-} // namespace detail
-
 template <typename T, typename SetPixel>
 void bresenham_line(T const x0, T const y0, T const x1, T const y1, SetPixel set_pixel) {
     static_assert(std::is_signed<T>::value, "");
-    using type = decltype(detail::bool_or_void(set_pixel, x0, y0));
 
-    auto const cond = detail::bresenham_line_condition(x1, y1, set_pixel, type {});
+    auto const f = void_as_bool<true>(set_pixel);
 
     T const dx = std::abs(x1 - x0);
     T const dy = std::abs(y1 - y0);
@@ -287,7 +241,7 @@ void bresenham_line(T const x0, T const y0, T const x1, T const y1, SetPixel set
     T       y  = y0;
 
     for (T err = (dx > dy ? dx : -dy) / 2; ; ) {
-        if (cond(x, y)) {
+        if (!f(x, y) || (x == x1 && y == y1)) {
             break;
         }
 
@@ -300,11 +254,12 @@ void bresenham_line(T const x0, T const y0, T const x1, T const y1, SetPixel set
 
 template <typename T, typename SetPixel>
 void bresenham_line(point2<T> const from, point2<T> const to, SetPixel set_pixel) {
-    using type = decltype(detail::bool_or_void(set_pixel, to));
-
+    auto const f = void_as_bool<true>(set_pixel);
     bresenham_line(value_cast(from.x), value_cast(from.y)
-      , value_cast(to.x), value_cast(to.y)
-      , detail::bresenham_line_set_pixel_point<T>(set_pixel, type {}));
+                 , value_cast(to.x), value_cast(to.y)
+                 , [&](T const x, T const y) {
+                        return f(point2<T> {x, y});
+                   });
 }
 
 } //namespace boken

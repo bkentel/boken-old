@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math.hpp"
+#include "functional.hpp"
 
 #include <vector>
 #include <type_traits>
@@ -154,9 +155,13 @@ public:
     }
 
     template <typename F>
-    void for_each(F f) {
-        for (size_t i = 0; i < values_.size(); ++i) {
-            f(values_[i], positions_[i]);
+    void for_each(F f) const {
+        auto const g = void_as_bool<true>(f);
+        auto const n = values_.size();
+        for (size_t i = 0; i < n; ++i) {
+            if (!g(values_[i], positions_[i])) {
+                break;
+            }
         }
     }
 private:
