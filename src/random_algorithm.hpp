@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <utility>
+#include <iterator>
 
 #include <cstddef>
 
@@ -139,5 +140,26 @@ vec2<T> random_dir8(random_state& rng) noexcept {
     auto const i = static_cast<size_t>(random_uniform_int(rng, 0, 7));
     return {static_cast<T>(dir_x[i]), static_cast<T>(dir_y[i])};
 }
+
+template <typename RanIt>
+inline void shuffle(random_state& rng, RanIt const first, RanIt const last) noexcept {
+    RanIt next = first;
+    for (int32_t i = 1; ++next != last; ++i) {
+        auto const off = random_uniform_int(rng, 0, i);
+        std::swap(*next, *(first + off));
+    }
+}
+
+template <typename RndIt>
+RndIt random_value_in_range(random_state& rng, RndIt const first, RndIt const last) noexcept {
+    using Cat = typename std::iterator_traits<RndIt>::iterator_category;
+    static_assert(std::is_same<Cat, std::random_access_iterator_tag> {}, "");
+
+    auto const n = static_cast<int32_t>(std::distance(first, last));
+    return (n >  1) ? (first + random_uniform_int(rng, 0, n - 1))
+         : (n == 1) ? first
+                    : last;
+}
+
 
 } //namespace boken
