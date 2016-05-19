@@ -92,6 +92,23 @@ public:
     virtual entity const* entity_at(point2i32 p) const noexcept = 0;
     virtual entity* entity_at(point2i32 p) noexcept = 0;
 
+    virtual void entities_at(
+        point2i32 const* first, point2i32 const* last
+      , entity_instance_id* out_first, entity_instance_id* out_last) const noexcept = 0;
+
+    template <typename... Args>
+    auto entities_at(Args... points) const noexcept
+        -> std::array<entity_instance_id, sizeof...(Args)>
+    {
+        std::array<point2i32, sizeof...(Args)> const pts {points...};
+        std::array<entity_instance_id, sizeof...(Args)> result;
+
+        entities_at(pts.data(),    pts.data()    + sizeof...(Args)
+                  , result.data(), result.data() + sizeof...(Args));
+
+        return result;
+    }
+
     //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
     //! item_pile is at the given position.
     virtual item_pile const* item_at(point2i32 p) const noexcept = 0;
@@ -130,6 +147,11 @@ public:
     //! Returns the location of the stairs with index @p i.
     virtual point2i32 stair_up(int const i) const noexcept = 0;
     virtual point2i32 stair_down(int const i) const noexcept = 0;
+
+    //! If @p f returns false, the entity is destroyed before control returns to
+    //! the caller.
+    virtual unique_entity with_entity_at(
+        point2i32 p, std::function<bool (entity_instance_id)> const& f) = 0;
 
     virtual void for_each_pile(
         std::function<void (item_pile const&, point2i32)> const& f) const = 0;

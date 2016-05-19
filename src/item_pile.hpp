@@ -9,6 +9,7 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
+#include <tuple>
 
 namespace boken { class world; }
 namespace boken { class game_database; }
@@ -134,5 +135,42 @@ enum class merge_item_result : uint32_t {
 
 void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm
     , item_pile& dst);
+
+//! @return A tuple {n, first, second, last} where n is {0, 1, 2} and
+//!         indicates, respectively, no matches, 1 match, at least 2 matches.
+//!         first is an iterator to the first match, second the second, and
+//!         last is a past-the-end iterator for the pile.
+template <typename Predicate>
+auto find_matching_items(item_pile const* const pile, Predicate pred) noexcept {
+    using it_t = decltype(begin(*pile));
+
+    // empty pile
+    if (!pile) {
+        return std::make_tuple(0, it_t {}, it_t {}, it_t {});
+    }
+
+    // find matching items
+    auto const find = [=](it_t const first, it_t const last) noexcept {
+        return std::find_if(first, last, pred);
+    };
+
+    auto const last        = end(*pile);
+    auto const first_match = find(begin(*pile), last);
+
+    // no matches
+    if (first_match == last) {
+        return std::make_tuple(0, it_t {}, it_t {}, it_t {});
+    }
+
+    auto const second_match = find(std::next(first_match), last);
+
+    // one match
+    if (second_match == last) {
+        return std::make_tuple(1, first_match, first_match, last);
+    }
+
+    // at least two matches
+    return std::make_tuple(2, first_match, second_match, last);
+}
 
 } //namespace boken

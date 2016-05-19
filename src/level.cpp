@@ -583,6 +583,47 @@ public:
         });
     }
 
+    unique_entity with_entity_at(
+        point2i32 const p
+      , std::function<bool (entity_instance_id)> const& f
+    ) final override {
+        auto const p0 = underlying_cast_unsafe<int16_t>(p);
+        auto const id_ptr = entities_.find(p0);
+        if (!id_ptr) {
+            return unique_entity {entity_instance_id {}, *entity_deleter_};
+        }
+
+        auto const id = *id_ptr;
+
+        auto const keep = f(id);
+        if (keep) {
+            return unique_entity {entity_instance_id {}, *entity_deleter_};
+        }
+
+        return remove_entity(id);
+    }
+
+    void entities_at(
+        point2i32 const* first
+      , point2i32 const* last
+      , entity_instance_id* out_first
+      , entity_instance_id* out_last
+    ) const noexcept final override {
+        BK_ASSERT(!!first && !!last
+               && !!out_first && !!out_last
+               && std::distance(first, last)
+                  <= std::distance(out_first, out_last));
+
+        auto it  = first;
+        auto out = out_first;
+
+        for (; it != last; ++it, ++out) {
+            auto const p = underlying_cast_unsafe<int16_t>(*it);
+            auto const id_ptr = entities_.find(p);
+            *out = id_ptr ? *id_ptr : entity_instance_id {};
+        }
+    }
+
     void for_each_pile(std::function<void (item_pile const&, point2i32)> const& f) const final override {
         for_each_object_impl_(items_, f);
     }

@@ -1566,43 +1566,6 @@ struct game_state {
         impl_do_drop_items_(2);
     }
 
-    //! @return A tuple {n, first, second, last} where n is {0, 1, 2} and
-    //!         indicates, respectively, no matches, 1 match, at least 2 matches.
-    //!         first is an iterator to the first match, second the second, and
-    //!         last is a past-the-end iterator for the pile.
-    template <typename Predicate>
-    auto find_matching_items(item_pile const* const pile, Predicate pred) noexcept {
-        using it_t = decltype(begin(*pile));
-
-        // empty pile
-        if (!pile) {
-            return std::make_tuple(0, it_t {}, it_t {}, it_t {});
-        }
-
-        // find matching items
-        auto const find = [=](it_t const first, it_t const last) noexcept {
-            return std::find_if(first, last, pred);
-        };
-
-        auto const last        = end(*pile);
-        auto const first_match = find(begin(*pile), last);
-
-        // no matches
-        if (first_match == last) {
-            return std::make_tuple(0, it_t {}, it_t {}, it_t {});
-        }
-
-        auto const second_match = find(std::next(first_match), last);
-
-        // one match
-        if (second_match == last) {
-            return std::make_tuple(1, first_match, first_match, last);
-        }
-
-        // at least two matches
-        return std::make_tuple(2, first_match, second_match, last);
-    }
-
     void do_open() {
         auto const is_container = [&](item_instance_id const id) noexcept {
             return boken::is_container({ctx, id}) > 0;
@@ -1742,37 +1705,36 @@ struct game_state {
         context_stack.push(std::move(c));
     }
 
-    void do_kill(entity& e, point2i32 const p) {
-        auto& lvl = the_world.current_level();
-
-        BK_ASSERT(!e.is_alive()
-               && lvl.is_entity_at(p));
+    void do_kill(level& lvl, entity_descriptor const e, point2i32 const p) {
+        auto const ent = lvl.remove_entity_at(p);
+        BK_ASSERT(!!ent && ent.get() == e.obj.instance());
 
         static_string_buffer<128> buffer;
-        buffer.append("The %s dies.", name_of_decorated(ctx, {database, e}).data());
+        buffer.append("The %s dies.", name_of_decorated(ctx, e).data());
         println(buffer);
 
-        get_entity_loot(e, rng_superficial, [&](unique_item&& itm) {
+        get_entity_loot(e.obj, rng_superficial, [&](unique_item&& itm) {
             add_object_at(std::move(itm), p);
         });
 
-        lvl.remove_entity(e.instance());
-        renderer_remove_entity(p);
+        if (&lvl == &current_level()) {
+            renderer_remove_entity(p);
+        }
     }
 
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
         auto& lvl = the_world.current_level();
 
-        auto* const att = lvl.entity_at(att_pos);
-        auto* const def = lvl.entity_at(def_pos);
+        constexpr auto no_entity = entity_instance_id {};
+        auto const ents = lvl.entities_at(att_pos, def_pos);
+        BK_ASSERT(ents[0] != no_entity && ents[1] != no_entity);
 
-        BK_ASSERT(!!att && !!def);
-        BK_ASSERT(att->is_alive() && def->is_alive());
+        auto const att = entity_descriptor {ctx, ents[0]};
+        auto const def = entity_descriptor {ctx, ents[1]};
 
-        def->modify_health(-1);
-
-        if (!def->is_alive()) {
-            do_kill(*def, def_pos);
+        def.obj.modify_health(-1);
+        if (!def.obj.is_alive()) {
+            do_kill(lvl, def, def_pos);
         }
 
         advance(1);
