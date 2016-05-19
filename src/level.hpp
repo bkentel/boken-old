@@ -158,6 +158,7 @@ public:
 
     using entity_position = object_position<entity_instance_id>;
 
+    // O(n) where n is the total number of entities on the level
     virtual const_range<entity_position>
         entities_near(point2i32 p, int32_t distance) const = 0;
 

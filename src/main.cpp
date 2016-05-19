@@ -13,6 +13,7 @@
 #include "math.hpp"         // for vec2i32, floor_as, point2f, basic_2_tuple, etc
 #include "message_log.hpp"  // for message_log
 #include "random.hpp"       // for random_state, make_random_state
+#include "random_algorithm.hpp"
 #include "render.hpp"       // for game_renderer
 #include "system.hpp"       // for system, kb_modifiers, mouse_event, etc
 #include "text.hpp"         // for text_layout, text_renderer
@@ -2115,20 +2116,13 @@ struct game_state {
         }
     }
 
-    static vec2i32 random_direction(random_state& rng) noexcept {
-        constexpr std::array<int, 4> dir_x {-1,  0, 0, 1};
-        constexpr std::array<int, 4> dir_y { 0, -1, 1, 0};
-
-        auto const i = static_cast<size_t>(random_uniform_int(rng, 0, 3));
-
-        return {dir_x[i], dir_y[i]};
-    }
-
     //! Advance the game time by @p steps
     void advance(int const steps) {
         auto const player = player_id();
 
-        current_level().transform_entities(
+        auto& lvl = current_level();
+
+        lvl.transform_entities(
             [&](entity_instance_id const id, point2i32 const p) noexcept {
                 auto const e = entity_descriptor {ctx, id};
 
@@ -2137,13 +2131,25 @@ struct game_state {
                     return std::make_pair(e, p);
                 }
 
+                // 9 out of 10 times, do nothing
                 if (random_chance_in_x(rng_superficial, 9, 10)) {
                     return std::make_pair(e, p);
                 }
 
-                auto const q = p + random_direction(rng_superficial);
+                // check for nearby entities
+                auto const range = lvl.entities_near(p, 5);
+                // and choose a random one to move toward
+                auto const it = random_value_in_range(
+                    rng_superficial, range.first, range.second);
 
-                return std::make_pair(e, q);
+                // if there are no nearby entities, or the entity picked is
+                // this very entity, just choose a random direction to move.
+                if (it == range.second || it->second == id) {
+                    return std::make_pair(e, p + random_dir8(rng_superficial));
+                }
+
+                // move toward a random nearby entity
+                return std::make_pair(e, p + signof(it->first - p));
             }
           , [&](entity_descriptor const e
               , placement_result  const result
