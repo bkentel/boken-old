@@ -53,9 +53,10 @@ public:
       , callback_t       callback //!< the timer action
     ) {
         BK_ASSERT(!updating_
-               && period.count() >= 0
-               && !!callback
-               && !!hash);
+            && period.count() >= 0
+            && !!callback
+            && !!hash
+            && (std::find(begin(timers_), end(timers_), hash) == end(timers_)));
 
         auto const result = callbacks_.allocate(std::move(callback));
         auto const key    = key_t {static_cast<uint32_t>(result.second), hash};
@@ -66,56 +67,38 @@ public:
         return key;
     }
 
-    //! @returns true if a timer matches key, false otherwise.
-    //! @note timers can be removed as a result of calling update().
-    bool remove(key_t const key) noexcept {
+    bool reset(uint32_t const hash, duration const period) {
         auto const first = begin(timers_);
         auto const last  = end(timers_);
-        auto const it    = std::find(first, last, key);
 
+        auto it = std::find(first, last, hash);
         if (it == last) {
             return false;
         }
 
-        if (updating_) {
-            it->deadline = time_point {};
-            return true;
+        // Bubble the value down to the back of the vector
+        for (auto it_next = std::next(it); it_next != last; ++it, ++it_next) {
+            std::swap(*it, *it_next);
         }
 
-        callbacks_.deallocate(it->key.index);
+        // Reset the deadline
+        timers_.back().deadline = clock_t::now() + period;
 
-        if (it == first) {
-            std::pop_heap(first, last, predicate_);
-            timers_.pop_back();
-        } else {
-            timers_.erase(it);
-            std::make_heap(begin(timers_), end(timers_), predicate_);
-        }
+        // And push it on the heap
+        std::push_heap(begin(timers_), end(timers_), predicate_);
 
         return true;
     }
 
+    //! @returns true if a timer matches key, false otherwise.
+    //! @note timers can be removed as a result of calling update().
+    bool remove(key_t const key) noexcept {
+        return remove_(key);
+    }
+
     //! remove the first timer with a matching hash
     bool remove(uint32_t const hash) noexcept {
-        auto const first = begin(timers_);
-        auto const last  = end(timers_);
-
-        auto const next = [&](auto const it) noexcept {
-            return std::find_if(it, last, [&](data_t const& data) noexcept {
-                return data.key.hash == hash;
-            });
-        };
-
-        auto const it = next(first);
-        if (it == last) {
-            return false;
-        }
-
-        auto const key = it->key;
-
-        BK_ASSERT(next(std::next(it)) == last);
-
-        return remove(key);
+        return remove_(hash);
     }
 
     //! Trigger any ready timers.
@@ -209,10 +192,42 @@ private:
         constexpr bool operator==(key_t const& other) const noexcept {
             return key == other;
         }
+
+        constexpr bool operator==(uint32_t const hash) const noexcept {
+            return key.hash == hash;
+        }
     };
 
     static bool predicate_(data_t const& a, data_t const& b) noexcept {
         return a.deadline > b.deadline;
+    }
+
+    template <typename Key>
+    bool remove_(Key const& key) noexcept {
+        auto const first = begin(timers_);
+        auto const last  = end(timers_);
+        auto const it    = std::find(first, last, key);
+
+        if (it == last) {
+            return false;
+        }
+
+        if (updating_) {
+            it->deadline = time_point {};
+            return true;
+        }
+
+        callbacks_.deallocate(it->key.index);
+
+        if (it == first) {
+            std::pop_heap(first, last, predicate_);
+            timers_.pop_back();
+        } else {
+            timers_.erase(it);
+            std::make_heap(begin(timers_), end(timers_), predicate_);
+        }
+
+        return true;
     }
 
     std::vector<data_t> timers_;

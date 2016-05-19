@@ -742,6 +742,7 @@ struct game_state {
             if (kmods.exclusive_any(kb_mod::shift)) {
                 debug_show_tool_tip({event.x, event.y});
             }
+
             break;
         case 0b0001 : break;
         case 0b0010 : break;
@@ -1914,13 +1915,6 @@ struct game_state {
 
             auto const has_los = lvl.has_line_of_sight(p0, pos.first);
             auto const e = const_entity_descriptor {ctx, pos.second};
-
-            buffer.clear();
-            buffer.append("You %s a %s nearby."
-              , (has_los ? "see" : "sense")
-              , name_of_decorated(ctx, e).data());
-
-            println(buffer);
         });
 
         advance(1);
