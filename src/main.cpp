@@ -1461,6 +1461,14 @@ struct game_state {
     }
 
     void do_toggle_inventory() {
+        if (item_list.is_visible()) {
+            if (!item_list.is_modal()) {
+                item_list.set_modal(true);
+            }
+
+            return;
+        }
+
         if (!item_list.toggle_visible()) {
             return;
         }
@@ -1473,7 +1481,7 @@ struct game_state {
 
         item_list.set_title("Inventory");
         item_list.assign(items(player));
-        item_list.set_modal(false);
+        item_list.set_modal(true);
         item_list.set_multiselect(true);
         item_list.show();
 
@@ -1497,15 +1505,22 @@ struct game_state {
                     item_list.get().indicate(indicated);
                 }
 
-                return event_result::filter;
+                break;
             }
-            case ct::alt_open:   view_indicated_container();        break;
-            case ct::alt_insert: insert_into_indicated_container(); break;
-            case ct::cancel:     break;
-            default:             break;
+            case ct::cancel:
+                item_list.set_modal(false);
+                break;
+            case ct::alt_open:
+                view_indicated_container();
+                return event_result::filter_detach;
+            case ct::alt_insert:
+                insert_into_indicated_container();
+                return event_result::filter_detach;
+            default:
+                break;
             }
 
-            return event_result::filter_detach;
+            return event_result::filter;
         });
     }
 
