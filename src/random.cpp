@@ -48,7 +48,7 @@ bool random_coin_flip(random_state& rng) noexcept {
     return !!r.dist_coin(r.state);
 }
 
-int random_uniform_int(random_state& rng, int32_t const lo, int32_t const hi) noexcept {
+int32_t random_uniform_int(random_state& rng, int32_t const lo, int32_t const hi) noexcept {
     auto& r = reinterpret_cast<random_state_impl&>(rng);
 
     using param_t = decltype(r.dist_uniform)::param_type;
@@ -60,7 +60,7 @@ int random_uniform_int(random_state& rng, int32_t const lo, int32_t const hi) no
 }
 
 bool random_chance_in_x(random_state& rng, int32_t const num, int32_t const den) noexcept {
-    return random_uniform_int(rng, 0, den) < num;
+    return random_uniform_int(rng, 0, den - 1) < num;
 }
 
 double random_normal(random_state& rs, double const m, double const v) noexcept {

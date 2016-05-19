@@ -32,7 +32,7 @@ std::unique_ptr<random_state> make_random_state();
 
 bool random_coin_flip(random_state& rng) noexcept;
 bool random_chance_in_x(random_state& rng, int32_t num, int32_t den) noexcept;
-int  random_uniform_int(random_state& rng, int32_t lo, int32_t hi) noexcept;
+int32_t random_uniform_int(random_state& rng, int32_t lo, int32_t hi) noexcept;
 
 double random_normal(random_state& rng, double mean, double variance = 1.0) noexcept;
 
@@ -45,15 +45,6 @@ template <typename Weight, typename Result>
 Result const& random_weighted(random_state& rng, weight_list<Weight, Result> const& weights) noexcept {
     auto const roll = random_uniform_int(rng, 0, weights.max() - 1);
     return weights[roll];
-}
-
-template <typename RanIt>
-inline void shuffle(random_state& rng, RanIt const first, RanIt const last) noexcept {
-    RanIt next = first;
-    for (int32_t i = 1; ++next != last; ++i) {
-        auto const off = random_uniform_int(rng, 0, i);
-        std::swap(*next, *(first + off));
-    }
 }
 
 } //namespace boken

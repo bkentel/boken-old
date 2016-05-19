@@ -56,6 +56,68 @@ TEST_CASE("random weighted") {
     random_weighted(rng, weights);
 }
 
+TEST_CASE("random_chance_in_x") {
+    using namespace boken;
+
+    auto const state = make_random_state();
+    auto& rng = *state;
+
+    SECTION("1 in 1 chance") {
+        auto n = 0;
+
+        for (int i = 0; i < 100; ++i) {
+            n += random_chance_in_x(rng, 1, 1) ? 1 : 0;
+        }
+
+        REQUIRE(n == 100);
+    }
+
+    SECTION("1 in 2 chance") {
+        constexpr int iterations = 3000;
+        constexpr int expected   = iterations / 2;
+        constexpr int tolerence  = iterations / 100; // 1%
+
+        auto n = 0;
+
+        for (int i = 0; i < iterations; ++i) {
+            n += random_chance_in_x(rng, 1, 2) ? 1 : 0;
+        }
+
+        auto const delta = std::abs(n - expected);
+        REQUIRE(delta < tolerence);
+    }
+
+    SECTION("5 in 10 chance") {
+        constexpr int iterations = 3000;
+        constexpr int expected   = iterations / 2;
+        constexpr int tolerence  = iterations / 100; // 1%
+
+        auto n = 0;
+
+        for (int i = 0; i < iterations; ++i) {
+            n += random_chance_in_x(rng, 5, 10) ? 1 : 0;
+        }
+
+        auto const delta = std::abs(n - expected);
+        REQUIRE(delta < tolerence);
+    }
+
+    SECTION("9 in 10 chance") {
+        constexpr int iterations = 3000;
+        constexpr int expected   = iterations * 9 / 10;
+        constexpr int tolerence  = iterations / 100; // 1%
+
+        auto n = 0;
+
+        for (int i = 0; i < iterations; ++i) {
+            n += random_chance_in_x(rng, 9, 10) ? 1 : 0;
+        }
+
+        auto const delta = std::abs(n - expected);
+        REQUIRE(delta < tolerence);
+    }
+}
+
 TEST_CASE("random") {
     using namespace boken;
 
