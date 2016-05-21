@@ -81,6 +81,7 @@ set(SOURCES_EXTERNAL
     external/bkassert/assert.cpp)
 
 set(SOURCES_TEST
+    src/test/algorithm.t.cpp
     src/test/bsp_generator.t.cpp
     src/test/circular_buffer.t.cpp
     src/test/entity.t.cpp

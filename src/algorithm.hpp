@@ -75,6 +75,28 @@ void fill_with_index_if(Container&& c, Index i, Out out, Predicate pred) {
     fill_with_index_if(begin(c), end(c), i , out, pred);
 }
 
+template <typename InputIt, typename I, typename OutIt, typename Predicate>
+void copy_index_if(
+    InputIt const first
+  , InputIt const last
+  , I i
+  , OutIt out
+  , Predicate pred
+) {
+    for (auto it = first; it != last; ++it, ++i) {
+        if (pred(*it)) {
+            *out = i;
+            ++out;
+        }
+    }
+}
+
+template <typename Container, typename I, typename OutIt, typename Predicate>
+void copy_index_if(Container&& c, I i, OutIt out, Predicate pred) {
+    copy_index_if(begin(c), end(c), i, out, pred);
+}
+
+
 //! Invoke f for each index i in the range [first, last) with the ith element
 //! of c. For values of i which are out of range, do nothing.
 template <typename Container, typename FwdIt, typename UnaryF>
