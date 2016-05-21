@@ -4,7 +4,16 @@ project(boken CXX)
 #
 # Whether to warn about paddings added to structures
 #
-set(NO_WARN_PADDING 1)
+if(NOT DEFINED NO_WARN_PADDING)
+    set(NO_WARN_PADDING 1)
+endif()
+
+#
+# Whether to warn about unused function parameters
+#
+if(NOT DEFINED NO_WARN_UNUSED_PARAM)
+    set(NO_WARN_UNUSED_PARAM 0)
+endif()
 
 #
 # Wmissing-braces is buggy (issued for valid code).
@@ -134,6 +143,11 @@ target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:GNU>:${GCC_WARNINGS}>)
 
 if (${NO_WARN_PADDING})
     target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:-Wno-padded>)
+endif()
+
+if (${NO_WARN_UNUSED_PARAM})
+    target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:Clang>:-Wno-unused-parameter>)
+    target_compile_options(boken PUBLIC $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-parameter>)
 endif()
 
 # Include file configuration checks
