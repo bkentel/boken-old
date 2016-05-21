@@ -560,8 +560,8 @@ public:
         BK_ASSERT(distance > 0);
         auto const g = void_as_bool<true>(f);
         auto const r = grow_rect(recti32 {p, p}, distance);
-        for_each_object_impl_(entities_, [&](entity_instance_id const id, point2i32 const p) {
-            return !intersects(r, p) || g(entity_position {p, id});
+        for_each_object_impl_(entities_, [&](entity_instance_id const id, point2i32 const p0) {
+            return !intersects(r, p0) || g(entity_position {p0, id});
         });
     }
 

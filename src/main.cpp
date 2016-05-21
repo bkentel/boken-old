@@ -1876,17 +1876,6 @@ struct game_state {
         adjust_view_to_player(p0);
         renderer_update(player.obj.definition(), p, p0);
 
-        auto const pid = player_id();
-        static_string_buffer<128> buffer;
-        lvl.for_each_entity_near(p0, 5, [&](level::entity_position const pos) {
-            if (pos.second == pid) {
-                return;
-            }
-
-            auto const has_los = lvl.has_line_of_sight(p0, pos.first);
-            auto const e = const_entity_descriptor {ctx, pos.second};
-        });
-
         advance(1);
 
         return result;

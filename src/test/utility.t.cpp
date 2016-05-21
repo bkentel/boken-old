@@ -136,7 +136,7 @@ TEST_CASE("maybe") {
             auto const ptr = result_of_or(make_maybe(std::make_unique<int>(1))
               , std::unique_ptr<int> {}
               , [](std::unique_ptr<int> p) {
-                    return std::move(p);
+                    return p;
                 });
 
             REQUIRE(!!ptr);
