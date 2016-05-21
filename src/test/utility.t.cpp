@@ -1,10 +1,92 @@
 #if !defined(BK_NO_TESTS)
 #include "catch.hpp"
 #include "utility.hpp"
+#include "maybe.hpp"
 
 #include <algorithm>
 #include <array>
 #include <vector>
+
+TEST_CASE("maybe") {
+    using namespace boken;
+
+    auto const get_empty = [] {
+        return maybe<int> {nullptr};
+    };
+
+    auto const get_ok = [] {
+        return maybe<int> {1};
+    };
+
+    SECTION("empty maybe calls || and not && functor") {
+        bool good = false;
+        bool bad  = false;
+
+        get_empty() && [&](int) noexcept { good = true; }
+                    || [&]()    noexcept { bad  = true; };
+
+        REQUIRE(good == false);
+        REQUIRE(bad  == true);
+    }
+
+    SECTION("good maybe calls && and not || functor") {
+        bool good = false;
+        bool bad  = false;
+
+        get_ok() && [&](int) noexcept { good = true; }
+                 || [&]()    noexcept { bad  = true; };
+
+        REQUIRE(good == true);
+        REQUIRE(bad  == false);
+    }
+
+    using vec_t = std::vector<int>;
+    maybe<vec_t> {1, 2, 3}
+     && [](vec_t const v) { REQUIRE(v.size() == 3u); }
+     || [] { REQUIRE(false); };
+
+
+    SECTION("initialized reference types are valid") {
+        int a = 0;
+        maybe<int&> ref = a;
+
+        ref && [&](int& A) {
+            REQUIRE(A == 0);
+            A = 1;
+        };
+
+        REQUIRE(a == 1);
+    }
+
+    SECTION("uninitialized reference types are valid") {
+        maybe<int&> ref {nullptr};
+
+        bool empty = false;
+        ref && [&](int&) { REQUIRE(false); }
+            || [&] { empty = true; };
+
+        REQUIRE(empty);
+    }
+
+    SECTION("initialized const reference types are valid") {
+        int a = 0;
+        maybe<int const&> ref = a;
+
+        ref && [&](int const& A) { REQUIRE(A == 0); }
+            || [&] { REQUIRE(false); };
+    }
+
+    SECTION("uninitialized const reference types are valid") {
+        maybe<int const&> ref {nullptr};
+
+        bool empty = false;
+        ref && [&](int const&) { REQUIRE(false); }
+            || [&] { empty = true; };
+
+        REQUIRE(empty);
+    }
+}
+
 
 TEST_CASE("weight_list") {
     using namespace boken;

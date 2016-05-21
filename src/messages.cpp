@@ -169,7 +169,7 @@ bool view_item_info(string_buffer_base& buffer, const_context const ctx, cid con
     return buffer.append("%s", name_of_decorated(ctx, itm).data());
 }
 
-bool view_entity_info(string_buffer_base buffer, const_context const ctx, ced const ent) {
+bool view_entity_info(string_buffer_base& buffer, const_context const ctx, ced const ent) {
     return buffer.append("%s", name_of(ctx, ent).data());
 }
 

@@ -166,6 +166,7 @@
     <ClInclude Include="src\messages.hpp" />
     <ClInclude Include="src\events.hpp" />
     <ClInclude Include="src\functional.hpp" />
+    <ClInclude Include="src\maybe.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

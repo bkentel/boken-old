@@ -53,7 +53,7 @@ std::string debug_entity_info(const_context ctx, ced ent);
 
 //! The string diplayed by the 'view' command for objects.
 bool view_item_info(string_buffer_base& buffer, const_context ctx, cid itm);
-bool view_entity_info(string_buffer_base buffer, const_context ctx, ced ent);
+bool view_entity_info(string_buffer_base& buffer, const_context ctx, ced ent);
 
 std::string view_item_info(const_context ctx, cid itm);
 std::string view_entity_info(const_context ctx, ced ent);

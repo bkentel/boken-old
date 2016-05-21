@@ -420,6 +420,12 @@ class static_string_buffer
     static_assert(N > 0, "");
     static constexpr auto last_index = static_cast<ptrdiff_t>(N - 1);
 public:
+    static_string_buffer(static_string_buffer const&) = delete;
+    static_string_buffer& operator=(static_string_buffer const&) = delete;
+
+    static_string_buffer(static_string_buffer&&) = default;
+    static_string_buffer& operator=(static_string_buffer&&) = default;
+
     static_string_buffer() noexcept
       : string_buffer_base {detail::static_string_buffer_base<N>::buffer_.data(), N}
     {
