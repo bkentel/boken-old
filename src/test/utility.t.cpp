@@ -6,9 +6,13 @@
 #include <algorithm>
 #include <array>
 #include <vector>
+#include <memory>
 
 TEST_CASE("maybe") {
     using namespace boken;
+
+    bool good = false; // the m maybe was non-empty
+    bool bad  = false; // the maybe was empty
 
     auto const get_empty = [] {
         return maybe<int> {nullptr};
@@ -18,72 +22,126 @@ TEST_CASE("maybe") {
         return maybe<int> {1};
     };
 
-    SECTION("empty maybe calls || and not && functor") {
-        bool good = false;
-        bool bad  = false;
+    REQUIRE(!get_empty());
+    REQUIRE(!!get_ok());
 
-        get_empty() && [&](int) noexcept { good = true; }
-                    || [&]()    noexcept { bad  = true; };
+    SECTION("can be empty or non-empty") {
+        SECTION("empty maybe calls || and not >>") {
+            SECTION("as rvalue") {
+                get_empty() >> [&](int) noexcept { good = true; }
+                            || [&]()    noexcept { bad  = true; };
 
-        REQUIRE(good == false);
-        REQUIRE(bad  == true);
+                REQUIRE(good == false);
+                REQUIRE(bad  == true);
+            }
+
+            SECTION("as lvalue") {
+                auto m = get_empty();
+                std::move(m) >> [&](int) noexcept { good = true; }
+                             || [&]()    noexcept { bad  = true; };
+
+                REQUIRE(good == false);
+                REQUIRE(bad  == true);
+            }
+        }
+
+        SECTION("non-empty maybe calls >> and not ||") {
+            SECTION("as rvalue") {
+                get_ok() >> [&](int) noexcept { good = true; }
+                         || [&]()    noexcept { bad  = true; };
+
+                REQUIRE(good == true);
+                REQUIRE(bad  == false);
+            }
+
+            SECTION("as lvalue") {
+                auto m = get_ok();
+                std::move(m) >> [&](int) noexcept { good = true; }
+                             || [&]()    noexcept { bad  = true; };
+
+                REQUIRE(good == true);
+                REQUIRE(bad  == false);
+            }
+        }
     }
 
-    SECTION("good maybe calls && and not || functor") {
-        bool good = false;
-        bool bad  = false;
+    SECTION("empty reference types are constructible") {
+        SECTION("reference") {
+            maybe<int&> const a {nullptr};
+            REQUIRE(!a);
+        }
 
-        get_ok() && [&](int) noexcept { good = true; }
-                 || [&]()    noexcept { bad  = true; };
-
-        REQUIRE(good == true);
-        REQUIRE(bad  == false);
+        SECTION("const reference") {
+            maybe<int const&> const a {nullptr};
+            REQUIRE(!a);
+        }
     }
 
-    using vec_t = std::vector<int>;
-    maybe<vec_t> {1, 2, 3}
-     && [](vec_t const v) { REQUIRE(v.size() == 3u); }
-     || [] { REQUIRE(false); };
+    SECTION("non-empty reference types are constructible") {
+        int value = 42;
 
+        SECTION("reference") {
+            maybe<int&> {value}
+             >> [&](auto&& v) {
+                    //v must not be a const ref here
+                    using type = decltype(v);
+                    static_assert(!std::is_const<std::remove_reference_t<type>>::value, "");
 
-    SECTION("initialized reference types are valid") {
-        int a = 0;
-        maybe<int&> ref = a;
+                    REQUIRE( v ==  value);
+                    REQUIRE(&v == &value);
 
-        ref && [&](int& A) {
-            REQUIRE(A == 0);
-            A = 1;
-        };
+                    v    = 43;
+                    good = true;
+                }
+             || [&] { REQUIRE(false); };
 
-        REQUIRE(a == 1);
+             REQUIRE(good == true);
+             REQUIRE(value == 43);
+        }
+
+        SECTION("const reference") {
+            maybe<int const&> {value}
+             >> [&](auto&& v) {
+                    //v must be a const ref here
+                    using type = decltype(v);
+                    static_assert(std::is_const<std::remove_reference_t<type>>::value, "");
+
+                    REQUIRE( v ==  value);
+                    REQUIRE(&v == &value);
+
+                    good = true;
+                }
+             || [&] { REQUIRE(false); };
+
+             REQUIRE(good == true);
+             REQUIRE(value == 42);
+        }
     }
 
-    SECTION("uninitialized reference types are valid") {
-        maybe<int&> ref {nullptr};
+    SECTION("move only types") {
+        SECTION("get value with require") {
+            auto const ptr = require(make_maybe(std::make_unique<int>(1)));
+            REQUIRE(!!ptr);
+            REQUIRE(*ptr == 1);
+        }
 
-        bool empty = false;
-        ref && [&](int&) { REQUIRE(false); }
-            || [&] { empty = true; };
+        SECTION("get value with value_or") {
+            auto const ptr = value_or(make_maybe(std::make_unique<int>(1))
+                                    , std::unique_ptr<int> {});
+            REQUIRE(!!ptr);
+            REQUIRE(*ptr == 1);
+        }
 
-        REQUIRE(empty);
-    }
+        SECTION("get value with value_or") {
+            auto const ptr = result_of_or(make_maybe(std::make_unique<int>(1))
+              , std::unique_ptr<int> {}
+              , [](std::unique_ptr<int> p) {
+                    return std::move(p);
+                });
 
-    SECTION("initialized const reference types are valid") {
-        int a = 0;
-        maybe<int const&> ref = a;
-
-        ref && [&](int const& A) { REQUIRE(A == 0); }
-            || [&] { REQUIRE(false); };
-    }
-
-    SECTION("uninitialized const reference types are valid") {
-        maybe<int const&> ref {nullptr};
-
-        bool empty = false;
-        ref && [&](int const&) { REQUIRE(false); }
-            || [&] { empty = true; };
-
-        REQUIRE(empty);
+            REQUIRE(!!ptr);
+            REQUIRE(*ptr == 1);
+        }
     }
 }
 

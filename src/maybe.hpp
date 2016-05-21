@@ -8,153 +8,179 @@
 namespace boken {
 
 struct valid_t {};
+struct empty_t {};
 
 constexpr valid_t valid {};
+constexpr empty_t empty {};
+
+template <typename T> class maybe;
 
 template <typename T>
-class maybe {
-    using Tag = std::conditional_t<
-        std::is_reference<T>::value, std::false_type, std::true_type>;
+T value_or(maybe<T>&& value, T&& fallback);
 
-    auto&& get_(std::true_type) const noexcept {
-        return reinterpret_cast<T const&>(data_);
-    }
+template <typename T>
+T require(maybe<T>&& value);
 
-    auto&& get_(std::true_type) noexcept {
-        return reinterpret_cast<T&>(data_);
-    }
+template <typename T, typename F, typename R>
+R result_of_or(maybe<T>&& value, R&& fallback, F f);
 
-    auto&& get_(std::false_type) const noexcept {
-        return **reinterpret_cast<std::remove_const_t<std::remove_reference_t<T>> const**>(&data_);
-    }
-
-    auto&& get_(std::false_type) noexcept {
-        return **reinterpret_cast<std::remove_reference_t<T>**>(&data_);
-    }
-
-    auto&& value_() noexcept {
-        return get_(Tag {});
-    }
-
-    auto&& value_() const noexcept {
-        return get_(Tag {});
-    }
-
+template <typename T>
+struct maybe_base {
     template <typename... Args>
-    void allocate_(std::true_type, Args&&... args) noexcept {
-        new (&data_) T {std::forward<Args>(args)...};
-    }
-
-    template <typename U>
-    void allocate_(std::false_type, U&& arg) noexcept {
-        new (&data_) std::remove_reference_t<T>* {&arg};
-    }
-
-    void destroy_(std::true_type) noexcept {
-        reinterpret_cast<T&>(data_).~T();
-    }
-
-    void destroy_(std::false_type) noexcept {
-    }
-public:
-    maybe() noexcept : state_ {state_t::empty} {}
-
-    maybe(std::nullptr_t) noexcept : state_ {state_t::empty} {}
-
-    template <typename... Args>
-    maybe(Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
-      : state_ {state_t::ok}
+    void allocate(Args&&... args)
+        noexcept(std::is_nothrow_constructible<T, Args...>::value)
     {
-        allocate_(Tag {}, std::forward<Args>(args)...);
+        ::new (&data) T {std::forward<Args>(args)...};
+    }
+
+    void destroy() noexcept(std::is_nothrow_destructible<T>::value) {
+        rvalue().~T();
+    }
+
+    std::remove_cv_t<T> value() const noexcept {
+        return reinterpret_cast<T&>(&data);
+    }
+
+    T&& rvalue() noexcept {
+        return std::move(reinterpret_cast<T&>(data));
+    }
+
+    T& rvalue() const noexcept {
+        return reinterpret_cast<T&>(data);
+    }
+
+    std::aligned_storage_t<sizeof(T), alignof(T)> data;
+};
+
+template <typename T>
+struct maybe_base<T&> {
+    template <typename U
+      , typename = std::enable_if_t<std::is_convertible<U&, T&>::value>>
+    void allocate(U&& ref) noexcept {
+        ::new (&data) T* {std::addressof(ref)};
+    }
+
+    void destroy() noexcept {}
+
+    std::remove_cv_t<T> value() const noexcept {
+        return **reinterpret_cast<T**>(&data);
+    }
+
+    std::remove_cv_t<T> const& rvalue() const noexcept {
+        return **reinterpret_cast<T**>(&data);
+    }
+
+    T& rvalue() noexcept {
+        return **reinterpret_cast<T**>(&data);
+    }
+
+    std::aligned_storage_t<sizeof(T*), alignof(T*)> data;
+};
+
+template <typename T>
+class maybe : private maybe_base<T> {
+    friend T value_or<T>(maybe<T>&&, T&&);
+
+    friend T require<T>(maybe<T>&&);
+
+    template <typename U, typename F, typename R>
+    friend R result_of_or(maybe<U>&&, R&&, F);
+
+    using base = maybe_base<T>;
+public:
+    maybe(std::nullptr_t) noexcept {}
+
+    template <typename... Args>
+    maybe(Args&&... args)
+        noexcept(std::is_nothrow_constructible<T, Args...>::value)
+    {
+        base::allocate(std::forward<Args>(args)...);
+        has_value_ = true;
     }
 
     maybe(maybe&& other) noexcept(std::is_nothrow_move_constructible<T>::value)
-      : state_ {other.state_}
     {
-        if (state_ == state_t::ok) {
-            allocate_(Tag {}, std::move(other.value_()));
+        if (other.has_value_) {
+            base::allocate(other.rvalue());
+            has_value_ = true;
         }
     }
 
-    ~maybe() {
-        if (state_ == state_t::ok) {
-            destroy_(Tag {});
+    ~maybe() noexcept(std::is_nothrow_destructible<T>::value)
+    {
+        if (has_value_) {
+            base::destroy();
         }
     }
 
-    void release() noexcept {
-        state_ = state_t::empty;
-    }
-
-    operator T&&() && noexcept {
-        BK_ASSERT_OPT(state_ == state_t::ok);
-        state_ = state_t::empty;
-        return std::move(value_());
-    }
-
-    operator T const&() const& noexcept {
-        BK_ASSERT_OPT(state_ == state_t::ok);
-        return value_();
-    }
-
-    explicit operator bool() const noexcept { return state_ == state_t::ok; }
+    explicit operator bool() const noexcept { return has_value_; }
 
     template <typename F>
-    maybe const& operator&&(F f) const {
-        if (state_ == state_t::ok) {
-            f(value_());
+    maybe&& operator>>(F f) &&
+        noexcept(std::is_nothrow_move_constructible<T>::value
+              && noexcept(f(std::declval<T>())))
+    {
+        if (has_value_) {
+            f(base::rvalue());
         }
 
-        return *this;
+        return std::move(*this);
     }
+
+    template <typename U>
+    maybe& operator>>(U&&) & = delete;
+
+    template <typename U>
+    maybe& operator>>(U&&) const& = delete;
 
     template <typename F>
-    maybe& operator&&(F f) {
-        if (state_ == state_t::ok) {
-            f(static_cast<std::add_rvalue_reference_t<T>>(value_()));
-            state_ = state_t::was_ok;
+    bool operator||(F f) const noexcept(noexcept(f)) {
+        if (has_value_) {
+            return true;
         }
 
-        return *this;
+        f();
+        return false;
     }
 
-    template <typename F>
-    maybe const& operator||(F f) const {
-        if (state_ == state_t::empty) {
-            f();
-        }
-
-        return *this;
-    }
-
-    template <typename F>
-    maybe& operator||(F f) {
-        if (state_ == state_t::empty) {
-            f();
-        }
-
-        return *this;
-    }
-
-    bool operator||(valid_t) const noexcept {
-        return state_ != state_t::empty;
-    }
-
-    bool operator&&(valid_t) const noexcept {
-        return state_ != state_t::empty;
-    }
+    bool operator&&(valid_t) const noexcept { return has_value_; }
+    bool operator&&(empty_t) const noexcept { return !has_value_; }
 private:
-    std::aligned_storage_t<
-        std::is_reference<T>::value ? sizeof(std::remove_reference_t<T>*)  : sizeof(T)
-      , std::is_reference<T>::value ? alignof(std::remove_reference_t<T>*) : alignof(T)
-    > data_;
-
-    enum class state_t : int8_t {
-        empty, ok, was_ok
-    };
-
-    state_t state_;
+    bool has_value_ {false};
 };
 
+template <typename T, typename... Args>
+maybe<T> make_maybe(Args&&... args) {
+    return {std::forward<Args>(args)...};
+}
+
+template <typename T>
+maybe<T> make_maybe(T&& value) {
+    return {std::forward<T>(value)};
+}
+
+template <typename T>
+T value_or(maybe<T>&& value, T&& fallback) {
+    if (!value) {
+        return std::move(fallback);
+    }
+
+    return {value.rvalue()};
+}
+
+template <typename T>
+T require(maybe<T>&& value) {
+    if (!value) {
+        std::terminate();
+    }
+
+    return {value.rvalue()};
+}
+
+template <typename T, typename F, typename R>
+R result_of_or(maybe<T>&& value, R&& fallback, F f) {
+    return value ? f(value.rvalue())
+                 : R {std::move(fallback)};
+}
 
 } // namespace boken
