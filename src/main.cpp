@@ -727,7 +727,6 @@ struct game_state {
         case 0b0100 : break;
         case 0b1000 : break;
         default :
-            BK_ASSERT(false);
             break;
         }
     }
@@ -751,7 +750,6 @@ struct game_state {
             break;
         case 0b1000 : break;
         default :
-            BK_ASSERT(false);
             break;
         }
     }
