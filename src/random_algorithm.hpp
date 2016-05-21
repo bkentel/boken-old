@@ -150,6 +150,11 @@ inline void shuffle(random_state& rng, RanIt const first, RanIt const last) noex
     }
 }
 
+template <typename Container>
+inline void shuffle(random_state& rng, Container& c) noexcept {
+    shuffle(rng, begin(c), end(c));
+}
+
 template <typename RndIt>
 RndIt random_value_in_range(random_state& rng, RndIt const first, RndIt const last) noexcept {
     using Cat = typename std::iterator_traits<RndIt>::iterator_category;
