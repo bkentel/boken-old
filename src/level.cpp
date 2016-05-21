@@ -588,21 +588,17 @@ public:
     void entities_at(
         point2i32 const* first
       , point2i32 const* last
-      , entity_instance_id* out_first
-      , entity_instance_id* out_last
+      , maybe<entity_instance_id>* out_first
+      , maybe<entity_instance_id>* out_last
     ) const noexcept final override {
         BK_ASSERT(!!first && !!last
                && !!out_first && !!out_last
                && std::distance(first, last)
                   == std::distance(out_first, out_last));
 
-        auto it  = first;
         auto out = out_first;
-
-        for (; it != last; ++it, ++out) {
-            auto const p = underlying_cast_unsafe<int16_t>(*it);
-            auto const id_ptr = entities_.find(p);
-            *out = id_ptr ? *id_ptr : entity_instance_id {};
+        for (auto it = first; it != last; ++it, ++out) {
+            *out = entity_at(*it);
         }
     }
 

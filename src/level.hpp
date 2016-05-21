@@ -90,14 +90,16 @@ public:
     virtual item_pile const* item_at(point2i32 p) const noexcept = 0;
 
     template <typename... Args>
-    auto entities_at(Args... points) const noexcept
-        -> std::array<entity_instance_id, sizeof...(Args)>
-    {
-        std::array<point2i32, sizeof...(Args)> const pts {points...};
-        std::array<entity_instance_id, sizeof...(Args)> result;
+    auto entities_at(point2i32 const p, Args const... points) const noexcept {
+        constexpr size_t N = 1 + sizeof...(Args);
 
-        entities_at(pts.data(),    pts.data()    + sizeof...(Args)
-                  , result.data(), result.data() + sizeof...(Args));
+        std::array<point2i32, N> const pts {p, points...};
+        std::array<maybe<entity_instance_id>, N> result;
+
+        entities_at(pts.data()
+                  , pts.data() + N
+                  , result.data()
+                  , result.data() + N);
 
         return result;
     }
@@ -251,7 +253,7 @@ public:
 private:
     virtual void entities_at(
         point2i32 const* first, point2i32 const* last
-      , entity_instance_id* out_first, entity_instance_id* out_last) const noexcept = 0;
+      , maybe<entity_instance_id>* out_first, maybe<entity_instance_id>* out_last) const noexcept = 0;
 };
 
 std::unique_ptr<level>

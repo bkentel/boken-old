@@ -1721,12 +1721,9 @@ struct game_state {
     void do_combat(point2i32 const att_pos, point2i32 const def_pos) {
         auto& lvl = the_world.current_level();
 
-        constexpr auto no_entity = entity_instance_id {};
-        auto const ents = lvl.entities_at(att_pos, def_pos);
-        BK_ASSERT(ents[0] != no_entity && ents[1] != no_entity);
-
-        auto const att = entity_descriptor {ctx, ents[0]};
-        auto const def = entity_descriptor {ctx, ents[1]};
+        auto       ents = lvl.entities_at(att_pos, def_pos);
+        auto const att  = entity_descriptor {ctx, require(ents[0])};
+        auto const def  = entity_descriptor {ctx, require(ents[1])};
 
         def.obj.modify_health(-1);
         if (!def.obj.is_alive()) {
