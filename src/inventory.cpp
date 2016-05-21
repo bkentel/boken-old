@@ -509,7 +509,7 @@ public:
         selected_.clear();
 
         // fill with the sorted indicies
-        fill_with_index_if(sorted_, 0, back_inserter(selected_)
+        copy_index_if(sorted_, 0, back_inserter(selected_)
           , [&](size_t const r) noexcept { return row_data_[r].selected; });
 
         if (selected_.empty()) {
