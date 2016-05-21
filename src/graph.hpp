@@ -232,29 +232,27 @@ void connect_components(
 //! Clears and then fills @p out with the size of each component in the graph.
 //! @returns a tuple {min vertex, max vertex, min count, max count}
 template <typename T, typename Container>
-auto count_components(vertex_data<T> const& data, Container& out) {
+auto count_components(vertex_data<T> const& data, Container& out, size_t const n) {
     using iterator = typename std::decay_t<Container>::iterator;
     using tag = typename std::iterator_traits<iterator>::iterator_category;
     static_assert(std::is_same<tag, std::random_access_iterator_tag>::value, "");
 
     out.clear();
+    out.resize(n);
+
+    for (T const c : data) {
+        BK_ASSERT(c > 0 && c - 1 < n);
+        ++out[static_cast<size_t>(c - 1)]; // components are 1-based
+    }
 
     size_t min_i = 0;
     size_t max_i = 0;
 
-    for (T const c : data) {
-        BK_ASSERT(c > 0); // components are 1-based
-        auto const i = static_cast<size_t>(c - 1);
-
-        while (out.size() <= i) {
-            out.push_back({0});
-        }
-
-        auto const n = ++out[i];
-
-        if (n < out[min_i]) {
+    for (size_t i = 0; i < n; ++i) {
+        auto const count = out[i];
+        if (count < out[min_i]) {
             min_i = i;
-        } else if (n > out[max_i]) {
+        } else if (count > out[max_i]) {
             max_i = i;
         }
     }

@@ -196,7 +196,8 @@ TEST_CASE("graph count_components") {
     int32_t max_n = 0;
 
     std::vector<int32_t> counts;
-    std::tie(min_i, max_i, min_n, max_n) = count_components(v_data, counts);
+    std::tie(min_i, max_i, min_n, max_n) =
+        count_components(v_data, counts, static_cast<size_t>(components));
 
     REQUIRE(min_i == 1u);
     REQUIRE(max_i == 0u);

@@ -58,23 +58,6 @@ void fill(Container& c, Value const& v) {
     std::fill(begin(c), end(c), v);
 }
 
-//! Write to @p out increasing values starting at @p i for each element in the
-//! range given by [first, last) that @p pred returns true for.
-template <typename FwdIt, typename Index, typename Out, typename Predicate>
-void fill_with_index_if(FwdIt first, FwdIt last, Index i, Out out, Predicate pred) {
-    for (auto it = first; it != last; ++it) {
-        if (pred(*it)) {
-            *out = i++;
-            ++out;
-        }
-    }
-}
-
-template <typename Container, typename Index, typename Out, typename Predicate>
-void fill_with_index_if(Container&& c, Index i, Out out, Predicate pred) {
-    fill_with_index_if(begin(c), end(c), i , out, pred);
-}
-
 template <typename InputIt, typename I, typename OutIt, typename Predicate>
 void copy_index_if(
     InputIt const first

@@ -1237,20 +1237,19 @@ void level_impl::generate_make_connections(random_state& rng) {
     component_indicies.reserve(region_count);
 
     // fill 'component_indicies', in random order, with the indicies of the
-    // components which have 'n' components; the first such index is at 'first_i'.
-    auto const get_component_indicies = [&](size_t const first_i, vertex_t const n) noexcept {
+    // components which have 'n' components
+    auto const get_component_indicies = [&](size_t const off, vertex_t const n) noexcept {
         component_indicies.clear();
 
-        auto const first = next(
-            begin(component_sizes), static_cast<ptrdiff_t>(first_i));
-        auto const last = end(component_sizes);
+        auto const first = std::next(begin(component_sizes), off);
+        auto const last  = end(component_sizes);
 
-        auto const i = static_cast<vertex_t>(first_i);
+        auto const i = static_cast<int16_t>(off);
 
-        fill_with_index_if(first, last, i, back_inserter(component_indicies)
+        copy_index_if(first, last, i, back_inserter(component_indicies) // TODO
           , [n](vertex_t const m) noexcept { return m == n; });
 
-        shuffle(rng, begin(component_indicies), end(component_indicies));
+        shuffle(rng, component_indicies);
     };
 
     // return 'to' if an edge between from<->to is added to graph, otherwise
@@ -1298,7 +1297,7 @@ void level_impl::generate_make_connections(random_state& rng) {
         vertex_t min_component_n = 0;
 
         std::tie(min_component_i, std::ignore, min_component_n, std::ignore) =
-            count_components(graph_data, component_sizes);
+            count_components(graph_data, component_sizes, static_cast<size_t>(n));
 
         BK_ASSERT(min_component_n > 0);
 
