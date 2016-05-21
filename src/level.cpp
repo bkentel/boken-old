@@ -250,39 +250,21 @@ public:
         return id_;
     }
 
-    std::pair<bool, point2i32> find_position(
-        entity_instance_id const id
-    ) const noexcept final override {
+    maybe<point2i32> find(entity_instance_id const id) const noexcept final override {
         auto const result = entities_.find(id);
         if (!result.first) {
-            return {false, {}};
+            return {nullptr};
         }
 
-        return {true, result.second};
+        return result.second;
     }
 
-    std::pair<entity*, point2i32>
-    find(entity_instance_id const id) noexcept final override {
-        auto const p = find_position(id);
-        if (!p.first) {
-            return {nullptr, {}};
+    maybe<entity_instance_id> entity_at(point2i32 const p) const noexcept final override {
+        if (auto const ptr = entities_.find(underlying_cast_unsafe<int16_t>(p))) {
+            return *ptr;
         }
 
-        return {&boken::find(world_, id), p.second};
-    }
-
-    std::pair<entity const*, point2i32>
-    find(entity_instance_id const id) const noexcept final override {
-        return const_cast<level_impl*>(this)->find(id);
-    }
-
-    entity* entity_at(point2i32 const p) noexcept final override {
-        auto const id = entities_.find(underlying_cast_unsafe<int16_t>(p));
-        return id ? &boken::find(world_, *id) : nullptr;
-    }
-
-    entity const* entity_at(point2i32 const p) const noexcept final override {
-        return const_cast<level_impl*>(this)->entity_at(p);
+        return {nullptr};
     }
 
     item_pile const* item_at(point2i32 const p) const noexcept final override {
@@ -294,7 +276,7 @@ public:
                  ? placement_result::failed_bounds
              : data_at_(data_.flags, p).test(tile_flag::solid)
                  ? placement_result::failed_obstacle
-             : is_entity_at(p)
+             : entity_at(p)
                  ? placement_result::failed_entity
                  : placement_result::ok;
     }
@@ -612,7 +594,7 @@ public:
         BK_ASSERT(!!first && !!last
                && !!out_first && !!out_last
                && std::distance(first, last)
-                  <= std::distance(out_first, out_last));
+                  == std::distance(out_first, out_last));
 
         auto it  = first;
         auto out = out_first;

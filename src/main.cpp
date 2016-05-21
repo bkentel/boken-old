@@ -83,9 +83,7 @@ struct game_state {
     }
 
     point2i32 player_location() const noexcept {
-        auto const p = current_level().find_position(player_id());
-        BK_ASSERT(p.first);
-        return p.second;
+        return require(current_level().find(player_id()));
     }
 
     const_entity_descriptor player_descriptor() const noexcept {
@@ -118,13 +116,8 @@ struct game_state {
     }
 
     //! hard fail if the entity doesn't exist on the given level.
-    point2i32 require_entity_on_level(
-        const_entity_descriptor const  e
-      , level                   const& lvl
-    ) const {
-        auto const p = lvl.find(e.obj.instance());
-        BK_ASSERT_SAFE(p.first);
-        return p.second;
+    point2i32 require_entity_on_level(const_entity_descriptor const e, level const& lvl) const {
+        return require(lvl.find(e.obj.instance()));
     }
 
     template <size_t N>
@@ -321,19 +314,22 @@ struct game_state {
         static_string_buffer<256> buffer;
 
         auto const print_entity = [&]() noexcept {
-            auto* const entity = lvl.entity_at(p);
-            return !entity
-                || msg::view_entity_info(buffer, ctx, {database, *entity});
+            return result_of_or(lvl.entity_at(p), true
+              , [&](entity_instance_id const id) {
+                    return msg::view_entity_info(buffer, ctx, {ctx, id})
+                        && buffer.append("\n");
+                });
         };
 
         auto const print_items = [&]() noexcept {
-            auto* const pile = lvl.item_at(p);
-            if (!pile) {
-                return true;
+            auto const ptr = lvl.item_at(p);
+            if (!ptr) {
+                return !!buffer;
             }
 
-            auto i = pile->size();
-            for (auto const& id : *pile) {
+            auto const& pile = *ptr;
+            auto i = pile.size();
+            for (auto const& id : pile) {
                 if (!msg::view_item_info(buffer, ctx, {ctx, id})) {
                     return false;
                 }
@@ -373,29 +369,29 @@ struct game_state {
         static_string_buffer<256> buffer;
 
         auto const print_entity = [&]() noexcept {
-            auto* const entity = lvl.entity_at(p0);
-            return !entity
-                || msg::debug_entity_info(buffer, ctx, {database, *entity});
+            return result_of_or(lvl.entity_at(p0), false
+              , [&](entity_instance_id const id) {
+                    return msg::debug_entity_info(buffer, ctx, {ctx, id});
+                });
         };
 
         auto const print_items = [&]() noexcept {
-            auto* const pile = lvl.item_at(p0);
-            if (!pile) {
-                return true;
+            auto const ptr = lvl.item_at(p0);
+            if (!ptr) {
+                return !!buffer;
             }
 
-            auto i = pile->size();
-            for (auto const& id : *pile) {
-                if (!msg::debug_item_info(buffer, ctx, {ctx, id})) {
+            auto const& pile = *ptr;
+            auto i = pile.size();
+            for (auto const& id : pile) {
+                if (!msg::debug_item_info(buffer, ctx, {ctx, id})
+                    || !buffer.append("\n")
+                ) {
                     return false;
                 }
-
-                if (i && --i) {
-                    buffer.append("\n");
-                }
             }
 
-            return buffer.append("\n");
+            return true;
         };
 
         auto const result =
@@ -2171,7 +2167,7 @@ struct game_state {
     }
 
     void renderer_update_pile(point2i32 const p) {
-        auto const pile = the_world.current_level().item_at(p);
+        auto const pile = current_level().item_at(p);
         if (!pile) {
             renderer_remove_item(p);
             return;

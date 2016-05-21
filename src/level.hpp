@@ -4,6 +4,7 @@
 #include "types.hpp"
 #include "utility.hpp"
 #include "context.hpp"
+#include "maybe.hpp"
 
 #include <memory>
 #include <utility>
@@ -78,23 +79,15 @@ public:
     //! Otherwise return {nullptr, {0, 0}}
     //! @note A failure to find the entity could, for example, be because it
     //! has died or been moved to another level.
-    virtual std::pair<entity*, point2i32>
-        find(entity_instance_id id) noexcept = 0;
-
-    virtual std::pair<entity const*, point2i32>
-        find(entity_instance_id id) const noexcept = 0;
-
-    virtual std::pair<bool, point2i32>
-        find_position(entity_instance_id id) const noexcept = 0;
+    virtual maybe<point2i32> find(entity_instance_id id) const noexcept = 0;
 
     //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
     //! is at the given position.
-    virtual entity const* entity_at(point2i32 p) const noexcept = 0;
-    virtual entity* entity_at(point2i32 p) noexcept = 0;
+    virtual maybe<entity_instance_id> entity_at(point2i32 p) const noexcept = 0;
 
-    virtual void entities_at(
-        point2i32 const* first, point2i32 const* last
-      , entity_instance_id* out_first, entity_instance_id* out_last) const noexcept = 0;
+    //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
+    //! item_pile is at the given position.
+    virtual item_pile const* item_at(point2i32 p) const noexcept = 0;
 
     template <typename... Args>
     auto entities_at(Args... points) const noexcept
@@ -107,20 +100,6 @@ public:
                   , result.data(), result.data() + sizeof...(Args));
 
         return result;
-    }
-
-    //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
-    //! item_pile is at the given position.
-    virtual item_pile const* item_at(point2i32 p) const noexcept = 0;
-
-    //! Return whether an entity is at the given position.
-    bool is_entity_at(point2i32 const p) const noexcept {
-        return !!entity_at(p);
-    }
-
-    //! Return whether an item is at the given position.
-    bool is_item_at(point2i32 const p) const noexcept {
-        return !!item_at(p);
     }
 
     //! Return whether an entity can be placed at @p p. If not possible, return
@@ -268,6 +247,11 @@ public:
 
     virtual const_sub_region_range<region_id>
         region_ids(recti32 area) const noexcept = 0;
+
+private:
+    virtual void entities_at(
+        point2i32 const* first, point2i32 const* last
+      , entity_instance_id* out_first, entity_instance_id* out_last) const noexcept = 0;
 };
 
 std::unique_ptr<level>
