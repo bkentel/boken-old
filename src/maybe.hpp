@@ -106,6 +106,22 @@ public:
         }
     }
 
+    maybe& operator=(maybe&& rhs)
+        noexcept(std::is_nothrow_move_assignable<T>::value
+               && std::is_nothrow_destructible<T>::value)
+    {
+        if (has_value_ && &rhs != this) {
+            base::destroy();
+        }
+
+        if (rhs.has_value_) {
+            base::rvalue() = rhs.rvalue();
+        }
+
+        has_value_ = rhs.has_value_;
+        return *this;
+    }
+
     ~maybe() noexcept(std::is_nothrow_destructible<T>::value)
     {
         if (has_value_) {
@@ -175,6 +191,11 @@ T require(maybe<T>&& value) {
     }
 
     return {value.rvalue()};
+}
+
+template <typename T>
+T require(maybe<T>& value) {
+    return require(std::move(value));
 }
 
 template <typename T, typename F, typename R>
