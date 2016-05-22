@@ -21,7 +21,6 @@ random_state::~random_state() = default;
 uint32_t random_state::min() noexcept { return pcg32::min(); }
 uint32_t random_state::max() noexcept { return pcg32::max(); }
 
-
 class random_state_impl final : public random_state {
 public:
     random_state_impl() = default;
@@ -54,7 +53,6 @@ int32_t random_uniform_int(random_state& rng, int32_t const lo, int32_t const hi
     using param_t = decltype(r.dist_uniform)::param_type;
 
     r.dist_uniform.param(param_t {lo, hi});
-    r.dist_uniform.reset();
 
     return r.dist_uniform(r.state);
 }
@@ -69,7 +67,6 @@ double random_normal(random_state& rs, double const m, double const v) noexcept 
     using param_t = decltype(r.dist_normal)::param_type;
 
     r.dist_normal.param(param_t {m, v});
-    r.dist_normal.reset();
 
     return r.dist_normal(r.state);
 }

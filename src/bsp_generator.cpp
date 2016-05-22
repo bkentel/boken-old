@@ -114,10 +114,10 @@ void bsp_generator_impl::generate(random_state& rng) {
         n.child = static_cast<uint16_t>(i + 1);
     }
 
-    using namespace container_algorithms;
-    sort(leaf_nodes_, [](node_t const& a, node_t const& b) noexcept {
-        return rect_by_min_dimension(b.rect, a.rect);
-    });
+    std::stable_sort(std::begin(leaf_nodes_), std::end(leaf_nodes_)
+      , [](node_t const& a, node_t const& b) noexcept {
+            return rect_by_min_dimension(b.rect, a.rect);
+        });
 }
 
 std::unique_ptr<bsp_generator> make_bsp_generator(bsp_generator::param_t p) {
