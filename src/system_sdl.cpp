@@ -1,4 +1,5 @@
 #include "system.hpp"           // for read_only_pointer_t, etc
+#include "render.hpp"
 #include "math.hpp"             // for ceil_as
 #include "config.hpp"
 
@@ -114,6 +115,15 @@ public:
         }
     }
 
+    void set_draw_color(uint32_t const c) noexcept {
+        SDL_SetRenderDrawColor(
+            *this
+          , static_cast<uint8_t>((c >>  0) & 0xFFu)
+          , static_cast<uint8_t>((c >>  8) & 0xFFu)
+          , static_cast<uint8_t>((c >> 16) & 0xFFu)
+          , static_cast<uint8_t>((c >> 24) & 0xFFu));
+    }
+
     operator SDL_Renderer*() const noexcept {
         return handle_.get();
     }
@@ -158,6 +168,14 @@ public:
         ) {
             throw sdl_error {SDL_GetError()};
         }
+    }
+
+    void set_color_mod(uint32_t const c) noexcept {
+        SDL_SetTextureColorMod(
+            *this
+          , static_cast<uint8_t>((c >>  0) & 0xFFu)
+          , static_cast<uint8_t>((c >>  8) & 0xFFu)
+          , static_cast<uint8_t>((c >> 16) & 0xFFu));
     }
 
     operator SDL_Texture*() const noexcept {
@@ -222,19 +240,25 @@ sdl_texture create_texture_from_file(sdl_renderer& render, string_view const fil
     return result;
 }
 
+template <typename T>
+constexpr SDL_Rect make_sdl_rect_(axis_aligned_rect<T> const r) noexcept {
+    return { value_cast(r.x0)
+           , value_cast(r.y0)
+           , value_cast(r.width())
+           , value_cast(r.height())};
+}
+
 } //namespace
 
 system::~system() = default;
 
+class sdl_renderer_impl;
+
 class sdl_system final : public system {
+    friend class sdl_renderer_impl; //TODO remove this
 public:
     sdl_system()
-      : renderer_     {window_}
-      , base_tiles_   {create_texture_from_file(renderer_, "./data/tiles.bmp")}
-      , entity_tiles_ {create_texture_from_file(renderer_, "./data/entities.bmp")}
-      , item_tiles_   {create_texture_from_file(renderer_, "./data/tiles.bmp")}
-      , font_cache_   {create_font_texture(renderer_)}
-      , background_   {create_texture_from_file(renderer_, "./data/background.bmp")}
+      : renderer_ {window_}
     {
         SDL_GetWindowSize(window_, &window_w_, &window_h_);
 
@@ -248,21 +272,6 @@ public:
 
     static kb_modifiers get_key_mods() noexcept {
         return kb_modifiers {static_cast<uint32_t>(SDL_GetModState())};
-    }
-
-    void set_draw_color(uint32_t const c) noexcept {
-        SDL_SetTextureColorMod(
-            *active_texture_
-          , static_cast<uint8_t>((c >>  0) & 0xFFu)
-          , static_cast<uint8_t>((c >>  8) & 0xFFu)
-          , static_cast<uint8_t>((c >> 16) & 0xFFu));
-
-        SDL_SetRenderDrawColor(
-            renderer_
-          , static_cast<uint8_t>((c >>  0) & 0xFFu)
-          , static_cast<uint8_t>((c >>  8) & 0xFFu)
-          , static_cast<uint8_t>((c >> 16) & 0xFFu)
-          , static_cast<uint8_t>((c >> 24) & 0xFFu));
     }
 
     void handle_event_mouse_button(SDL_MouseButtonEvent const& e) {
@@ -336,9 +345,7 @@ public:
         }
     }
 public:
-    //
-    // overridden functions
-    //
+    //===---------------------overridden functions---------------------------===
 
     void on_request_quit(on_request_quit_handler handler) final override {
         handler_quit_ = std::move(handler);
@@ -370,165 +377,10 @@ public:
 
     int do_events() final override;
 
-    recti32 render_get_client_rect() const final override {
+    recti32 get_client_rect() const final override {
         SDL_Rect r {};
         SDL_RenderGetViewport(renderer_, &r);
         return {point2i32 {}, sizei32x {r.w}, sizei32y {r.h}};
-    }
-
-    void render_clear() final override {
-        SDL_SetRenderDrawColor(renderer_, 127, 127, 0, 255);
-        SDL_RenderClear(renderer_);
-    }
-
-    void render_present() final override {
-        SDL_RenderPresent(renderer_);
-    }
-
-    template <typename T>
-    static SDL_Rect make_sdl_rect_(axis_aligned_rect<T> const r) noexcept {
-        return { value_cast(r.x0)
-               , value_cast(r.y0)
-               , value_cast(r.width())
-               , value_cast(r.height())};
-    }
-
-    void render_set_clip_rect(recti32 const r) final override {
-        auto const r0 = make_sdl_rect_(r);
-        if (SDL_RenderSetClipRect(renderer_, &r0)) {
-            throw sdl_error {SDL_GetError()};
-        }
-    }
-
-    void render_clear_clip_rect() final override {
-        if (SDL_RenderSetClipRect(renderer_, nullptr)) {
-            throw sdl_error {SDL_GetError()};
-        }
-    }
-
-    void render_fill_rect(recti32 const r, uint32_t const color) final override {
-        set_draw_color(color);
-
-        auto const r0 =  make_sdl_rect_(r);
-        SDL_RenderFillRect(renderer_, &r0);
-    }
-
-    void render_draw_rect(recti32 const r, int const w, int h, uint32_t const color) final override {
-        auto const rw = value_cast(r.width());
-        auto const rh = value_cast(r.height());
-
-        auto const tx = ceil_as<int>(tx_ / sx_);
-        auto const ty = ceil_as<int>(ty_ / sy_);
-
-        auto const x0 = value_cast(r.x0) + tx;
-        auto const y0 = value_cast(r.y0) + ty;
-        auto const x1 = value_cast(r.x1) + tx;
-        auto const y1 = value_cast(r.y1) + ty;
-
-        constexpr int count = 4;
-        SDL_Rect const rects[count] {
-            {x0 + 0, y0 + 0,        w, rh}
-          , {x1 - w, y0 + 0,        w, rh}
-          , {x0 + w, y0 + 0, rw - 2*w, h }
-          , {x0 + w, y1 - h, rw - 2*w, h }
-        };
-
-        set_draw_color(color);
-        SDL_RenderFillRects(renderer_, rects, count);
-    }
-
-    void render_draw_rect(recti32 const r, int const w, uint32_t const color) final override {
-        render_draw_rect(r, w, w, color);
-    }
-
-    void render_background() final override {
-        auto const w = background_.width();
-        auto const h = background_.height();
-
-        auto const tx  = (window_w_ + w - 1) / w;
-        auto const ty  = (window_h_ + h - 1) / h;
-
-        SDL_Rect r {0, 0, w, h};
-
-        for (int y = 0; y < ty; ++y, r.y += h) {
-            r.x = 0;
-            for (int x = 0; x < tx; ++x, r.x += w) {
-                SDL_RenderCopy(renderer_, background_, nullptr, &r);
-            }
-        }
-    }
-
-    void render_set_texture(uint32_t const id) final override {
-        switch (id) {
-        case 0  : break;
-        case 1  : active_texture_ = &entity_tiles_; return;
-        case 2  : active_texture_ = &item_tiles_;   return;
-        case 3  : active_texture_ = &font_cache_;   return;
-        default : break;
-        }
-
-        active_texture_ = &base_tiles_;
-    }
-
-    void render_set_data(
-        render_data_type    const type
-      , read_only_pointer_t const data
-    ) noexcept final override {
-        switch (type) {
-        case render_data_type::position : position_data_ = data; break;
-        case render_data_type::texture  : texture_data_  = data; break;
-        case render_data_type::color    : color_data_    = data; break;
-        default:
-            BK_ASSERT_SAFE(false);
-            break;
-        }
-    }
-
-    void render_set_tile_size(sizei32x const w, sizei32y const h) noexcept final override {
-        tile_w_ = value_cast(w);
-        tile_h_ = value_cast(h);
-    }
-
-    void render_set_transform(float const sx, float const sy, float const tx, float const ty) noexcept final override {
-        sx_ = sx;
-        sy_ = sy;
-        tx_ = tx;
-        ty_ = ty;
-
-        SDL_RenderSetScale(renderer_, sx_, sy_);
-    }
-
-    void render_data_n(size_t const n) noexcept final override {
-        auto pd = position_data_;
-        auto td = texture_data_;
-        auto cd = color_data_;
-
-        SDL_Rect src {0, 0, tile_w_, tile_h_};
-        SDL_Rect dst {0, 0, ceil_as<int>(tile_w_), ceil_as<int>(tile_h_)};
-
-        uint32_t last_color = 0;
-        set_draw_color(last_color);
-
-        auto const tx = ceil_as<int>(tx_ / sx_);
-        auto const ty = ceil_as<int>(ty_ / sy_);
-
-        SDL_Texture*  const texture  = *active_texture_;
-        SDL_Renderer* const renderer = renderer_;
-
-        for (size_t i = 0; i < n; ++i, ++pd, ++td, ++cd) {
-            std::tie(src.x, src.y) = td.value<std::pair<uint16_t, uint16_t>>();
-            std::tie(dst.x, dst.y) = pd.value<std::pair<uint16_t, uint16_t>>();
-
-            dst.x = dst.x + tx;
-            dst.y = dst.y + ty;
-
-            auto const color = cd.value<uint32_t>();
-            if (color != last_color) {
-                set_draw_color(last_color = color);
-            }
-
-            SDL_RenderCopy(renderer, texture, &src, &dst);
-        }
     }
 private:
     on_request_quit_handler handler_quit_;
@@ -540,33 +392,14 @@ private:
 
     mouse_event last_mouse_event_ {};
 
-    bool running_ = true;
-
     sdl          sdl_;
     sdl_window   window_;
     sdl_renderer renderer_;
-    sdl_texture  base_tiles_;
-    sdl_texture  entity_tiles_;
-    sdl_texture  item_tiles_;
-    sdl_texture  font_cache_;
-    sdl_texture  background_;
-
-    sdl_texture* active_texture_ {&base_tiles_};
-
-    read_only_pointer_t position_data_;
-    read_only_pointer_t texture_data_;
-    read_only_pointer_t color_data_;
 
     int window_w_ {};
     int window_h_ {};
 
-    int tile_w_ {};
-    int tile_h_ {};
-
-    float sx_ = 1.0f;
-    float sy_ = 1.0f;
-    float tx_ = 0.0f;
-    float ty_ = 0.0f;
+    bool running_ = true;
 };
 
 int sdl_system::do_events() {
@@ -616,6 +449,315 @@ int sdl_system::do_events() {
 
 std::unique_ptr<system> make_system() {
     return std::make_unique<sdl_system>();
+}
+
+/////////////////////////////////
+
+renderer2d::~renderer2d() = default;
+
+class sdl_renderer_impl final : public renderer2d {
+public:
+    sdl_renderer_impl(system& sys);
+//------------------------------------------------------------------------------
+    recti32 get_client_rect() const final override {
+        return sys_.get_client_rect();
+    }
+
+    void set_clip_rect(recti32 const r) final override {
+        if (r == recti32 {}) {
+            clip_rect();
+            return;
+        }
+
+        auto const r0 = make_sdl_rect_(r);
+        if (SDL_RenderSetClipRect(r_, &r0)) {
+            throw sdl_error {SDL_GetError()};
+        }
+    }
+
+    undo_clip_rect clip_rect(recti32 const r) final override {
+        auto const prev = clip_rect_;
+        set_clip_rect(r);
+        clip_rect_ = r;
+        return {*this, prev};
+    }
+
+    void clip_rect() final override {
+        if (SDL_RenderSetClipRect(r_, nullptr)) {
+            throw sdl_error {SDL_GetError()};
+        }
+
+        clip_rect_ = recti32 {};
+    }
+
+    void set_transform(transform_t const t) final override {
+        SDL_RenderSetScale(r_, t.scale_x, t.scale_y);
+        trans_ = t;
+    }
+
+    undo_transform transform(transform_t const t) final override {
+        auto const prev = trans_;
+        set_transform(t);
+        return {*this, prev};
+    }
+
+    void transform() final override {
+        transform({1.0f, 1.0f, 0.0f, 0.0f}).dismiss();
+    }
+
+    void render_clear() final override {
+        SDL_SetRenderDrawColor(r_, 127, 127, 0, 255);
+        SDL_RenderClear(r_);
+    }
+    void render_present() final override {
+        SDL_RenderPresent(r_);
+    }
+
+    void fill_rect(recti32 const r, uint32_t const color) final override {
+        fill_rects(&r, &r + 1, color);
+    }
+
+    void fill_rects(
+        recti32  const* const r_first, recti32  const* const r_last
+      , uint32_t const* const c_first, uint32_t const* const c_last
+    ) final override {
+        BK_ASSERT(std::distance(r_first, r_last)
+               == std::distance(c_first, c_last));
+
+        uint32_t last_color = 0;
+        r_.set_draw_color(last_color);
+
+        fill_rects_impl(r_first, r_last, [&, it = c_first]() mutable {
+            auto const c = *it++;
+            if (c != last_color) {
+                r_.set_draw_color(last_color = c);
+            }
+        });
+    }
+
+    void fill_rects(
+        recti32  const* const r_first, recti32  const* const r_last
+      , uint32_t const color
+    ) final override {
+        r_.set_draw_color(color);
+        fill_rects_impl(r_first, r_last, [] {});
+    }
+
+    void draw_rect(recti32 const r, int32_t const border_size, uint32_t const color) final override {
+        draw_rects(&r, &r + 1, color, border_size);
+    }
+
+    void draw_rects(
+        recti32  const* const r_first, recti32  const* const r_last
+      , uint32_t const color
+      , int32_t  const border_size
+    ) final override {
+        r_.set_draw_color(color);
+        draw_rects_impl(r_first, r_last, border_size, [] {});
+    }
+
+    void draw_rects(
+        recti32  const* const r_first, recti32  const* const r_last
+      , uint32_t const* const c_first, uint32_t const* const c_last
+      , int32_t  const border_size
+    ) final override {
+        BK_ASSERT(std::distance(r_first, r_last)
+               == std::distance(c_first, c_last));
+
+        uint32_t last_color = 0;
+        r_.set_draw_color(last_color);
+
+        draw_rects_impl(r_first, r_last, border_size, [&, it = c_first]() mutable {
+            auto const c = *it++;
+            if (c != last_color) {
+                r_.set_draw_color(last_color = c);
+            }
+        });
+    }
+
+    void draw_background() final override;
+
+    void draw_tiles(tile_params_uniform const& p) final override {
+        BK_ASSERT(p.count >= 0
+               && p.texture_id < textures_.size());
+
+        auto&               texture    = textures_[p.texture_id];
+        SDL_Texture*  const tex_handle = texture;
+        SDL_Renderer* const renderer   = r_;
+
+        uint32_t last_color = 0;
+        texture.set_color_mod(last_color);
+
+        auto const tx = ceil_as<int>(trans_.trans_x / trans_.scale_x);
+        auto const ty = ceil_as<int>(trans_.trans_y / trans_.scale_y);
+        auto const w  = value_cast(p.tile_w);
+        auto const h  = value_cast(p.tile_h);
+
+        BK_ASSERT(w >= 0 && h >= 0);
+
+        auto p_xy = p.pos_coords;
+        auto p_st = p.tex_coords;
+        auto p_c  = p.colors;
+
+        auto const n = static_cast<size_t>(p.count);
+        for (size_t i = 0; i < n; ++i, ++p_xy, ++p_st, ++p_c) {
+            auto const xy    = p_xy.value<point2i16>();
+            auto const st    = p_st.value<point2i16>();
+            auto const color = p_c.value<uint32_t>();
+
+            if (color != last_color) {
+                texture.set_color_mod(last_color = color);
+            }
+
+            SDL_Rect src {value_cast(st.x),      value_cast(st.y),      w, h};
+            SDL_Rect dst {value_cast(xy.x) + tx, value_cast(xy.y) + ty, w, h};
+
+            SDL_RenderCopy(renderer, tex_handle, &src, &dst);
+        }
+    }
+
+    void draw_tiles(tile_params_variable const& p) final override {
+        BK_ASSERT(p.count >= 0
+               && p.texture_id < textures_.size());
+
+        auto&               texture    = textures_[p.texture_id];
+        SDL_Texture*  const tex_handle = texture;
+        SDL_Renderer* const renderer   = r_;
+
+        uint32_t last_color = 0;
+        texture.set_color_mod(last_color);
+
+        auto const tx = ceil_as<int>(trans_.trans_x / trans_.scale_x);
+        auto const ty = ceil_as<int>(trans_.trans_y / trans_.scale_y);
+
+        auto p_xy = p.pos_coords;
+        auto p_st = p.tex_coords;
+        auto p_wh = p.tex_sizes;
+        auto p_c  = p.colors;
+
+        auto const n = static_cast<size_t>(p.count);
+        for (size_t i = 0; i < n; ++i, ++p_xy, ++p_st, ++p_wh, ++p_c) {
+            auto const xy    = p_xy.value<point2i16>();
+            auto const st    = p_st.value<point2i16>();
+            auto const wh    = p_wh.value<point2i16>();
+            auto const w     = value_cast(wh.x);
+            auto const h     = value_cast(wh.y);
+            auto const color = p_c.value<uint32_t>();
+
+            if (color != last_color) {
+                texture.set_color_mod(last_color = color);
+            }
+
+            SDL_Rect src {value_cast(st.x),      value_cast(st.y),      w, h};
+            SDL_Rect dst {value_cast(xy.x) + tx, value_cast(xy.y) + ty, w, h};
+
+            SDL_RenderCopy(renderer, tex_handle, &src, &dst);
+        }
+    }
+
+//------------------------------------------------------------------------------
+
+    template <typename FwdIt, typename SetColor>
+    void fill_rects_impl(FwdIt const first, FwdIt const last, SetColor c) {
+        for (auto it = first; it != last; ++it) {
+            c();
+
+            auto const r = make_sdl_rect_(*it);
+            SDL_RenderFillRect(r_, &r);
+        }
+    }
+
+    template <typename FwdIt, typename SetColor>
+    void draw_rects_impl(FwdIt const first, FwdIt const last, int32_t const border_size, SetColor c) {
+        auto const tx = ceil_as<int>(trans_.trans_x / trans_.scale_x);
+        auto const ty = ceil_as<int>(trans_.trans_y / trans_.scale_y);
+
+        auto const w  = border_size;
+        auto const w2 = 2 * w;
+        auto const h  = border_size;
+
+        for (auto it = first; it != last; ++it) {
+            auto const r = *it;
+
+            auto const rw = value_cast(r.width());
+            auto const rh = value_cast(r.height());
+
+            auto const x0 = value_cast(r.x0) + tx;
+            auto const y0 = value_cast(r.y0) + ty;
+            auto const x1 = value_cast(r.x1) + tx;
+            auto const y1 = value_cast(r.y1) + ty;
+
+            constexpr int count = 4;
+            SDL_Rect const rects[count] {
+                {x0 + 0, y0 + 0,       w, rh}
+              , {x1 - w, y0 + 0,       w, rh}
+              , {x0 + w, y0 + 0, rw - w2, h }
+              , {x0 + w, y1 - h, rw - w2, h }
+            };
+
+            c();
+            SDL_RenderFillRects(r_, rects, count);
+        }
+    }
+
+private:
+    sdl_system&   sys_;
+    sdl_renderer& r_;
+
+    std::vector<sdl_texture> textures_;
+
+    transform_t trans_ {1.0f, 1.0f, 0.0f, 0.0f};
+    recti32     clip_rect_;
+};
+
+std::unique_ptr<renderer2d> make_renderer(system& sys) {
+    return std::make_unique<sdl_renderer_impl>(sys);
+}
+
+sdl_renderer_impl::sdl_renderer_impl(system& sys)
+  : sys_ {dynamic_cast<sdl_system&>(sys)}
+  , r_   {sys_.renderer_}
+{
+    textures_.reserve(4);
+
+    //base
+    textures_.push_back(
+        create_texture_from_file(r_, "./data/tiles.bmp"));
+    //entities
+    textures_.push_back(
+        create_texture_from_file(r_, "./data/entities.bmp"));
+    //items
+    textures_.push_back(
+        create_texture_from_file(r_, "./data/tiles.bmp"));
+    //font
+    textures_.push_back(create_font_texture(r_));
+    //background
+    textures_.push_back(
+        create_texture_from_file(r_, "./data/background.bmp"));
+
+}
+
+void sdl_renderer_impl::draw_background() {
+    auto const client = get_client_rect();
+
+    auto const& bg = textures_[4];
+
+    auto const w = bg.width();
+    auto const h = bg.height();
+    auto const ww = value_cast(client.width());
+    auto const wh = value_cast(client.height());
+
+    auto const tx  = (ww + w - 1) / w;
+    auto const ty  = (wh + h - 1) / h;
+
+    SDL_Rect r {0, 0, w, h};
+
+    for (int y = 0; y < ty; ++y, r.y += h) {
+        r.x = 0;
+        for (int x = 0; x < tx; ++x, r.x += w) {
+            SDL_RenderCopy(r_, bg, nullptr, &r);
+        }
+    }
 }
 
 } //namespace boken

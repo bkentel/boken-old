@@ -93,6 +93,269 @@ public:
     float scale_y = 1.0f;
 };
 
+struct read_only_pointer_t {
+    read_only_pointer_t() noexcept = default;
+
+    template <typename T>
+    read_only_pointer_t(
+        T const* const beg
+      , T const* const end
+      , size_t   const stride = sizeof(T)
+    ) noexcept
+      : ptr            {static_cast<void const*>(beg)}
+      , last           {static_cast<void const*>(end)}
+      , element_size   {sizeof(T)}
+      , element_stride {static_cast<uint16_t>(stride)}
+    {
+    }
+
+    template <typename T>
+    explicit read_only_pointer_t(std::vector<T> const& v, size_t const offset = 0, size_t const stride = sizeof(T)) noexcept
+      : read_only_pointer_t {
+            reinterpret_cast<T const*>(
+                reinterpret_cast<char const*>(
+                    reinterpret_cast<void const*>(v.data())
+                ) + offset)
+          , v.data() + v.size()
+          , stride}
+    {
+    }
+
+    read_only_pointer_t& operator++() noexcept {
+        ptr = (ptr == last) ? ptr
+          : reinterpret_cast<char const*>(ptr) + element_stride;
+        return *this;
+    }
+
+    read_only_pointer_t operator++(int) noexcept {
+        auto result = *this;
+        ++(*this);
+        return result;
+    }
+
+    template <typename T>
+    T const& value() const noexcept {
+        return *reinterpret_cast<T const*>(ptr);
+    }
+
+    explicit operator bool() const noexcept {
+        return !!ptr;
+    }
+
+    void const* ptr            {};
+    void const* last           {};
+    uint16_t    element_size   {};
+    uint16_t    element_stride {};
+};
+
+class renderer2d {
+public:
+    struct tile_params_uniform {
+        sizei32x tile_w;
+        sizei32y tile_h;
+        uint32_t texture_id;
+        int32_t  count;
+        read_only_pointer_t pos_coords;
+        read_only_pointer_t tex_coords;
+        read_only_pointer_t colors;
+    };
+
+    struct tile_params_variable {
+        uint32_t texture_id;
+        int32_t  count;
+        read_only_pointer_t pos_coords;
+        read_only_pointer_t tex_coords;
+        read_only_pointer_t tex_sizes;
+        read_only_pointer_t colors;
+    };
+
+    struct transform_t {
+        float scale_x;
+        float scale_y;
+        float trans_x;
+        float trans_y;
+    };
+
+    template <typename T>
+    class undo_t {
+    public:
+        undo_t(undo_t const&) = delete;
+        undo_t& operator=(undo_t const&) = delete;
+
+        undo_t(undo_t&& other) noexcept
+          : action_ {std::move(other.action_)}
+          , r_      {other.r_}
+          , active_ {other.active_}
+        {
+            other.active_ = false;
+        }
+
+        undo_t& operator=(undo_t&& rhs) noexcept {
+            std::swap(action_, rhs.action_);
+            std::swap(active_, rhs.active_);
+            return *this;
+        }
+
+        template <typename U>
+        undo_t(renderer2d& r, U&& action) noexcept
+          : action_ {std::forward<U>(action)}
+          , r_ {r}
+        {
+        }
+
+        ~undo_t() {
+            if (active_) {
+                action_(r_);
+            }
+        }
+
+        void dismiss() noexcept { active_ = false; }
+    private:
+        T           action_;
+        renderer2d& r_;
+        bool        active_ = true;
+    };
+
+    struct undo_transform_action {
+        transform_t trans;
+
+        void operator()(renderer2d& r) {
+            r.set_transform(trans);
+        }
+    };
+
+    struct undo_clip_rect_action {
+        recti32 rect;
+
+        void operator()(renderer2d& r) {
+            r.set_clip_rect(rect);
+        }
+    };
+
+    using undo_transform = undo_t<undo_transform_action>;
+    using undo_clip_rect = undo_t<undo_clip_rect_action>;
+
+    //struct undo_transform {
+    //    undo_transform(undo_transform const&) = delete;
+    //    undo_transform& operator=(undo_transform const&) = delete;
+
+    //    undo_transform(undo_transform&& other) noexcept
+    //      : r_      {other.r_}
+    //      , t_      {other.t_}
+    //      , active_ {other.active_}
+    //    {
+    //        other.active_ = false;
+    //    }
+
+    //    undo_transform& operator=(undo_transform&& rhs) noexcept {
+    //        std::swap(t_,     rhs.t_);
+    //        std::swap(active_, rhs.active_);
+    //        return *this;
+    //    }
+
+    //    undo_transform(renderer2d& r, transform_t const t) noexcept
+    //      : r_ {r}
+    //      , t_ {t}
+    //    {
+    //    }
+
+    //    ~undo_transform() {
+    //        if (active_) {
+    //            r_.set_transform(t_);
+    //        }
+    //    }
+
+    //    void dismiss() noexcept { active_ = false; }
+
+    //    renderer2d& r_;
+    //    transform_t t_;
+    //    bool        active_ = true;
+    //};
+
+    //struct undo_clip_rect {
+    //    undo_clip_rect(undo_clip_rect const&) = delete;
+    //    undo_clip_rect& operator=(undo_clip_rect const&) = delete;
+
+    //    undo_clip_rect(undo_clip_rect&& other) noexcept
+    //      : r_      {other.r_}
+    //      , cr_     {other.cr_}
+    //      , active_ {other.active_}
+    //    {
+    //        other.active_ = false;
+    //    }
+
+    //    undo_clip_rect& operator=(undo_clip_rect&& rhs) noexcept {
+    //        std::swap(cr_,     rhs.cr_);
+    //        std::swap(active_, rhs.active_);
+    //        return *this;
+    //    }
+
+    //    undo_clip_rect(renderer2d& r, recti32 const cr) noexcept
+    //      : r_  {r}
+    //      , cr_ {cr}
+    //    {
+    //    }
+
+    //    ~undo_clip_rect() {
+    //        if (active_) {
+    //            r_.set_clip_rect(cr_);
+    //        }
+    //    }
+
+    //    void dismiss() noexcept { active_ = false; }
+
+    //    renderer2d& r_;
+    //    recti32     cr_;
+    //    bool        active_ = true;
+    //};
+
+    virtual ~renderer2d();
+
+    virtual recti32 get_client_rect() const = 0;
+
+    virtual void set_clip_rect(recti32 r) = 0;
+    virtual undo_clip_rect clip_rect(recti32 r) = 0;
+    virtual void clip_rect() = 0;
+
+    virtual void set_transform(transform_t t) = 0;
+    virtual undo_transform transform(transform_t t) = 0;
+    virtual void transform() = 0;
+
+    virtual void render_clear()   = 0;
+    virtual void render_present() = 0;
+
+    virtual void fill_rect(recti32 r, uint32_t color) = 0;
+
+    virtual void fill_rects(
+        recti32  const* r_first, recti32  const* r_last
+      , uint32_t const* c_first, uint32_t const* c_last) = 0;
+
+    virtual void fill_rects(
+        recti32  const* r_first, recti32  const* r_last
+      , uint32_t color) = 0;
+
+    virtual void draw_rect(recti32 r, int32_t border_size, uint32_t color) = 0;
+
+    virtual void draw_rects(
+        recti32  const* r_first, recti32  const* r_last
+      , uint32_t const* c_first, uint32_t const* c_last
+      , int32_t  border_size
+    ) = 0;
+
+    virtual void draw_rects(
+        recti32  const* r_first, recti32  const* r_last
+      , uint32_t color
+      , int32_t  border_size
+    ) = 0;
+
+    virtual void draw_background() = 0;
+
+    virtual void draw_tiles(tile_params_uniform  const& params) = 0;
+    virtual void draw_tiles(tile_params_variable const& params) = 0;
+};
+
+std::unique_ptr<renderer2d> make_renderer(system& sys);
+
 //=====--------------------------------------------------------------------=====
 // Responsible for rendering all the various game and ui objects.
 //=====--------------------------------------------------------------------=====

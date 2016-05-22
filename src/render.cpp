@@ -180,6 +180,8 @@ private:
     bool inventory_list_focus_ {false};
 
     bool debug_show_regions_ = false;
+
+    std::unique_ptr<renderer2d> r2d = make_renderer(os_);
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender) {
@@ -290,66 +292,45 @@ void game_renderer_impl::update_tool_tip_position(point2i32 const p) noexcept {
     tool_tip_.move_to(value_cast(p.x), value_cast(p.y));
 }
 
+namespace {
+
+template <typename Data, typename T>
+renderer2d::tile_params_uniform
+make_uniform(tile_map const& tmap, T const& data) noexcept {
+    using ptr_t = read_only_pointer_t;
+    return {
+        tmap.tile_width(), tmap.tile_height(), tmap.texture_id()
+      , static_cast<int32_t>(data.size())
+      , ptr_t {data, BK_OFFSETOF(Data, position)}
+      , ptr_t {data, BK_OFFSETOF(Data, tex_coord)}
+      , ptr_t {data, BK_OFFSETOF(Data, color)}
+    };
+}
+
+} // namespace
+
 void game_renderer_impl::render(duration_t const delta, view const& v) const noexcept {
-    auto const& tmap_base     = *tile_map_base_;
-    auto const& tmap_entities = *tile_map_entities_;
-    auto const& tmap_items    = *tile_map_items_;
+    r2d->render_clear();
+    r2d->transform();
 
-    os_.render_clear();
+    r2d->draw_background();
 
-    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-    os_.render_background();
+    auto const trans = r2d->transform({v.scale_x, v.scale_y, v.x_off, v.y_off});
 
-    os_.render_set_transform(v.scale_x, v.scale_y, v.x_off, v.y_off);
-
-    //
     // Map tiles
-    //
-    os_.render_set_tile_size(tmap_base.tile_width(), tmap_base.tile_height());
-    os_.render_set_texture(tmap_base.texture_id());
+    r2d->draw_tiles(make_uniform<data_t>(*tile_map_base_, tile_data));
 
-    os_.render_set_data(render_data_type::position
-      , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, position)});
-    os_.render_set_data(render_data_type::texture
-      , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, tex_coord)});
-    os_.render_set_data(render_data_type::color
-      , read_only_pointer_t {tile_data, BK_OFFSETOF(data_t, color)});
-    os_.render_data_n(tile_data.size());
-
-    //
     // Items
-    //
-    os_.render_set_tile_size(tmap_items.tile_width(), tmap_items.tile_height());
-    os_.render_set_texture(tmap_items.texture_id());
+    r2d->draw_tiles(make_uniform<data_t>(*tile_map_items_, item_data));
 
-    os_.render_set_data(render_data_type::position
-      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, position)});
-    os_.render_set_data(render_data_type::texture
-      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, tex_coord)});
-    os_.render_set_data(render_data_type::color
-      , read_only_pointer_t {item_data, BK_OFFSETOF(data_t, color)});
-    os_.render_data_n(item_data.size());
-
-    //
     // Entities
-    //
-    os_.render_set_tile_size(tmap_entities.tile_width(), tmap_entities.tile_height());
-    os_.render_set_texture(tmap_entities.texture_id());
+    r2d->draw_tiles(make_uniform<data_t>(*tile_map_entities_, entity_data));
 
-    os_.render_set_data(render_data_type::position
-      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, position)});
-    os_.render_set_data(render_data_type::texture
-      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, tex_coord)});
-    os_.render_set_data(render_data_type::color
-      , read_only_pointer_t {entity_data, BK_OFFSETOF(data_t, color)});
-    os_.render_data_n(entity_data.size());
 
-    //
     // tile highlight
-    //
     if (value_cast(tile_highlight_.x) >= 0 && value_cast(tile_highlight_.y) >= 0) {
-        auto const w = tmap_base.tile_width();
-        auto const h = tmap_base.tile_height();
+        auto const w = tile_map_base_->tile_width();
+        auto const h = tile_map_base_->tile_height();
 
         auto const r = boken::grow_rect(recti32 {
             tile_highlight_.x * value_cast(w)
@@ -357,34 +338,24 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
           , w
           , h}, 2);
 
-        os_.render_draw_rect(r, 2, 0xD000FFFFu);
+        r2d->draw_rect(r, 2, 0xD000FFFFu);
     }
 
-    //
-    // text
-    //
-    os_.render_set_tile_size(tmap_base.tile_width(), tmap_base.tile_height());
-    os_.render_set_texture(3);
-
-    //
     // message log window
-    //
     render_message_log_();
 
-    //
     // inventory window
-    //
     render_inventory_list_();
 
-    //
     // tool tip
-    //
     render_tool_tip_();
 
-    os_.render_present();
+    r2d->render_present();
 }
 
 void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off) const noexcept {
+    using ptr_t = read_only_pointer_t;
+
     if (!text.is_visible()) {
         return;
     }
@@ -393,22 +364,21 @@ void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off
 
     auto const& glyph_data = text.data();
 
-    auto const r  = text.extent() + off;
-    auto const p  = r.top_left();
+    auto const p  = (text.extent() + off).top_left();
     auto const tx = value_cast_unsafe<float>(p.x);
     auto const ty = value_cast_unsafe<float>(p.y);
 
-    os_.render_set_transform(1.0f, 1.0f, tx, ty);
+    auto const params = renderer2d::tile_params_variable {
+        3
+      , static_cast<int32_t>(glyph_data.size())
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, texture)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, size)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, color)}
+    };
 
-    os_.render_set_data(render_data_type::position
-      , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)});
-    os_.render_set_data(render_data_type::texture
-      , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, texture)});
-    os_.render_set_data(render_data_type::color
-      , read_only_pointer_t {glyph_data, BK_OFFSETOF(text_layout::data_t, color)});
-    os_.render_data_n(glyph_data.size());
-
-    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
+    auto const trans = r2d->transform({1.0f, 1.0f, tx, ty});
+    r2d->draw_tiles(params);
 }
 
 void game_renderer_impl::render_tool_tip_() const noexcept {
@@ -417,7 +387,7 @@ void game_renderer_impl::render_tool_tip_() const noexcept {
     }
 
     auto const border_w = 2;
-    auto const window_r = os_.render_get_client_rect();
+    auto const window_r = r2d->get_client_rect();
     auto const text_r   = tool_tip_.extent();
     auto const border_r = grow_rect(text_r, border_w);
 
@@ -426,9 +396,9 @@ void game_renderer_impl::render_tool_tip_() const noexcept {
       , (border_r.y1 > window_r.y1) ? value_cast(window_r.y1 - border_r.y1) : 0};
 
 
-    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-    os_.render_fill_rect(text_r + v, 0xDF666666u);
-    os_.render_draw_rect(border_r + v, border_w, 0xDF66DDDDu);
+    auto const trans = r2d->transform({1.0f, 1.0f, 0.0f, 0.0f});
+    r2d->fill_rect(text_r + v, 0xDF666666u);
+    r2d->draw_rect(border_r + v, border_w, 0xDF66DDDDu);
 
     render_text_(tool_tip_, v);
 }
@@ -452,8 +422,8 @@ void game_renderer_impl::render_message_log_() const noexcept {
           : vec2i32 {0, rh - ch};
     }();
 
-    os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-    os_.render_fill_rect(r, 0xDF666666u);
+    auto const trans = r2d->transform({1.0f, 1.0f, 0.0f, 0.0f});
+    r2d->fill_rect(r, 0xDF666666u);
 
     std::for_each(log_window.visible_begin(), log_window.visible_end()
       , [&](text_layout const& line) noexcept {
@@ -482,6 +452,8 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
     uint32_t const color_row_sel      = 0xDFBB2222u;
     uint32_t const color_row_ind      = 0xDF22BBBBu;
 
+    auto const trans = r2d->transform({1.0f, 1.0f, 0.0f, 0.0f});
+
     // draw the frame
     {
         auto const frame_size = (m.frame.width() - m.client_frame.width()) / 2;
@@ -489,13 +461,12 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
           ? color_border_focus
           : color_border;
 
-        os_.render_set_transform(1.0f, 1.0f, 0.0f, 0.0f);
-        os_.render_draw_rect(m.frame, value_cast(frame_size), color);
+        r2d->draw_rect(m.frame, value_cast(frame_size), color);
     }
 
     // draw the title
     {
-        os_.render_fill_rect(m.title, color_title);
+        r2d->fill_rect(m.title, color_title);
         render_text_(inv_window.title(), m.title.top_left() - point2i32 {});
     }
 
@@ -514,13 +485,10 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
           , gap
         };
 
-        os_.render_fill_rect(r, color_row_even);
+        r2d->fill_rect(r, color_row_even);
     }
 
-    os_.render_set_clip_rect(m.client_frame);
-    auto on_exit = BK_SCOPE_EXIT {
-        os_.render_clear_clip_rect();
-    };
+    auto const clip = r2d->clip_rect(m.client_frame);
 
     auto const v = (m.client_frame.top_left() - point2i32 {})
                  - inv_window.scroll_offset();
@@ -534,11 +502,11 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
           , m.client_frame.height()
         };
 
-        os_.render_fill_rect(r, 0xEFFFFFFF);
+        r2d->fill_rect(r, 0xEFFFFFFF);
     }
 
     // header background
-    os_.render_fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, color_header);
+    r2d->fill_rect({point2i32 {} + v, m.client_frame.width(), m.header_h}, color_header);
 
     int32_t last_y = value_cast(m.client_frame.y0);
 
@@ -564,10 +532,10 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
 
         // row background
         auto const r = recti32 {p, w, h};
-        os_.render_fill_rect(r, color);
+        r2d->fill_rect(r, color);
 
         if (i == indicated) {
-            os_.render_draw_rect(r, 2, color_row_ind);
+            r2d->draw_rect(r, 2, color_row_ind);
         }
 
         std::for_each(range.first, range.second, [&](text_layout const& txt) noexcept {
@@ -589,7 +557,7 @@ void game_renderer_impl::render_inventory_list_() const noexcept {
           , m.client_frame.y1 - offi32y {last_y}
         };
 
-        os_.render_fill_rect(r, color_row_even);
+        r2d->fill_rect(r, color_row_even);
     }
 }
 

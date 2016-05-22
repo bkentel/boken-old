@@ -576,7 +576,7 @@ struct game_state {
 
     void reset_view_to_player() {
         auto const& tmap  = database.get_tile_map(tile_map_type::base);
-        auto const  win_r = os.render_get_client_rect();
+        auto const  win_r = os.get_client_rect();
 
         auto const q = current_view.center_window_on_world(
             player_location(), tmap.tile_width(), tmap.tile_height()
@@ -1218,7 +1218,7 @@ struct game_state {
         auto const th = tmap.tile_height();
 
         auto const win_r = underlying_cast_unsafe<float>(
-            os.render_get_client_rect());
+            os.get_client_rect());
 
         auto const q = current_view.world_to_window(
             underlying_cast_unsafe<float>(p) + vec2f {0.5f, 0.5f}, tw, th);
