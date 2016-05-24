@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "math_types.hpp"
 #include "utility.hpp"
+
 #include <chrono>
 #include <initializer_list>
 #include <vector>
@@ -148,6 +149,8 @@ struct read_only_pointer_t {
     uint16_t    element_stride {};
 };
 
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
 class renderer2d {
 public:
     struct tile_params_uniform {
@@ -235,80 +238,6 @@ public:
     using undo_transform = undo_t<undo_transform_action>;
     using undo_clip_rect = undo_t<undo_clip_rect_action>;
 
-    //struct undo_transform {
-    //    undo_transform(undo_transform const&) = delete;
-    //    undo_transform& operator=(undo_transform const&) = delete;
-
-    //    undo_transform(undo_transform&& other) noexcept
-    //      : r_      {other.r_}
-    //      , t_      {other.t_}
-    //      , active_ {other.active_}
-    //    {
-    //        other.active_ = false;
-    //    }
-
-    //    undo_transform& operator=(undo_transform&& rhs) noexcept {
-    //        std::swap(t_,     rhs.t_);
-    //        std::swap(active_, rhs.active_);
-    //        return *this;
-    //    }
-
-    //    undo_transform(renderer2d& r, transform_t const t) noexcept
-    //      : r_ {r}
-    //      , t_ {t}
-    //    {
-    //    }
-
-    //    ~undo_transform() {
-    //        if (active_) {
-    //            r_.set_transform(t_);
-    //        }
-    //    }
-
-    //    void dismiss() noexcept { active_ = false; }
-
-    //    renderer2d& r_;
-    //    transform_t t_;
-    //    bool        active_ = true;
-    //};
-
-    //struct undo_clip_rect {
-    //    undo_clip_rect(undo_clip_rect const&) = delete;
-    //    undo_clip_rect& operator=(undo_clip_rect const&) = delete;
-
-    //    undo_clip_rect(undo_clip_rect&& other) noexcept
-    //      : r_      {other.r_}
-    //      , cr_     {other.cr_}
-    //      , active_ {other.active_}
-    //    {
-    //        other.active_ = false;
-    //    }
-
-    //    undo_clip_rect& operator=(undo_clip_rect&& rhs) noexcept {
-    //        std::swap(cr_,     rhs.cr_);
-    //        std::swap(active_, rhs.active_);
-    //        return *this;
-    //    }
-
-    //    undo_clip_rect(renderer2d& r, recti32 const cr) noexcept
-    //      : r_  {r}
-    //      , cr_ {cr}
-    //    {
-    //    }
-
-    //    ~undo_clip_rect() {
-    //        if (active_) {
-    //            r_.set_clip_rect(cr_);
-    //        }
-    //    }
-
-    //    void dismiss() noexcept { active_ = false; }
-
-    //    renderer2d& r_;
-    //    recti32     cr_;
-    //    bool        active_ = true;
-    //};
-
     virtual ~renderer2d();
 
     virtual recti32 get_client_rect() const = 0;
@@ -356,12 +285,20 @@ public:
 
 std::unique_ptr<renderer2d> make_renderer(system& sys);
 
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
 class render_task {
 public:
+    using clock_t     = std::chrono::high_resolution_clock;
+    using timepoint_t = clock_t::time_point;
+    using duration_t  = clock_t::duration;
+
     virtual ~render_task();
-    virtual void render(renderer2d& r) = 0;
+    virtual void render(renderer2d& r, view const& v) = 0;
 };
 
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
 class tool_tip_renderer : public render_task {
 public:
     virtual ~tool_tip_renderer();
@@ -377,27 +314,31 @@ public:
 std::unique_ptr<tool_tip_renderer> make_tool_tip_renderer(text_renderer& tr);
 
 //=====--------------------------------------------------------------------=====
-// Responsible for rendering all the various game and ui objects.
 //=====--------------------------------------------------------------------=====
-class game_renderer {
+class message_log_renderer : public render_task {
 public:
-    using clock_t     = std::chrono::high_resolution_clock;
-    using timepoint_t = clock_t::time_point;
-    using duration_t  = clock_t::duration;
+    virtual ~message_log_renderer();
+};
 
-    virtual ~game_renderer();
+std::unique_ptr<message_log_renderer>
+make_message_log_renderer(text_renderer& tr, message_log const& ml);
 
-    virtual bool debug_toggle_show_regions() noexcept = 0;
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
+class item_list_renderer : public render_task {
+public:
+    virtual ~item_list_renderer();
 
-    virtual void set_level(level const& lvl) noexcept = 0;
-    virtual void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept = 0;
+    virtual bool set_focus(bool state) noexcept = 0;
+};
 
-    virtual void update_map_data() = 0;
-    virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
+std::unique_ptr<item_list_renderer>
+make_item_list_renderer(text_renderer& tr, inventory_list const& il);
 
-    virtual void set_tile_highlight(point2i32 p) noexcept = 0;
-    virtual void clear_tile_highlight() noexcept = 0;
-
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
+class map_renderer : public render_task {
+public:
     template <typename T>
     struct update_t {
         point2i32 prev_pos;
@@ -405,30 +346,58 @@ public:
         T         id;
     };
 
-    virtual void update_data(update_t<entity_id> const* first, update_t<entity_id> const* last) = 0;
-    virtual void update_data(update_t<item_id> const* first, update_t<item_id> const* last) = 0;
-    virtual void clear_data() = 0;
+    virtual ~map_renderer();
 
-    virtual void set_message_window(message_log const* window) noexcept = 0;
+    virtual bool debug_toggle_show_regions() noexcept = 0;
 
-    virtual void set_inventory_window(inventory_list const* window) noexcept = 0;
+    virtual void highlight(point2i32 const* first, point2i32 const* last) = 0;
+    virtual void highlight_clear() = 0;
 
-    // TODO: consider a different method to accomplish this
-    virtual void set_inventory_window_focus(bool focus) noexcept = 0;
+    virtual void set_level(level const& lvl) noexcept = 0;
+    virtual void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept = 0;
+
+    virtual void update_map_data() = 0;
+    virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;
+
+    virtual void update_data(update_t<entity_id> const* first
+                           , update_t<entity_id> const* last) = 0;
+
+    virtual void update_data(update_t<item_id> const* first
+                           , update_t<item_id> const* last) = 0;
+
+};
+
+std::unique_ptr<map_renderer> make_map_renderer();
+
+//=====--------------------------------------------------------------------=====
+// Responsible for rendering all the various game and ui objects.
+//=====--------------------------------------------------------------------=====
+class game_renderer {
+public:
+    using duration_t = render_task::duration_t;
+
+    virtual ~game_renderer();
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
 
     template <typename T>
-    T* add_task(uint32_t const id, std::unique_ptr<T> task, int const z) {
+    T& add_task(
+        string_view const  id
+      , std::unique_ptr<T> task
+      , int const          zorder
+    ) {
         static_assert(std::is_base_of<render_task, T>::value, "");
         auto const result = task.get();
-        add_task_generic(id, std::move(task), z);
-        return result;
+        add_task_generic(id, std::move(task), zorder);
+        return *result;
     }
 
-    virtual void add_task_generic(uint32_t id, std::unique_ptr<render_task> task, int z) = 0;
+    virtual void add_task_generic(string_view id
+                                , std::unique_ptr<render_task> task
+                                , int zorder) = 0;
 };
 
-std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender);
+std::unique_ptr<game_renderer>
+make_game_renderer(system& os, text_renderer& trender);
 
 } //namespace boken

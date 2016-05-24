@@ -978,6 +978,11 @@ inline constexpr bool operator!=(
     return !(p == q);
 }
 
+template <typename T, typename U>
+constexpr auto make_point2(T const x, U const y) noexcept {
+    return point2<safe_common_type_t<T, U, true>> {x, y};
+}
+
 //------------------------------------------------------------------------------
 // axis_aligned_rect
 //------------------------------------------------------------------------------

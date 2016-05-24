@@ -378,9 +378,10 @@ public:
     int do_events() final override;
 
     recti32 get_client_rect() const final override {
-        SDL_Rect r {};
-        SDL_RenderGetViewport(renderer_, &r);
-        return {point2i32 {}, sizei32x {r.w}, sizei32y {r.h}};
+        int w = 0;
+        int h = 0;
+        SDL_GL_GetDrawableSize(window_, &w, &h);
+        return {point2i32 {}, sizei32x {w}, sizei32y {h}};
     }
 private:
     on_request_quit_handler handler_quit_;

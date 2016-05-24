@@ -188,7 +188,7 @@ struct game_state {
         item_list.hide();
 
         item_list.set_on_focus_change([&](bool const is_focused) {
-            renderer.set_inventory_window_focus(is_focused);
+            r_item_list.set_focus(is_focused);
             if (is_focused) {
                 tool_tip.visible(false);
             }
@@ -201,15 +201,11 @@ struct game_state {
     game_state() {
         bind_event_handlers_();
 
-        renderer.set_message_window(&message_window);
-
-        renderer.set_tile_maps({
+        r_map.set_tile_maps({
             {tile_map_type::base,   database.get_tile_map(tile_map_type::base)}
           , {tile_map_type::entity, database.get_tile_map(tile_map_type::entity)}
           , {tile_map_type::item,   database.get_tile_map(tile_map_type::item)}
         });
-
-        renderer.set_inventory_window(&item_list.get());
 
         init_item_list();
 
@@ -302,7 +298,7 @@ struct game_state {
 
         BK_ASSERT(intersects(lvl.bounds(), p));
 
-        renderer.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
+        r_map.update_map_data(lvl.update_tile_at(rng_superficial, p, data));
     }
 
     //! Show the toolip for the 'view' command
@@ -550,9 +546,9 @@ struct game_state {
 
     void set_current_level(size_t const level_id, bool const is_new) {
         BK_ASSERT(the_world.has_level(level_id));
-        renderer.set_level(the_world.change_level(level_id));
+        r_map.set_level(the_world.change_level(level_id));
 
-        renderer.update_map_data();
+        r_map.update_map_data();
 
         if (is_new) {
             return;
@@ -810,8 +806,8 @@ struct game_state {
             break;
 
         case ct::debug_toggle_regions :
-            renderer.debug_toggle_show_regions();
-            renderer.update_map_data();
+            r_map.debug_toggle_show_regions();
+            r_map.update_map_data();
             break;
         case ct::debug_teleport_self : do_debug_teleport_self(); break;
 
@@ -855,7 +851,7 @@ struct game_state {
         auto const q      = clamp(bounds, p);
 
         highlighted_tile = q;
-        renderer.set_tile_highlight(q);
+        r_map.highlight(&q, &q + 1);
         show_view_tool_tip(q);
 
         update_highlight_tile();
@@ -1425,7 +1421,7 @@ struct game_state {
                     return event_result::pass_through;
                 case ct::cancel :
                     highlighted_tile = point2i32 {-1, -1}; // TODO
-                    renderer.clear_tile_highlight();
+                    r_map.highlight_clear();
                     tool_tip.visible(false);
                     adjust_view_to_player(p);
                     return event_result::filter_detach;
@@ -2187,14 +2183,14 @@ struct game_state {
         if (!entity_updates_.empty()) {
             auto const n = static_cast<ptrdiff_t>(entity_updates_.size());
             auto const p = entity_updates_.data();
-            renderer.update_data(p, p + n);
+            r_map.update_data(p, p + n);
             entity_updates_.clear();
         }
 
         if (!item_updates_.empty()) {
             auto const n = static_cast<ptrdiff_t>(item_updates_.size());
             auto const p = item_updates_.data();
-            renderer.update_data(p, p + n);
+            r_map.update_data(p, p + n);
             item_updates_.clear();
         }
 
@@ -2243,10 +2239,19 @@ struct game_state {
 
     timer timers;
 
-    tool_tip_renderer& tool_tip = *renderer.add_task(djb2_hash_32c("tool_tip")
-        , make_tool_tip_renderer(trender), 0);
-
     item_list_controller item_list {make_inventory_list(ctx, trender)};
+
+    map_renderer& r_map = renderer.add_task(
+        "map renderer", make_map_renderer(), 0);
+
+    message_log_renderer& r_message_log = renderer.add_task(
+        "message log", make_message_log_renderer(trender, message_window), 0);
+
+    item_list_renderer& r_item_list = renderer.add_task(
+        "item list", make_item_list_renderer(trender, item_list.get()), 0);
+
+    tool_tip_renderer& tool_tip = renderer.add_task(
+        "tool tip", make_tool_tip_renderer(trender), 0);
 
     input_context_stack context_stack;
 
@@ -2257,8 +2262,8 @@ struct game_state {
 
     point2i32 highlighted_tile {-1, -1};
 
-    std::vector<game_renderer::update_t<item_id>>   item_updates_;
-    std::vector<game_renderer::update_t<entity_id>> entity_updates_;
+    std::vector<map_renderer::update_t<item_id>>   item_updates_;
+    std::vector<map_renderer::update_t<entity_id>> entity_updates_;
 
     std::vector<point2i32> player_path_;
 
