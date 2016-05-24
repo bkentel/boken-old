@@ -356,6 +356,26 @@ public:
 
 std::unique_ptr<renderer2d> make_renderer(system& sys);
 
+class render_task {
+public:
+    virtual ~render_task();
+    virtual void render(renderer2d& r) = 0;
+};
+
+class tool_tip_renderer : public render_task {
+public:
+    virtual ~tool_tip_renderer();
+
+    virtual bool is_visible() const noexcept = 0;
+    virtual bool visible(bool state) noexcept = 0;
+
+    virtual void set_text(std::string text) = 0;
+
+    virtual void set_position(point2i32 p) noexcept = 0;
+};
+
+std::unique_ptr<tool_tip_renderer> make_tool_tip_renderer(text_renderer& tr);
+
 //=====--------------------------------------------------------------------=====
 // Responsible for rendering all the various game and ui objects.
 //=====--------------------------------------------------------------------=====
@@ -389,17 +409,24 @@ public:
     virtual void update_data(update_t<item_id> const* first, update_t<item_id> const* last) = 0;
     virtual void clear_data() = 0;
 
-    virtual void update_tool_tip_text(std::string text) = 0;
-    virtual bool update_tool_tip_visible(bool show) noexcept = 0;
-    virtual void update_tool_tip_position(point2i32 p) noexcept = 0;
-
     virtual void set_message_window(message_log const* window) noexcept = 0;
 
     virtual void set_inventory_window(inventory_list const* window) noexcept = 0;
+
     // TODO: consider a different method to accomplish this
     virtual void set_inventory_window_focus(bool focus) noexcept = 0;
 
     virtual void render(duration_t delta, view const& v) const noexcept = 0;
+
+    template <typename T>
+    T* add_task(uint32_t const id, std::unique_ptr<T> task, int const z) {
+        static_assert(std::is_base_of<render_task, T>::value, "");
+        auto const result = task.get();
+        add_task_generic(id, std::move(task), z);
+        return result;
+    }
+
+    virtual void add_task_generic(uint32_t id, std::unique_ptr<render_task> task, int z) = 0;
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender);

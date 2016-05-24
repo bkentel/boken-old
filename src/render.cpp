@@ -17,6 +17,105 @@
 
 namespace boken {
 
+void render_text(
+    renderer2d& r
+  , text_renderer& tr
+  , text_layout const& text
+  , vec2i32 const off
+) noexcept {
+    if (!text.is_visible()) {
+        return;
+    }
+
+    text.update(tr);
+
+    auto const& glyph_data = text.data();
+
+    auto const p  = (text.extent() + off).top_left();
+    auto const tx = value_cast_unsafe<float>(p.x);
+    auto const ty = value_cast_unsafe<float>(p.y);
+
+    using ptr_t = read_only_pointer_t;
+    auto const params = renderer2d::tile_params_variable {
+        3
+      , static_cast<int32_t>(glyph_data.size())
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, texture)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, size)}
+      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, color)}
+    };
+
+    auto const trans = r.transform({1.0f, 1.0f, tx, ty});
+    r.draw_tiles(params);
+}
+
+render_task::~render_task() = default;
+
+tool_tip_renderer::~tool_tip_renderer() = default;
+
+class tool_tip_renderer_impl final : public tool_tip_renderer {
+public:
+    tool_tip_renderer_impl(text_renderer& tr)
+      : trender_ {tr}
+    {
+    }
+
+    //---render_task interface
+    void render(renderer2d& r) final override;
+
+    //---tool_tip_renderer interface
+    bool is_visible() const noexcept final override {
+        return text_.is_visible();
+    }
+
+    bool visible(bool const state) noexcept final override {
+        return text_.visible(state);
+    }
+
+    void set_text(std::string text) final override {
+        text_.layout(trender_, std::move(text));
+    }
+
+    void set_position(point2i32 const p) noexcept final override {
+        text_.move_to(value_cast(p.x), value_cast(p.y));
+    }
+private:
+    text_renderer& trender_;
+    text_layout    text_;
+};
+
+std::unique_ptr<tool_tip_renderer> make_tool_tip_renderer(text_renderer& tr) {
+    return std::make_unique<tool_tip_renderer_impl>(tr);
+}
+
+void tool_tip_renderer_impl::render(renderer2d& r) {
+    if (!is_visible()) {
+        return;
+    }
+
+    auto const border_w = 2;
+    auto const window_r = r.get_client_rect();
+    auto const text_r   = text_.extent();
+    auto const border_r = grow_rect(text_r, border_w);
+
+    auto const dx = (border_r.x1 > window_r.x1)
+      ? value_cast(window_r.x1 - border_r.x1)
+      : 0;
+
+    auto const dy = (border_r.y1 > window_r.y1)
+      ? value_cast(window_r.y1 - border_r.y1)
+      : 0;
+
+    auto const v = vec2i32 {dx, dy};
+
+    auto const trans = r.transform({1.0f, 1.0f, 0.0f, 0.0f});
+
+    r.fill_rect(text_r + v, 0xDF666666u);
+    r.draw_rect(border_r + v, border_w, 0xDF66DDDDu);
+
+    render_text(r, trender_, text_, v);
+}
+
 game_renderer::~game_renderer() = default;
 
 class game_renderer_impl final : public game_renderer {
@@ -126,10 +225,6 @@ public:
         item_data.clear();
     }
 
-    void update_tool_tip_text(std::string text) final override;
-    bool update_tool_tip_visible(bool show) noexcept final override;
-    void update_tool_tip_position(point2i32 p) noexcept final override;
-
     void set_message_window(message_log const* const window) noexcept final override {
         message_log_ = window;
     }
@@ -143,6 +238,11 @@ public:
     }
 
     void render(duration_t delta, view const& v) const noexcept final override;
+
+    void add_task_generic(uint32_t const id, std::unique_ptr<render_task> task, int const z) final override {
+        BK_ASSERT(!!task);
+        tasks_.push_back(std::move(task));
+    }
 private:
     uint32_t choose_tile_color_(tile_id tid, region_id rid) noexcept;
 
@@ -182,6 +282,8 @@ private:
     bool debug_show_regions_ = false;
 
     std::unique_ptr<renderer2d> r2d = make_renderer(os_);
+
+    std::vector<std::unique_ptr<render_task>> tasks_;
 };
 
 std::unique_ptr<game_renderer> make_game_renderer(system& os, text_renderer& trender) {
@@ -280,18 +382,6 @@ void game_renderer_impl::update_map_data() {
     }
 }
 
-void game_renderer_impl::update_tool_tip_text(std::string text) {
-    tool_tip_.layout(trender_, std::move(text));
-}
-
-bool game_renderer_impl::update_tool_tip_visible(bool const show) noexcept {
-    return tool_tip_.visible(show);
-}
-
-void game_renderer_impl::update_tool_tip_position(point2i32 const p) noexcept {
-    tool_tip_.move_to(value_cast(p.x), value_cast(p.y));
-}
-
 namespace {
 
 template <typename Data, typename T>
@@ -347,60 +437,16 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     // inventory window
     render_inventory_list_();
 
-    // tool tip
-    render_tool_tip_();
+    //
+    for (auto const& task : tasks_) {
+        task->render(*r2d);
+    }
 
     r2d->render_present();
 }
 
 void game_renderer_impl::render_text_(text_layout const& text, vec2i32 const off) const noexcept {
-    using ptr_t = read_only_pointer_t;
-
-    if (!text.is_visible()) {
-        return;
-    }
-
-    text.update(trender_);
-
-    auto const& glyph_data = text.data();
-
-    auto const p  = (text.extent() + off).top_left();
-    auto const tx = value_cast_unsafe<float>(p.x);
-    auto const ty = value_cast_unsafe<float>(p.y);
-
-    auto const params = renderer2d::tile_params_variable {
-        3
-      , static_cast<int32_t>(glyph_data.size())
-      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, position)}
-      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, texture)}
-      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, size)}
-      , ptr_t {glyph_data, BK_OFFSETOF(text_layout::data_t, color)}
-    };
-
-    auto const trans = r2d->transform({1.0f, 1.0f, tx, ty});
-    r2d->draw_tiles(params);
-}
-
-void game_renderer_impl::render_tool_tip_() const noexcept {
-    if (!tool_tip_.is_visible()) {
-        return;
-    }
-
-    auto const border_w = 2;
-    auto const window_r = r2d->get_client_rect();
-    auto const text_r   = tool_tip_.extent();
-    auto const border_r = grow_rect(text_r, border_w);
-
-    auto const v = vec2i32 {
-        (border_r.x1 > window_r.x1) ? value_cast(window_r.x1 - border_r.x1) : 0
-      , (border_r.y1 > window_r.y1) ? value_cast(window_r.y1 - border_r.y1) : 0};
-
-
-    auto const trans = r2d->transform({1.0f, 1.0f, 0.0f, 0.0f});
-    r2d->fill_rect(text_r + v, 0xDF666666u);
-    r2d->draw_rect(border_r + v, border_w, 0xDF66DDDDu);
-
-    render_text_(tool_tip_, v);
+    render_text(*r2d, trender_, text, off);
 }
 
 void game_renderer_impl::render_message_log_() const noexcept {

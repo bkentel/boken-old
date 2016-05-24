@@ -190,7 +190,7 @@ struct game_state {
         item_list.set_on_focus_change([&](bool const is_focused) {
             renderer.set_inventory_window_focus(is_focused);
             if (is_focused) {
-                renderer.update_tool_tip_visible(false);
+                tool_tip.visible(false);
             }
         });
 
@@ -348,7 +348,7 @@ struct game_state {
          && print_entity()
          && print_items();
 
-        renderer.update_tool_tip_text(buffer.to_string());
+        tool_tip.set_text(buffer.to_string());
     }
 
     //! @param p Position in window coordinates
@@ -356,8 +356,8 @@ struct game_state {
         auto const p0 = window_to_world(p);
         auto const q  = window_to_world({last_mouse_x, last_mouse_y});
 
-        auto const was_visible = renderer.update_tool_tip_visible(true);
-        renderer.update_tool_tip_position(p);
+        auto const was_visible = tool_tip.visible(true);
+        tool_tip.set_position(p);
 
         if (was_visible && p0 == q) {
             return; // the tile the mouse points to is unchanged from last time
@@ -405,7 +405,7 @@ struct game_state {
          && print_entity()
          && print_items();
 
-        renderer.update_tool_tip_text(buffer.to_string());
+        tool_tip.set_text(buffer.to_string());
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -692,7 +692,7 @@ struct game_state {
 
         if (is_shift&& !event.went_down) {
             if (highlighted_tile == point2i32 {-1, -1}) {
-                renderer.update_tool_tip_visible(false);
+                tool_tip.visible(false);
             } else {
                 update_highlighted_tile({});
             }
@@ -847,7 +847,7 @@ struct game_state {
         }
 
         auto const q = world_to_window(p + vec2i32 {1, 0});
-        renderer.update_tool_tip_position(q);
+        tool_tip.set_position(q);
     }
 
     void set_highlighted_tile(point2i32 const p) {
@@ -859,7 +859,7 @@ struct game_state {
         show_view_tool_tip(q);
 
         update_highlight_tile();
-        renderer.update_tool_tip_visible(true);
+        tool_tip.visible(true);
 
         adjust_view_to_player(q);
     }
@@ -1426,7 +1426,7 @@ struct game_state {
                 case ct::cancel :
                     highlighted_tile = point2i32 {-1, -1}; // TODO
                     renderer.clear_tile_highlight();
-                    renderer.update_tool_tip_visible(false);
+                    tool_tip.visible(false);
                     adjust_view_to_player(p);
                     return event_result::filter_detach;
                 case ct::move_n  : update_highlighted_tile({ 0, -1}); break;
@@ -2242,6 +2242,9 @@ struct game_state {
     context const       ctx             = context {the_world, database};
 
     timer timers;
+
+    tool_tip_renderer& tool_tip = *renderer.add_task(djb2_hash_32c("tool_tip")
+        , make_tool_tip_renderer(trender), 0);
 
     item_list_controller item_list {make_inventory_list(ctx, trender)};
 
