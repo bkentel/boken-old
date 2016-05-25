@@ -42,6 +42,13 @@ public:
         return client_bounds_;
     }
 
+    void resize_to(recti32 const r) final override {
+        BK_ASSERT(value_cast(r.width())  > 0
+               && value_cast(r.height()) > 0);
+
+        bounds_ = r;
+    }
+
     int visible_size() const noexcept final override {
         return static_cast<int>(visible_lines_.size());
     }

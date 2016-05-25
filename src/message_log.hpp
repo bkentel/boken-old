@@ -21,6 +21,8 @@ public:
     virtual recti32 bounds() const noexcept = 0;
     virtual recti32 client_bounds() const noexcept = 0;
 
+    virtual void resize_to(recti32 r) = 0;
+
     virtual int visible_size() const noexcept = 0;
 
     using ref = std::reference_wrapper<text_layout const>;
