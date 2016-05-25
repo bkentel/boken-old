@@ -294,7 +294,7 @@ public:
     using duration_t  = clock_t::duration;
 
     virtual ~render_task();
-    virtual void render(renderer2d& r, view const& v) = 0;
+    virtual void render(duration_t delta, renderer2d& r, view const& v) = 0;
 };
 
 //=====--------------------------------------------------------------------=====
@@ -318,6 +318,16 @@ std::unique_ptr<tool_tip_renderer> make_tool_tip_renderer(text_renderer& tr);
 class message_log_renderer : public render_task {
 public:
     virtual ~message_log_renderer();
+
+    virtual void resize(vec2i32 delta) = 0;
+
+    virtual void show() = 0;
+    virtual void fade(int32_t percent) = 0;
+
+    virtual void scroll_pixels_v(int32_t pixels) = 0;
+    virtual void scroll_lines_v(int32_t line) = 0;
+    virtual void scroll_messages_v(int32_t messages) = 0;
+    virtual void scroll_reset_v() = 0;
 };
 
 std::unique_ptr<message_log_renderer>

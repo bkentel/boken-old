@@ -67,7 +67,7 @@ public:
     }
 
     //---render_task interface
-    void render(renderer2d& r, view const& v) final override;
+    void render(duration_t delta, renderer2d& r, view const& v) final override;
 
     //---tool_tip_renderer interface
     bool is_visible() const noexcept final override {
@@ -94,7 +94,7 @@ std::unique_ptr<tool_tip_renderer> make_tool_tip_renderer(text_renderer& tr) {
     return std::make_unique<tool_tip_renderer_impl>(tr);
 }
 
-void tool_tip_renderer_impl::render(renderer2d& r, view const&) {
+void tool_tip_renderer_impl::render(duration_t, renderer2d& r, view const&) {
     if (!is_visible()) {
         return;
     }
@@ -135,10 +135,36 @@ public:
     }
 
     //---render_task interface
-    void render(renderer2d& r, view const& v) final override;
+    void render(duration_t delta, renderer2d& r, view const& v) final override;
+
+    //---message_log_renderer interface
+    void resize(vec2i32 const delta) final override {
+    }
+
+    void show() final override {
+        fading_ = false;
+        fade_time_ = duration_t {};
+    }
+
+    void fade(int32_t const percent) final override {
+    }
+
+    void scroll_pixels_v(int32_t const pixels) final override {
+    }
+
+    void scroll_lines_v(int32_t const line) final override {
+    }
+
+    void scroll_messages_v(int32_t const messages) final override {
+    }
+
+    void scroll_reset_v() final override {
+    }
 private:
     message_log const* log_;
     text_renderer& trender_;
+    bool fading_ = false;
+    duration_t fade_time_ {};
 };
 
 std::unique_ptr<message_log_renderer> make_message_log_renderer(
@@ -148,9 +174,20 @@ std::unique_ptr<message_log_renderer> make_message_log_renderer(
     return std::make_unique<message_log_renderer_impl>(tr, ml);
 }
 
-void message_log_renderer_impl::render(renderer2d& r, view const&) {
+void message_log_renderer_impl::render(duration_t const delta, renderer2d& r, view const&) {
     if (!log_) {
         return;
+    }
+
+    constexpr std::chrono::milliseconds fade_time      {3000};
+    constexpr std::chrono::milliseconds fade_lead_time {1000};
+    constexpr auto fade_total_time = fade_time + fade_lead_time;
+
+    if (fading_ == false) {
+        fading_ = true;
+        fade_time_ = duration_t {};
+    } else if (fade_time_ < fade_total_time) {
+        fade_time_ += delta;
     }
 
     auto const& log_window = *log_;
@@ -168,7 +205,15 @@ void message_log_renderer_impl::render(renderer2d& r, view const&) {
     }();
 
     auto const trans = r.transform({1.0f, 1.0f, 0.0f, 0.0f});
-    r.fill_rect(bounds, 0xDF666666u);
+
+    auto const t0 = std::chrono::duration<float, std::milli> {fade_time_ - fade_lead_time};
+    auto const t1 = t0 / fade_time;
+
+    auto const scale = 1.0f - clamp(t1, 0.1f, 0.9f);
+    auto const alpha = round_as<uint32_t>(255.0f * scale) & 0xFFu;
+    auto const color = (alpha << 24) | 0x00666666u;
+
+    r.fill_rect(bounds, color);
 
     std::for_each(log_window.visible_begin(), log_window.visible_end()
       , [&](text_layout const& line) noexcept {
@@ -193,7 +238,7 @@ public:
     }
 
     //---render_task interface
-    void render(renderer2d& r, view const& v) final override;
+    void render(duration_t delta, renderer2d& r, view const& v) final override;
 
     //---tool_tip_renderer interface
     bool set_focus(bool const state) noexcept final override {
@@ -212,7 +257,7 @@ make_item_list_renderer(text_renderer& tr, inventory_list const& il) {
     return std::make_unique<item_list_renderer_impl>(tr, il);
 }
 
-void item_list_renderer_impl::render(renderer2d& r, view const&) {
+void item_list_renderer_impl::render(duration_t, renderer2d& r, view const&) {
     if (!list_ || !list_->is_visible()) {
         return;
     }
@@ -346,7 +391,7 @@ map_renderer::~map_renderer() = default;
 class map_renderer_impl final : public map_renderer {
 public:
     //---render_task interface
-    void render(renderer2d& r, view const& v) final override;
+    void render(duration_t delta, renderer2d& r, view const& v) final override;
 
     //---map_renderer interface
     bool debug_toggle_show_regions() noexcept final override {
@@ -566,7 +611,7 @@ std::unique_ptr<map_renderer> make_map_renderer() {
     return std::make_unique<map_renderer_impl>();
 }
 
-void map_renderer_impl::render(renderer2d& r, view const& v) {
+void map_renderer_impl::render(duration_t, renderer2d& r, view const& v) {
      auto const trans = r.transform({v.scale_x, v.scale_y, v.x_off, v.y_off});
 
     // Map tiles
@@ -687,7 +732,7 @@ void game_renderer_impl::render(duration_t const delta, view const& v) const noe
     r.draw_background();
 
     for (auto const& t : tasks_) {
-        t.task->render(r, v);
+        t.task->render(delta, r, v);
     }
 
     r.render_present();

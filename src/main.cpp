@@ -608,6 +608,11 @@ struct game_state {
     }
 
     void bind_event_handlers_() {
+        os.on_resize([&](int32_t const w, int32_t const h) {
+            auto const r = message_window.bounds();
+            message_window.resize_to({r.top_left(), sizei32x {w}, r.height()});
+        });
+
         os.on_key([&](kb_event const event, kb_modifiers const kmods) {
             process_event(&game_state::ui_on_key
                         , &input_context::on_key
@@ -669,7 +674,14 @@ struct game_state {
     }
 
     bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        return item_list.on_mouse_move(event, kmods);
+        return item_list.on_mouse_move(event, kmods) && [&] {
+            if (!intersects(message_window.bounds(), point2i32 {event.x, event.y})) {
+                return true;
+            }
+
+            r_message_log.show();
+            return true;
+        }();
     }
 
     bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
