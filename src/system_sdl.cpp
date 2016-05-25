@@ -2,6 +2,7 @@
 #include "render.hpp"
 #include "math.hpp"             // for ceil_as
 #include "config.hpp"
+#include "algorithm.hpp"
 
 #include <bkassert/assert.hpp>
 
@@ -262,6 +263,7 @@ public:
     {
         SDL_GetWindowSize(window_, &window_w_, &window_h_);
 
+        handler_resize_       = ignore {};
         handler_quit_         = [](    ) noexcept { return true; };
         handler_key_          = [](auto, auto) noexcept {};
         handler_mouse_move_   = [](auto, auto) noexcept {};
@@ -336,16 +338,24 @@ public:
         switch (e.event) {
         case SDL_WINDOWEVENT_SIZE_CHANGED :
             break;
-        case SDL_WINDOWEVENT_RESIZED :
+        case SDL_WINDOWEVENT_RESIZED : {
             window_w_ = e.data1;
             window_h_ = e.data2;
+
+            auto const r = get_client_rect();
+            handler_resize_(value_cast(r.width()), value_cast(r.height()));
+
             break;
+        }
         default:
             break;
         }
     }
 public:
     //===---------------------overridden functions---------------------------===
+    void on_resize(on_resize_handler handler) final override {
+        handler_resize_ = std::move(handler);
+    }
 
     void on_request_quit(on_request_quit_handler handler) final override {
         handler_quit_ = std::move(handler);
@@ -384,6 +394,7 @@ public:
         return {point2i32 {}, sizei32x {w}, sizei32y {h}};
     }
 private:
+    on_resize_handler       handler_resize_;
     on_request_quit_handler handler_quit_;
     on_key_handler          handler_key_;
     on_mouse_move_handler   handler_mouse_move_;

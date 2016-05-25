@@ -12,6 +12,7 @@ namespace boken {
 
 class system {
 public:
+    using on_resize_handler       = std::function<void (int32_t, int32_t)>;
     using on_request_quit_handler = std::function<bool ()>;
     using on_key_handler          = std::function<void (kb_event, kb_modifiers)>;
     using on_mouse_move_handler   = std::function<void (mouse_event, kb_modifiers)>;
@@ -21,6 +22,7 @@ public:
 
     virtual ~system();
 
+    virtual void on_resize(on_resize_handler handler) = 0;
     virtual void on_request_quit(on_request_quit_handler handler) = 0;
     virtual void on_key(on_key_handler handler) = 0;
     virtual void on_mouse_move(on_mouse_move_handler handler) = 0;
