@@ -1241,10 +1241,11 @@ void level_impl::generate_make_connections(random_state& rng) {
     auto const get_component_indicies = [&](size_t const off, vertex_t const n) noexcept {
         component_indicies.clear();
 
-        auto const first = std::next(begin(component_sizes), off);
-        auto const last  = end(component_sizes);
-
         auto const i = static_cast<int16_t>(off);
+        BK_ASSERT(static_cast<size_t>(i) == off);
+
+        auto const first = std::next(begin(component_sizes), i);
+        auto const last  = end(component_sizes);
 
         copy_index_if(first, last, i, back_inserter(component_indicies) // TODO
           , [n](vertex_t const m) noexcept { return m == n; });

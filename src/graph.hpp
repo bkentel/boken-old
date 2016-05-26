@@ -241,7 +241,7 @@ auto count_components(vertex_data<T> const& data, Container& out, size_t const n
     out.resize(n);
 
     for (T const c : data) {
-        BK_ASSERT(c > 0 && c - 1 < n);
+        BK_ASSERT(c > 0 && static_cast<size_t>(c - 1) < n);
         ++out[static_cast<size_t>(c - 1)]; // components are 1-based
     }
 

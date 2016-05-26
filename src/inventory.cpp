@@ -494,8 +494,9 @@ public:
     }
 
     void selection_union(std::initializer_list<int> const rows) final override {
-        for_each_index_of(sorted_, begin(rows), end(rows), [&](size_t const i) {
-            row_data_[i].selected = true;
+        for_each_index_of(sorted_, begin(rows), end(rows), [&](auto const i) {
+            BK_ASSERT(i >= 0);
+            row_data_[static_cast<size_t>(i)].selected = true;
         });
     }
 
@@ -510,7 +511,10 @@ public:
 
         // fill with the sorted indicies
         copy_index_if(sorted_, 0, back_inserter(selected_)
-          , [&](size_t const r) noexcept { return row_data_[r].selected; });
+          , [&](auto const r) noexcept {
+                BK_ASSERT(r >= 0);
+                return row_data_[static_cast<size_t>(r)].selected;
+            });
 
         if (selected_.empty()) {
             return {nullptr, nullptr};
@@ -615,8 +619,13 @@ private:
     bool is_visible_ {true};
 private:
     template <typename T>
+    size_t sorted_index_(T const index) const noexcept {
+        return static_cast<size_t>(sorted_[static_cast<size_t>(index)]);
+    }
+
+    template <typename T>
     row_t& get_row_(T const index) noexcept {
-        return rows_[sorted_[static_cast<size_t>(index)]];
+        return rows_[sorted_index_(index)];
     }
 
     template <typename T>
@@ -626,7 +635,7 @@ private:
 
     template <typename T>
     row_data_t& get_row_data_(T const index) noexcept {
-        return row_data_[sorted_[static_cast<size_t>(index)]];
+        return row_data_[sorted_index_(index)];
     }
 
     template <typename T>
