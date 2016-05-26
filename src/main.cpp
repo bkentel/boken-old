@@ -1235,6 +1235,16 @@ struct game_state {
         auto const win_r = underlying_cast_unsafe<float>(
             os.get_client_rect());
 
+        auto const win_w = win_r.width();
+        auto const win_h = win_r.height();
+
+        auto const limit = current_view.world_to_window(
+            make_2_tuple(tile_distance_x * tw, tile_distance_y * th));
+
+        auto const w_center = make_2_tuple(
+            win_r.x0 + win_w / 2.0f, win_r.y0 + win_h / 2.0f);
+
+        // center of the tile at the player's position in window coordinates
         auto const q = current_view.world_to_window(
             underlying_cast_unsafe<float>(p) + vec2f {0.5f, 0.5f}, tw, th);
 
@@ -1243,14 +1253,13 @@ struct game_state {
         auto const right  = win_r.x1 - q.x;
         auto const bottom = win_r.y1 - q.y;
 
-        auto const limit = current_view.world_to_window(
-            vec2i32 {tile_distance_x * tw, tile_distance_y * th});
-
-        auto const dx = (left  < limit.x) ? value_cast(limit.x - left)
+        auto const dx = magnitude_x(limit) * 2.0f > win_w ? value_cast((w_center - q).x)
+                      : (left  < limit.x) ? value_cast(limit.x - left)
                       : (right < limit.x) ? value_cast(right - limit.x)
                       : 0.0f;
 
-        auto const dy = (top    < limit.y) ? value_cast(limit.y - top)
+        auto const dy = magnitude_y(limit) * 2.0f > win_h ? value_cast((w_center - q).y)
+                      : (top    < limit.y) ? value_cast(limit.y - top)
                       : (bottom < limit.y) ? value_cast(bottom - limit.y)
                       : 0.0f;
 
