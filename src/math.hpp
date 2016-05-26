@@ -194,6 +194,24 @@ floor(basic_2_tuple<T, TagType> const n) noexcept {
     return {floor(n.x), floor(n.y)};
 }
 
+template <typename T, typename TagType>
+constexpr auto magnitude_x(basic_2_tuple<T, TagType> const n) noexcept {
+    return basic_1_tuple<T, tag_axis_x, tag_vector> {value_cast(n.x)};
+}
+
+template <typename T, typename TagType>
+constexpr auto magnitude_y(basic_2_tuple<T, TagType> const n) noexcept {
+    return basic_1_tuple<T, tag_axis_y, tag_vector> {value_cast(n.y)};
+}
+
+template <typename T, typename U, typename TagType>
+constexpr auto make_2_tuple(
+    basic_1_tuple<T, tag_axis_x, TagType> const x
+  , basic_1_tuple<U, tag_axis_y, TagType> const y
+) noexcept {
+    return basic_2_tuple<safe_common_type_t<T, U, true>, TagType> {x, y};
+}
+
 namespace detail {
 
 template <typename T>

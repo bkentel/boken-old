@@ -80,7 +80,6 @@
     <ClCompile Include="src\serialize.cpp">
       <Filter>data</Filter>
     </ClCompile>
-    <ClCompile Include="src\message_log.cpp" />
     <ClCompile Include="src\test\graph.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
@@ -90,6 +89,9 @@
     <ClCompile Include="src\messages.cpp" />
     <ClCompile Include="src\test\algorithm.t.cpp">
       <Filter>test</Filter>
+    </ClCompile>
+    <ClCompile Include="src\message_log.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -109,7 +111,6 @@
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\world.hpp" />
     <ClInclude Include="src\circular_buffer.hpp" />
-    <ClInclude Include="src\message_log.hpp" />
     <ClInclude Include="src\render.hpp" />
     <ClInclude Include="src\command.hpp" />
     <ClInclude Include="src\item_pile.hpp" />
@@ -170,6 +171,9 @@
     <ClInclude Include="src\events.hpp" />
     <ClInclude Include="src\functional.hpp" />
     <ClInclude Include="src\maybe.hpp" />
+    <ClInclude Include="src\message_log.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">
