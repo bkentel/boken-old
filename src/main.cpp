@@ -212,6 +212,13 @@ struct game_state {
         generate();
 
         reset_view_to_player();
+
+        // resize the message log to fit the current window size
+        {
+            auto const r_win = os.get_client_rect();
+            auto const r     = message_window.bounds();
+            message_window.resize_to({r.top_left(), r_win.width(), r.height()});
+        }
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2077,6 +2084,8 @@ struct game_state {
 
     //! Advance the game time by @p steps
     void advance(int const steps) {
+        turn_number += steps;
+
         auto const player = player_id();
 
         auto& lvl = current_level();
@@ -2278,6 +2287,8 @@ struct game_state {
     std::vector<map_renderer::update_t<entity_id>> entity_updates_;
 
     std::vector<point2i32> player_path_;
+
+    int32_t turn_number = 0;
 
     timepoint_t last_frame_time {};
 };
