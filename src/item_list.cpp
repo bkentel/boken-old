@@ -167,22 +167,30 @@ bool item_list_controller::on_mouse_button(mouse_event const& event, kb_modifier
                 il.selection_set({hit_test.y});
             }
         } else if (hit_test.what == type::header) {
-            auto const first = begin(sort_cols_);
-            auto const last  = end(sort_cols_);
             auto const value = hit_test.x + 1;
-            auto const it = std::lower_bound(first, last, value
-              , [&](int const lhs, int const rhs) {
+            auto const last = end(sort_cols_);
+            auto const it = std::lower_bound(begin(sort_cols_), last, value
+              , [](int const lhs, int const rhs) noexcept {
                     return std::abs(lhs) < std::abs(rhs);
                 });
 
-            if (it == last || std::abs(*it) != value) {
-                sort_cols_.insert(it, value);
+            auto const is_match = [&] {
+                return it != last && std::abs(*it) == value;
+            };
+
+            if (!kmods.exclusive_any(kb_mod::shift)) {
+                sort_cols_.assign({is_match() ? -*it : value});
             } else {
-                *it = -*it;
+                if (is_match()) {
+                    *it = -*it;
+                } else {
+                    sort_cols_.insert(it, value);
+                }
             }
 
             il.sort(sort_cols_.data(), sort_cols_.data() + sort_cols_.size());
             il.layout();
+
             return false;
         }
     }

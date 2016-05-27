@@ -355,6 +355,8 @@ public:
         BK_ASSERT(( !first &&  !last)
                || (!!first && !!last));
 
+        // sort by the order in which the items were originally added to the
+        // list
         if (!first) {
             std::iota(begin(sorted_), end(sorted_), int16_t {0});
             return;
