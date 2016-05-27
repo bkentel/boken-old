@@ -100,24 +100,53 @@ void tool_tip_renderer_impl::render(duration_t, renderer2d& r, view const&) {
     }
 
     auto const border_w = 2;
-    auto const window_r = r.get_client_rect();
-    auto const text_r   = text_.extent();
-    auto const border_r = grow_rect(text_r, border_w);
+    auto const window_r = shrink_rect(r.get_client_rect(), border_w);
 
-    auto const dx = (border_r.x1 > window_r.x1)
-      ? value_cast(window_r.x1 - border_r.x1)
-      : 0;
+    auto const text_r = [&] {
+        auto const win_w  = window_r.width();
+        for (;;) {
+            auto const text_r = text_.extent();
+            auto const text_w = text_r.width();
 
-    auto const dy = (border_r.y1 > window_r.y1)
-      ? value_cast(window_r.y1 - border_r.y1)
-      : 0;
+            if (text_w > win_w) {
+                text_.set_max_width(win_w);
+                text_.layout(trender_);
+                break;
+            }
 
-    auto const v = vec2i32 {dx, dy};
+            if (text_.max_width() == text_layout::none_x()) {
+                break;
+            }
+
+            text_.set_max_width(text_layout::none_x());
+            text_.layout(trender_);
+        }
+
+        return text_.extent();
+    }();
+
+    auto const v = [&] {
+        auto const text_w = text_r.width();
+        auto const win_w  = window_r.width();
+
+        auto const dx =
+            (text_w >= win_w) ? value_cast(window_r.x0 - text_r.x0)
+          : (text_r.x0 < window_r.x0) ? value_cast(window_r.x0 - text_r.x0)
+          : (text_r.x1 > window_r.x1) ? value_cast(window_r.x1 - text_r.x1)
+          : 0;
+
+        auto const dy =
+            (text_r.y0 < window_r.y0) ? value_cast(window_r.y0 - text_r.y0)
+          : (text_r.y1 > window_r.y1) ? value_cast(window_r.y1 - text_r.y1)
+          : 0;
+
+        return vec2i32 {dx, dy};
+    }();
 
     auto const trans = r.transform({1.0f, 1.0f, 0.0f, 0.0f});
 
     r.fill_rect(text_r + v, 0xDF666666u);
-    r.draw_rect(border_r + v, border_w, 0xDF66DDDDu);
+    r.draw_rect(grow_rect(text_r, border_w) + v, border_w, 0xDF66DDDDu);
 
     render_text(r, trender_, text_, v);
 }

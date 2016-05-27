@@ -109,6 +109,8 @@ void text_layout::layout(text_renderer& trender, std::string text) {
 
 void text_layout::layout(text_renderer& trender) {
     data_.clear();
+    actual_width_  = sizei16x {};
+    actual_height_ = sizei16y {};
 
     enum class state_t {
         read, read_escape, read_markup, proccess, skip, stop, escape, markup
@@ -377,6 +379,14 @@ recti32 text_layout::extent() const noexcept {
 
 sizei32x text_layout::max_width() const noexcept {
     return max_width_;
+}
+
+void text_layout::set_max_width(sizei32x const w) noexcept {
+    BK_ASSERT([&](int32_t const n) noexcept {
+        return n >= 0 && n <= std::numeric_limits<int16_t>::max();
+    } (value_cast(w)));
+
+    max_width_ = underlying_cast_unsafe<int16_t>(w);
 }
 
 sizei32y text_layout::max_height() const noexcept {

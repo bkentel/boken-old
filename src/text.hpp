@@ -42,17 +42,22 @@ public:
         uint32_t  codepoint;
     };
 
+    static constexpr sizei16x none_x() noexcept { return std::numeric_limits<int16_t>::max(); }
+    static constexpr sizei16y none_y() noexcept { return std::numeric_limits<int16_t>::max(); }
+
     text_layout() noexcept;
 
     text_layout(
         text_renderer& trender
       , std::string    text
-      , sizei16x       max_width  = std::numeric_limits<int16_t>::max()
-      , sizei16y       max_height = std::numeric_limits<int16_t>::max()
+      , sizei16x       max_width  = none_x()
+      , sizei16y       max_height = none_y()
     );
 
+    // replacing the current text with @p text, layout the text.
     void layout(text_renderer& trender, std::string text);
 
+    // using the current dimensions and text, layout the text.
     void layout(text_renderer& trender);
 
     void move_to(int x, int y) noexcept;
@@ -64,6 +69,8 @@ public:
     recti32 extent() const noexcept;
     sizei32x max_width() const noexcept;
     sizei32y max_height() const noexcept;
+
+    void set_max_width(sizei32x w) noexcept;
 
     // ensure all required glyphs are still cached at the same locations
     void update(text_renderer& trender) const noexcept;
