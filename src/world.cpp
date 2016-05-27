@@ -29,6 +29,14 @@ public:
         return const_cast<world_impl*>(this)->find(id);
     }
 
+    item_deleter const& get_item_deleter() const noexcept final override {
+        return item_deleter_;
+    }
+
+    entity_deleter const& get_entity_deleter() const noexcept final override {
+        return entity_deleter_;
+    }
+
     unique_item create_object(std::function<item (item_instance_id)> const& f) final override {
         auto const id = item_instance_id {static_cast<uint32_t>(items_.next_block_id())};
         auto const result = items_.allocate(f(id));
@@ -144,6 +152,14 @@ unique_item create_object(world& w, std::function<item (item_instance_id)> const
 
 unique_entity create_object(world& w, std::function<entity (entity_instance_id)> const& f) {
     return w.create_object(f);
+}
+
+item_deleter const& get_item_deleter(world const& w) noexcept {
+    return w.get_item_deleter();
+}
+
+entity_deleter const& get_entity_deleter(world const& w) noexcept {
+    return w.get_entity_deleter();
 }
 
 } //namespace boken

@@ -7,6 +7,8 @@
 namespace boken { class item; }
 namespace boken { class entity; }
 namespace boken { class level; }
+namespace boken { class item_deleter; }
+namespace boken { class entity_deleter; }
 
 namespace boken {
 
@@ -29,6 +31,9 @@ public:
     virtual entity&       find(entity_instance_id id)       noexcept = 0;
 
     //@}
+
+    virtual item_deleter   const& get_item_deleter()   const noexcept = 0;
+    virtual entity_deleter const& get_entity_deleter() const noexcept = 0;
 
     //@{
     //! @returns An owning handle to a new object created by the functor @p f.
