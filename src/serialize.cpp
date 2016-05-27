@@ -146,14 +146,14 @@ public:
             return std::make_pair(st::float_p, boken::to_property(last_double_));
         case element_type::string:
             return std::make_pair(st::string, last_string_hash_);
+        case element_type::arr_start: BK_ATTRIBUTE_FALLTHROUGH;
+        case element_type::arr_end:   BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::i64:       BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::u64:       BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::none:      BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::obj_start: BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::obj_key:   BK_ATTRIBUTE_FALLTHROUGH;
         case element_type::obj_end:   BK_ATTRIBUTE_FALLTHROUGH;
-        case element_type::arr_start: BK_ATTRIBUTE_FALLTHROUGH;
-        case element_type::arr_end:   BK_ATTRIBUTE_FALLTHROUGH;
         default:
             BK_ASSERT(false);
             break;
@@ -233,22 +233,33 @@ public:
 
     bool StartArray() noexcept {
         last_type_ = element_type::arr_start;
+        array_index_ = 0;
+        array_key_ = last_string_;
+        if (++array_depth_ > 1) {
+            BK_ASSERT(false && "TODO");
+        }
         return run();
     }
 
-    bool EndArray(size_t) noexcept {
+    bool EndArray(size_t const n) noexcept {
         last_type_ = element_type::arr_end;
+        last_array_size_ = static_cast<int32_t>(n);
+        --array_depth_;
         return run();
     }
 protected:
+    int32_t      array_depth_      {};
+    int32_t      array_index_      {};
+    std::string  array_key_        {};
+    int32_t      last_array_size_  {};
     element_type last_type_        {element_type::none};
     uint32_t     last_string_hash_ {};
     std::string  last_string_      {};
     double       last_double_      {};
     int64_t      last_i64_         {};
     uint64_t     last_u64_         {};
-    unsigned     last_u32_         {};
-    int          last_i32_         {};
+    uint32_t     last_u32_         {};
+    int32_t      last_i32_         {};
     bool         last_bool_        {};
 };
 
@@ -476,22 +487,49 @@ public:
     bool run();
 private:
     bool add_property() {
-        auto const p = to_property();
+        auto const add = [&](auto const& p) {
+            auto const result = on_property_(
+                last_property_name_
+              , last_property_name_hash_
+              , p.first
+              , p.second);
 
-        auto const result = on_property_(
-            last_property_name_
-          , last_property_name_hash_
-          , p.first
-          , p.second);
+            if (!result) {
+                return false;
+            }
 
-        if (!result) {
-            return false;
+            auto const is_new = def_.properties.add_or_update_property(
+                entity_property_id {last_property_name_hash_}, p.second);
+
+            if (!is_new) {
+                printf("warning: duplicate property \"%s\"\n"
+                  , last_property_name_.data());
+            }
+
+            return true;
+        };
+
+        if (last_type_ == element_type::arr_end) {
+            auto const p = std::make_pair(
+                serialize_data_type::i32
+              , static_cast<uint32_t>(array_index_));
+
+            last_property_name_ = array_key_ + "_n";
+            last_property_name_hash_ = djb2_hash_32(
+                begin(last_property_name_), end(last_property_name_));
+
+            return add(p);
         }
 
-        def_.properties.add_or_update_property(
-            entity_property_id {last_property_name_hash_}, p.second);
+        auto const p = to_property();
 
-        return true;
+        if (array_depth_) {
+            last_property_name_ = array_key_ + "_" + std::to_string(array_index_++);
+            last_property_name_hash_ = djb2_hash_32(
+                begin(last_property_name_), end(last_property_name_));
+        }
+
+        return add(p);
     }
 private:
     on_finish_entity_definition const& on_finish_;
@@ -586,11 +624,19 @@ bool entity_definition_handler::run() {
             last_property_name_hash_ = last_string_hash_;
         });
     case st::entity_property_value:
+        if (last_type_ == element_type::arr_start) {
+            state_ = st::entity_property_value;
+            return true;
+        }
+
         if (!add_property()) {
             return false;
         }
 
-        state_ = st::entity_property_name_or_end;
+        state_ = array_depth_
+          ? st::entity_property_value
+          : st::entity_property_name_or_end;
+
         return true;
     case st::entity_properties_end:
         return transition(et::obj_end

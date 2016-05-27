@@ -12,14 +12,38 @@ namespace boken {
 
 class entity : public object<entity, entity_definition, entity_instance_id> {
 public:
-    entity(entity_instance_id instance, entity_id id) noexcept;
+    struct body_part {
+        body_part_id     id;
+        item_instance_id equip;
+    };
+
+    ~entity();
+
+    entity(
+        item_deleter const& deleter
+      , game_database const& db
+      , entity_definition const& def
+      , entity_instance_id instance
+      , random_state& rng
+    ) noexcept;
+
+    entity(entity const&) = delete;
+    entity& operator=(entity const&) = delete;
+
+    entity(entity&&) = default;
+    entity& operator=(entity&&) = default;
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // stats
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     bool is_alive() const noexcept;
     bool modify_health(int16_t delta) noexcept;
+
+    bool equip(int32_t index);
 private:
+    std::reference_wrapper<item_deleter const> item_deleter_;
+    std::vector<body_part> body_parts_;
+
     int16_t max_health_;
     int16_t cur_health_;
 };

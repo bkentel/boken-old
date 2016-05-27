@@ -342,7 +342,7 @@ public:
 
         auto* pile = items_.find(q);
         if (!pile) {
-            item_pile new_pile;
+            item_pile new_pile {*item_deleter_};
             new_pile.add_item(std::move(i));
             auto const insert_result = items_.insert(q, std::move(new_pile));
             BK_ASSERT(insert_result.second);

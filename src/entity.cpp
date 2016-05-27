@@ -120,34 +120,77 @@ entity_property_value get_property_value_or(
 namespace {
 
 entity create_object(
-    entity_instance_id const  instance
+    game_database      const& db
+  , world              const& w
+  , entity_instance_id const  instance
   , entity_definition  const& def
   , random_state&             rng
 ) {
-    entity result {instance, def.id};
-    return result;
+    return {get_item_deleter(w), db, def, instance, rng};
 }
 
 } // namespace
 
 unique_entity create_object(
-    world&                   w
+    game_database const&     db
+  , world&                   w
   , entity_definition const& def
   , random_state&            rng
 ) {
     return create_object(w, [&](entity_instance_id const instance) {
-        return create_object(instance, def, rng);
+        return create_object(db, w, instance, def, rng);
     });
 }
 
 //=====--------------------------------------------------------------------=====
 //                                  entity
 //=====--------------------------------------------------------------------=====
-entity::entity(entity_instance_id const instance, entity_id const id) noexcept
-  : object {instance, id}
+entity::~entity() {
+    for (auto const& part : body_parts_) {
+        unique_item {part.equip, item_deleter_};
+    }
+}
+
+entity::entity(
+    item_deleter       const& deleter
+  , game_database      const& db
+  , entity_definition  const& def
+  , entity_instance_id const  instance
+  , random_state&             rng
+) noexcept
+  : object {deleter, instance, def.id}
+  , item_deleter_ {deleter}
   , max_health_ {1}
   , cur_health_ {1}
 {
+    auto const n = def.properties.value_or(
+        entity_property_id {djb2_hash_32c("body_n")}, 0);
+
+    if (n <= 0) {
+        return;
+    }
+
+    body_parts_.reserve(static_cast<size_t>(n));
+
+    std::generate_n(back_inserter(body_parts_), n, [&, i = 0]() mutable {
+        char key[] = "body_\0\0";
+        if (n <= 9) {
+            *(std::end(key) - 3) = '0' + static_cast<char>(i);
+        } else {
+            BK_ASSERT(n <= 99);
+            *(std::end(key) - 2) = '0' + static_cast<char>(i / 10);
+            *(std::end(key) - 3) = '0' + static_cast<char>(i % 10);
+        }
+
+        ++i;
+
+        auto const id = def.properties.value_or(
+            entity_property_id {djb2_hash_32(key)}, 0);
+
+        BK_ASSERT(id != 0);
+
+        return body_part {id, item_instance_id {}};
+    });
 }
 
 bool entity::is_alive() const noexcept {

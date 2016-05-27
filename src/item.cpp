@@ -324,11 +324,13 @@ item_property_value get_property_value_or(
 namespace {
 
 item create_object(
-    item_instance_id const  instance
+    game_database    const& db
+  , world            const& w
+  , item_instance_id const  instance
   , item_definition  const& def
   , random_state&           rng
 ) {
-    item result {instance, def.id};
+    item result {get_item_deleter(w), instance, def.id};
 
     //
     // check if the item type can be stacked, and if so set its current stack
@@ -348,12 +350,13 @@ item create_object(
 } // namespace
 
 unique_item create_object(
-    world&                 w
+    game_database const&   db
+  , world&                 w
   , item_definition const& def
   , random_state&          rng
 ) {
     return create_object(w, [&](item_instance_id const instance) {
-        return create_object(instance, def, rng);
+        return create_object(db, w, instance, def, rng);
     });
 }
 
@@ -366,14 +369,13 @@ unique_item create_object(
 //=====--------------------------------------------------------------------=====
 
 item_pile::~item_pile() {
-    BK_ASSERT(items_.empty() || !!deleter_);
-
     for (auto const& id : items_) {
-        unique_item {id, *deleter_};
+        unique_item {id, deleter_};
     }
 }
 
-item_pile::item_pile()
+item_pile::item_pile(item_deleter const& deleter)
+  : deleter_ {deleter}
 {
 }
 
@@ -383,32 +385,25 @@ item_instance_id item_pile::operator[](size_t const index) const noexcept {
 }
 
 void item_pile::add_item(unique_item item) {
-    if (!deleter_) {
-        deleter_ = &item.get_deleter();
-    }
-
     items_.push_back(item.release());
 }
 
 unique_item item_pile::remove_item(item_instance_id const id) {
-    BK_ASSERT(!!deleter_);
-
     auto const it = std::find(std::begin(items_), std::end(items_), id);
     if (it == std::end(items_)) {
-        return unique_item {item_instance_id {} , *deleter_};
+        return unique_item {item_instance_id {} , deleter_};
     }
 
     items_.erase(it);
-    return unique_item {id, *deleter_};
+    return unique_item {id, deleter_};
 }
 
 unique_item item_pile::remove_item(size_t const pos) {
     BK_ASSERT(pos < items_.size());
-    BK_ASSERT(!!deleter_);
 
     auto const id = items_[pos];
     items_.erase(std::begin(items_) + static_cast<ptrdiff_t>(pos));
-    return unique_item {id, *deleter_};
+    return unique_item {id, deleter_};
 }
 
 } //namespace boken

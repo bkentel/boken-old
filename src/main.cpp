@@ -1964,19 +1964,17 @@ struct game_state {
     // Object creation
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     unique_entity create_object(entity_definition const& def, random_state& rng) {
-        return boken::create_object(the_world, def, rng);
+        return boken::create_object(database, the_world, def, rng);
     }
 
     unique_item create_object(item_definition const& def, random_state& rng) {
-        return boken::create_object(the_world, def, rng);
+        return boken::create_object(database, the_world, def, rng);
     }
 
     template <typename Definition>
     auto impl_create_object_from_def_at_(Definition const& def, point2i32 const p, random_state& rng) {
         renderer_add(def.id, p);
-
-        return the_world.current_level()
-            .add_object_at(create_object(def, rng), p);
+        return current_level().add_object_at(create_object(def, rng), p);
     }
 
     item_instance_id create_object_at(item_definition const& def, point2i32 const p, random_state& rng) {

@@ -24,9 +24,10 @@ public:
     using property_value_t = typename Definition::property_value_t;
     using property_pair_t  = std::pair<property_t, property_value_t>;
 
-    object(instance_id_t const instance, definition_id_t const id)
+    object(item_deleter const& deleter, instance_id_t const instance, definition_id_t const id)
       : instance_id_ {instance}
       , id_ {id}
+      , items_ {deleter}
     {
     }
 

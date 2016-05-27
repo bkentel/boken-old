@@ -26,9 +26,10 @@ namespace boken {
 class item_pile {
 public:
     ~item_pile();
-    item_pile();
-    item_pile(item_pile&&) = default;
-    item_pile& operator=(item_pile&&) = default;
+    explicit item_pile(item_deleter const& deleter);
+
+    item_pile(item_pile&&) noexcept = default;
+    item_pile& operator=(item_pile&&) noexcept = default;
 
     item_pile(item_pile const&) = delete;
     item_pile& operator=(item_pile const&) = delete;
@@ -50,8 +51,6 @@ public:
 
     template <typename Predicate>
     int remove_if(Predicate pred) {
-        BK_ASSERT(!!deleter_);
-
         for (auto& id : items_) {
             remove_id_(id, pred);
         }
@@ -87,7 +86,7 @@ private:
     template <typename Predicate>
     void remove_id_(item_instance_id& id, Predicate&& pred) {
         // make an owning pointer to the item
-        auto itm = unique_item {id, *deleter_};
+        auto itm = unique_item {id, deleter_};
 
         // if the predicate throws, an item could end up lost; ensure that
         // cleanup always happens properly.
@@ -117,7 +116,7 @@ private:
         return size_before - size_after;
     }
 
-    item_deleter const* deleter_ {};
+    std::reference_wrapper<item_deleter const> deleter_;
     std::vector<item_instance_id> items_;
 };
 
