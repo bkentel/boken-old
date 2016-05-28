@@ -123,11 +123,12 @@ struct game_state {
 
     template <size_t N>
     void println(static_string_buffer<N> const& buffer) {
-        message_window.println(buffer.to_string());
+        println(buffer.to_string());
     }
 
     void println(std::string msg) {
         message_window.println(std::move(msg));
+        r_message_log.show();
     }
 
     template <typename... Args>
@@ -373,7 +374,7 @@ struct game_state {
         static_string_buffer<256> buffer;
 
         auto const print_entity = [&]() noexcept {
-            return result_of_or(lvl.entity_at(p0), false
+            return result_of_or(lvl.entity_at(p0), true
               , [&](entity_instance_id const id) {
                     return msg::debug_entity_info(buffer, ctx, {ctx, id});
                 });
@@ -819,6 +820,7 @@ struct game_state {
         case ct::get_items : do_get_items(); break;
 
         case ct::toggle_show_inventory : do_toggle_inventory(); break;
+        case ct::toggle_show_equipment : do_toggle_equipment(); break;
 
         case ct::reset_view : reset_view_to_player(); break;
         case ct::reset_zoom:
@@ -1495,6 +1497,62 @@ struct game_state {
         do_view_inventory();
     }
 
+    void do_toggle_equipment() {
+        if (item_list.is_visible()) {
+            if (!item_list.is_modal()) {
+                item_list.set_modal(true);
+            }
+
+            return;
+        }
+
+        if (!item_list.toggle_visible()) {
+            return;
+        }
+
+        do_view_equipment();
+    }
+
+    void do_view_equipment() {
+        auto const player = player_descriptor();
+
+        item_list.set_title("Equipment");
+
+        item_list.clear();
+        item_list.append_if(player.obj.body_begin(), player.obj.body_end()
+          , [&](body_part const& part) { return !part.is_free(); }
+          , [&](body_part const& part) { return part.equip; }
+        );
+
+        item_list.set_modal(true);
+        item_list.set_multiselect(true);
+        item_list.layout();
+        item_list.show();
+
+        auto const subject = player;
+
+        item_list.set_on_command([=](command_type const cmd) {
+            using ct = command_type;
+
+            switch (cmd) {
+            case ct::cancel:
+                if (item_list.is_modal()) {
+                    item_list.set_modal(false);
+                } else if (item_list.get().get_selection().first) {
+                    item_list.get().selection_clear();
+                } else {
+                    return event_result::filter_detach;
+                }
+
+                break;
+            default:
+                break;
+            }
+
+            return event_result::filter;
+        });
+    }
+
     void do_view_inventory() {
         auto const player = player_descriptor();
 
@@ -1527,7 +1585,14 @@ struct game_state {
                 break;
             }
             case ct::cancel:
-                item_list.set_modal(false);
+                if (item_list.is_modal()) {
+                    item_list.set_modal(false);
+                } else if (item_list.get().get_selection().first) {
+                    item_list.get().selection_clear();
+                } else {
+                    return event_result::filter_detach;
+                }
+
                 break;
             case ct::alt_open:
                 view_indicated_container();
@@ -1541,10 +1606,8 @@ struct game_state {
 
                 item_list.with_indicated([&](item_instance_id const id) {
                     auto const itm = const_item_descriptor {ctx, id};
-                    auto const ok = can_equip_item(ctx, subject, subject_p
-                      , const_item_descriptor {ctx, id}, buffer);
 
-                    if (!ok) {
+                    if (!can_equip_item(ctx, subject, itm, buffer)) {
                         println(buffer);
                         return;
                     }

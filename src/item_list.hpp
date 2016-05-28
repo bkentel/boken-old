@@ -127,6 +127,13 @@ public:
         });
     }
 
+    template <typename FwdIt, typename Predicate, typename Transform>
+    void append_if(FwdIt const first, FwdIt const last, Predicate pred, Transform trans) {
+        for_each_matching(first, last, pred, [&](auto const& value) {
+            append(trans(value));
+        });
+    }
+
     void remove_rows(int const* first, int const* last);
 
     void layout();
