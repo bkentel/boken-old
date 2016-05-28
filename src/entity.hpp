@@ -76,7 +76,6 @@ string_view impl_can_remove_item(const_context ctx
 bool can_equip_item(
     const_context           ctx
   , const_entity_descriptor subject
-  , point2i32               subject_p
   , const_item_descriptor   itm
   , string_buffer_base*     result
 ) noexcept;
@@ -84,20 +83,18 @@ bool can_equip_item(
 inline bool can_equip_item(
     const_context           ctx
   , const_entity_descriptor subject
-  , point2i32               subject_p
   , const_item_descriptor   itm
   , string_buffer_base&     result
 ) noexcept {
-    return can_equip_item(ctx, subject, subject_p, itm, &result);
+    return can_equip_item(ctx, subject, itm, &result);
 }
 
 inline bool can_equip_item(
     const_context           ctx
   , const_entity_descriptor subject
-  , point2i32               subject_p
   , const_item_descriptor   itm
 ) noexcept {
-    return can_equip_item(ctx, subject, subject_p, itm, nullptr);
+    return can_equip_item(ctx, subject, itm, nullptr);
 }
 
 template <typename UnaryF>

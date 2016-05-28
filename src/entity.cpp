@@ -147,7 +147,6 @@ unique_entity create_object(
 bool can_equip_item(
     const_context           const ctx
   , const_entity_descriptor const subject
-  , point2i32               const subject_p
   , const_item_descriptor   const itm
   , string_buffer_base*     const result
 ) noexcept {
