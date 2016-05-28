@@ -11,6 +11,45 @@
 
 namespace boken {
 
+namespace detail {
+
+template <typename T, typename U>
+constexpr bool check_index(T const i, U const size, std::integral_constant<int, 0>) noexcept {
+    static_assert(std::is_unsigned<T>::value && std::is_unsigned<U>::value, "");
+    return i < size;
+}
+
+template <typename T, typename U>
+constexpr bool check_index(T const i, U const size, std::integral_constant<int, 1>) noexcept {
+    static_assert(std::is_unsigned<T>::value && std::is_signed<U>::value, "");
+    return size >= 0 && i < static_cast<T>(size);
+}
+
+template <typename T, typename U>
+constexpr bool check_index(T const i, U const size, std::integral_constant<int, 2>) noexcept {
+    static_assert(std::is_signed<T>::value && std::is_unsigned<U>::value, "");
+    return i >= 0 && i < static_cast<T>(size);
+}
+
+template <typename T, typename U>
+constexpr bool check_index(T const i, U const size, std::integral_constant<int, 3>) noexcept {
+    static_assert(std::is_signed<T>::value && std::is_signed<U>::value, "");
+    return i >= 0 && i < size;
+}
+
+} // namespace detail
+
+template <typename T, typename U>
+constexpr bool check_index(T const i, U const size) noexcept {
+    static_assert(std::is_integral<T>::value && std::is_integral<U>::value, "");
+
+    using type = std::integral_constant<int
+      , (std::is_signed<T>::value ? 1 : 0) << 1
+      | (std::is_signed<U>::value ? 1 : 0)>;
+
+    return detail::check_index(i, size, type {});
+}
+
 template <typename T, T Value>
 struct always_same {
     template <typename... Args>
