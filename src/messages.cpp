@@ -1,5 +1,5 @@
 #include "messages.hpp"
-#include "utility.hpp"
+#include "format.hpp"
 #include "forward_declarations.hpp"
 #include "item_properties.hpp"
 #include "entity_properties.hpp"

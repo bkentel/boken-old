@@ -1,6 +1,7 @@
 #if !defined(BK_NO_TESTS)
 #include "catch.hpp"
 #include "utility.hpp"
+#include "format.hpp"
 #include "maybe.hpp"
 
 #include <algorithm>

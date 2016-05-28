@@ -96,6 +96,12 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
             return;
         }
         break;
+    case kb_keycode::k_e :
+        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
+            handler_(command_type::alt_equip, 0);
+            return;
+        }
+        break;
     case kb_keycode::k_t :
         if (event_kmods.exclusive_any(kb_mod::ctrl)) {
             handler_(command_type::debug_teleport_self, 0);
@@ -208,6 +214,7 @@ command_type string_to_enum(string_view const str) noexcept {
         BK_ENUM_MAPPING(alt_drop_some);
         BK_ENUM_MAPPING(alt_open);
         BK_ENUM_MAPPING(alt_insert);
+        BK_ENUM_MAPPING(alt_equip);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);
@@ -257,6 +264,7 @@ string_view enum_to_string(command_type const id) noexcept {
         BK_ENUM_MAPPING(alt_drop_some);
         BK_ENUM_MAPPING(alt_open);
         BK_ENUM_MAPPING(alt_insert);
+        BK_ENUM_MAPPING(alt_equip);
         BK_ENUM_MAPPING(toggle_show_inventory);
         BK_ENUM_MAPPING(debug_toggle_regions);
         BK_ENUM_MAPPING(debug_teleport_self);

@@ -9,6 +9,8 @@ namespace boken {
 //! common entity properties
 enum class entity_property : uint32_t {
     is_player = djb2_hash_32c("is_player")
+  , can_equip = djb2_hash_32c("can_equip")
+  , body_n    = djb2_hash_32c("body_n")
 };
 
 inline constexpr entity_property_id property(entity_property const p) noexcept {

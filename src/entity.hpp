@@ -4,19 +4,25 @@
 #include "context.hpp"
 #include "entity_def.hpp"
 #include "object.hpp"
+#include "format.hpp"
+
 #include <cstdint>
 
 namespace boken { class item; }
 
 namespace boken {
 
+struct body_part {
+    bool is_free() const noexcept {
+        return equip == item_instance_id {};
+    }
+
+    body_part_id     id;
+    item_instance_id equip;
+};
+
 class entity : public object<entity, entity_definition, entity_instance_id> {
 public:
-    struct body_part {
-        body_part_id     id;
-        item_instance_id equip;
-    };
-
     ~entity();
 
     entity(
@@ -39,7 +45,11 @@ public:
     bool is_alive() const noexcept;
     bool modify_health(int16_t delta) noexcept;
 
-    bool equip(int32_t index);
+    body_part const* body_begin() const noexcept;
+    body_part const* body_end() const noexcept;
+
+    void equip(int32_t index);
+    void equip(item_instance_id id);
 private:
     std::reference_wrapper<item_deleter const> item_deleter_;
     std::vector<body_part> body_parts_;
@@ -62,6 +72,33 @@ string_view impl_can_remove_item(const_context ctx
     , const_item_descriptor itm, const_entity_descriptor src) noexcept;
 
 } // namespace detail
+
+bool can_equip_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , point2i32               subject_p
+  , const_item_descriptor   itm
+  , string_buffer_base*     result
+) noexcept;
+
+inline bool can_equip_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , point2i32               subject_p
+  , const_item_descriptor   itm
+  , string_buffer_base&     result
+) noexcept {
+    return can_equip_item(ctx, subject, subject_p, itm, &result);
+}
+
+inline bool can_equip_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , point2i32               subject_p
+  , const_item_descriptor   itm
+) noexcept {
+    return can_equip_item(ctx, subject, subject_p, itm, nullptr);
+}
 
 template <typename UnaryF>
 bool can_add_item(

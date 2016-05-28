@@ -2,7 +2,7 @@
 #include "item_pile.hpp"
 #include "item_properties.hpp"
 #include "forward_declarations.hpp"
-#include "utility.hpp" //  static_string_buffer
+#include "format.hpp"
 
 #include "bkassert/assert.hpp"
 

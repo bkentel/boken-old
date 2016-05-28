@@ -13,6 +13,7 @@ enum class item_property : uint32_t {
   , stack_size         = djb2_hash_32c("stack_size")
   , current_stack_size = djb2_hash_32c("current_stack_size")
   , identified         = djb2_hash_32c("identified")
+  , can_equip          = djb2_hash_32c("can_equip")
 };
 
 inline constexpr item_property_id property(item_property const p) noexcept {

@@ -29,6 +29,7 @@
 #include "timer.hpp"
 #include "item_list.hpp"
 #include "messages.hpp"
+#include "format.hpp"
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
@@ -1534,6 +1535,27 @@ struct game_state {
             case ct::alt_insert:
                 insert_into_indicated_container();
                 return event_result::filter_detach;
+            case ct::alt_equip: {
+                auto const indicated = item_list.get().indicated();
+                static_string_buffer<128> buffer;
+
+                item_list.with_indicated([&](item_instance_id const id) {
+                    auto const itm = const_item_descriptor {ctx, id};
+                    auto const ok = can_equip_item(ctx, subject, subject_p
+                      , const_item_descriptor {ctx, id}, buffer);
+
+                    if (!ok) {
+                        println(buffer);
+                        return;
+                    }
+
+                    subject.obj.equip(id);
+                    item_list.assign(items(player));
+                    item_list.get().indicate(indicated);
+                });
+
+                break;
+            }
             default:
                 break;
             }

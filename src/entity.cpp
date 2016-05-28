@@ -1,5 +1,7 @@
 #include "entity.hpp"
+#include "algorithm.hpp"
 #include "entity_properties.hpp"
+#include "item_properties.hpp"
 #include "forward_declarations.hpp"
 #include "math.hpp"
 
@@ -142,6 +144,61 @@ unique_entity create_object(
     });
 }
 
+bool can_equip_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , point2i32               const subject_p
+  , const_item_descriptor   const itm
+  , string_buffer_base*     const result
+) noexcept {
+    if (!itm.def) {
+        return result
+            && result->append("{missing definition for item}")
+            && false;
+    }
+
+    if (!subject) {
+        return result
+            && result->append("{missing definition for entity}")
+            && false;
+    }
+
+    auto const item_can_equip =
+        get_property_value_or(itm, property(item_property::can_equip), 0);
+
+    if (!item_can_equip) {
+        return result
+            && result->append("the %s can't be equipped"
+                 , name_of_decorated(ctx, itm).data())
+            && false;
+    }
+
+    auto const subject_can_equip =
+        get_property_value_or(subject, property(entity_property::can_equip), 0);
+
+    if (!subject_can_equip) {
+        return result
+            && result->append("%s can't equip any items"
+                 , name_of_decorated(ctx, subject).data())
+            && false;
+    }
+
+    auto const first = subject.obj.body_begin();
+    auto const last  = subject.obj.body_end();
+    auto const it = std::find_if(first, last, [&](body_part const& part) {
+        return part.is_free();
+    });
+
+    if (it == last) {
+        return result
+            && result->append("%s has no free equipment slots"
+                 , name_of_decorated(ctx, subject).data())
+            && false;
+    }
+
+    return true;
+}
+
 //=====--------------------------------------------------------------------=====
 //                                  entity
 //=====--------------------------------------------------------------------=====
@@ -206,6 +263,33 @@ bool entity::modify_health(int16_t const delta) noexcept {
     cur_health_ = clamp_as<int16_t>(sum, lo, hi);
 
     return is_alive();
+}
+
+body_part const* entity::body_begin() const noexcept {
+    return body_parts_.data();
+}
+
+body_part const* entity::body_end() const noexcept {
+    return body_parts_.data() + body_parts_.size();
+}
+
+void entity::equip(int32_t const index) {
+    BK_ASSERT(check_index(index, items().size()));
+    equip(items()[static_cast<size_t>(index)]);
+}
+
+void entity::equip(item_instance_id const id) {
+    auto const last = std::end(body_parts_);
+    auto const it = std::find_if(begin(body_parts_), last
+      , [&](body_part const& part) { return part.is_free(); });
+
+    BK_ASSERT(it != last
+           && it->equip == item_instance_id {});
+
+    auto itm = items().remove_item(id);
+    BK_ASSERT(!!itm);
+
+    it->equip = itm.release();
 }
 
 } //namespace boken

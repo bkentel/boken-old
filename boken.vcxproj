@@ -155,6 +155,7 @@
     <ClInclude Include="src\entity_properties.hpp" />
     <ClInclude Include="src\events.hpp" />
     <ClInclude Include="src\flag_set.hpp" />
+    <ClInclude Include="src\format.hpp" />
     <ClInclude Include="src\forward_declarations.hpp" />
     <ClInclude Include="src\functional.hpp" />
     <ClInclude Include="src\graph.hpp" />
