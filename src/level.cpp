@@ -668,8 +668,14 @@ public:
         bool result = true;
 
         bresenham_line(from, to, [&](point2i32 const p) {
-            return result = !data_at_(data_.flags, p).test(tile_flag::solid)
-                         || (p == to);
+            auto const ok = check_bounds_(p)
+                         && !data_at_(data_.flags, p).test(tile_flag::solid);
+
+            if (!ok && p != to) {
+                result = false;
+            }
+
+            return ok;
         });
 
         return result;
