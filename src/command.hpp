@@ -63,6 +63,7 @@ enum class command_type : uint32_t {
   , alt_equip     = djb2_hash_32c("alt_equip")
 
   , toggle_show_inventory = djb2_hash_32c("toggle_show_inventory")
+  , toggle_show_equipment = djb2_hash_32c("toggle_show_equipment")
 
   , debug_toggle_regions = djb2_hash_32c("debug_toggle_regions")
   , debug_teleport_self  = djb2_hash_32c("debug_teleport_self")
