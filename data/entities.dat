@@ -6,7 +6,15 @@
       "properties": {
         "race": "player",
         "class": "player",
+        "body": ["head",
+                 "neck",
+                 "torso",
+                 "arm_left", "arm_right",
+                 "hand_left", "hand_right",
+                 "finger_left", "finger_right"
+                ],
         "is_player": true,
+        "can_equip": true,
         "tile_index": 351
       }
     },

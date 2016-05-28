@@ -35,6 +35,7 @@
       "properties": {
         "type": "weapon",
         "sub_type": "dagger",
+        "can_equip": true,
         "weight": 1200,
         "tile_index": 3,
         "damage_max": 3,
