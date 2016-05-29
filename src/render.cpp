@@ -475,6 +475,50 @@ public:
         }
     }
 
+    void set_pile_id(item_id const id) noexcept final override {
+        pile_id_ = id;
+    }
+
+    void remove_entity_at(point2i32 const p) final override {
+        update_t<entity_id> const update {p, p, entity_id {}};
+        update_data(&update, &update + 1);
+    }
+
+    void remove_item_at(point2i32 const p) final override {
+        update_t<item_id> const update {p, p, item_id {}};
+        update_data(&update, &update + 1);
+    }
+
+    void add_object_at(point2i32 const p, entity_id const id) final override {
+        update_t<entity_id> const update {p, p, id};
+        update_data(&update, &update + 1);
+    }
+
+    void add_object_at(point2i32 const p, item_id const id) final override {
+        update_t<item_id> const update {p, p, get_item_id_(id)};
+        update_data(&update, &update + 1);
+    }
+
+    void update_object_at(point2i32 const p, entity_id const id) final override {
+        update_t<entity_id> const update {p, p, id};
+        update_data(&update, &update + 1);
+    }
+
+    void update_object_at(point2i32 const p, item_id const id) final override {
+        update_t<item_id> const update {p, p, get_item_id_(id)};
+        update_data(&update, &update + 1);
+    }
+
+    void move_object(point2i32 from, const point2i32 const to, entity_id const id) final override {
+        update_t<entity_id> const update {from, to, id};
+        update_data(&update, &update + 1);
+    }
+
+    void move_object(point2i32 from, const point2i32 const to, item_id const id) final override {
+        update_t<item_id> const update {from, to, get_item_id_(id)};
+        update_data(&update, &update + 1);
+    }
+
     void update_map_data() final override;
     void update_map_data(const_sub_region_range<tile_id> sub_region) final override;
 
@@ -492,6 +536,12 @@ public:
         update_data_(item_data, first, last, *tile_map_items_);
     }
 private:
+    item_id get_item_id_(item_id const id) const noexcept {
+        return (id == item_id {})
+          ? pile_id_
+          : id;
+    }
+
     struct data_t {
         point2i16 position;
         point2i16 tex_coord;
@@ -630,6 +680,8 @@ private:
     tile_map const* tile_map_base_     {};
     tile_map const* tile_map_entities_ {};
     tile_map const* tile_map_items_    {};
+
+    item_id pile_id_ {};
 
     std::vector<point2i32> highlighted_tiles_;
 

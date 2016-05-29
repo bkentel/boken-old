@@ -80,8 +80,8 @@ void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm
 //! get the item id to use for the display of item piles.
 item_id get_pile_id(game_database const& db) noexcept;
 
-//! get the item id to display an item pile
-//! @pre @p pile is not empty
-item_id get_pile_id(const_context ctx, item_pile const& pile, item_id pile_id) noexcept;
+//! get the item id to use to display an item pile
+//! return an empty id when the id for generic piles should be used
+item_id get_pile_id(const_context ctx, item_pile const& pile) noexcept;
 
 } //namespace boken

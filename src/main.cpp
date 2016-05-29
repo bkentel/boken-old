@@ -108,14 +108,6 @@ struct game_state {
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
-    item_id get_pile_id() const {
-        return boken::get_pile_id(database);
-    }
-
-    item_id get_pile_id(item_pile const& pile, item_id const pile_id) const {
-        return boken::get_pile_id(ctx, pile, pile_id);
-    }
-
     //! hard fail if the entity doesn't exist on the given level.
     point2i32 require_entity_on_level(const_entity_descriptor const e, level const& lvl) const {
         return require(lvl.find(e.obj.instance()));
@@ -208,6 +200,8 @@ struct game_state {
           , {tile_map_type::entity, database.get_tile_map(tile_map_type::entity)}
           , {tile_map_type::item,   database.get_tile_map(tile_map_type::item)}
         });
+
+        r_map.set_pile_id(get_pile_id(database));
 
         init_item_list();
 
@@ -559,23 +553,14 @@ struct game_state {
 
         r_map.update_map_data();
 
-        if (is_new) {
-            return;
-        }
-
-        item_updates_.clear();
-        entity_updates_.clear();
-
         auto& lvl = the_world.current_level();
 
         lvl.for_each_entity([&](entity_instance_id const id, point2i32 const p) {
-            renderer_add(find(the_world, id).definition(), p);
+            r_map.add_object_at(p, find(the_world, id).definition());
         });
 
-        auto const pile_id = get_pile_id();
-
         lvl.for_each_pile([&](item_pile const& pile, point2i32 const p) {
-            renderer_add(get_pile_id(pile, pile_id), p);
+            r_map.add_object_at(p, get_pile_id(ctx, pile));
         });
     }
 
@@ -997,8 +982,12 @@ struct game_state {
 
         // get all items
         if (n < 0) {
-            renderer_update_pile_if(subject_p
-              , move_all_items(subject, subject_p, from, to, callback));
+            auto const result =
+                move_all_items(subject, subject_p, from, to, callback);
+
+            if (result > 0) {
+                renderer_update_pile(subject_p);
+            }
 
             return;
         }
@@ -1020,12 +1009,15 @@ struct game_state {
                 return event_result::filter;
             }
 
-            auto const result = renderer_update_pile_if(subject_p
-              , move_selected_items(subject, subject_p, from, to, callback));
+            auto const result =
+                move_selected_items(subject, subject_p, from, to, callback);
 
-            if (result > 0 && was_visible) {
-                item_list.assign(items(subject));
-                item_list.get().indicate(indicated);
+            if (result > 0) {
+                renderer_update_pile(subject_p);
+                if (was_visible) {
+                    item_list.assign(items(subject));
+                    item_list.get().indicate(indicated);
+                }
             }
 
             return event_result::filter_detach;
@@ -1574,10 +1566,11 @@ struct game_state {
             switch (cmd) {
             case ct::alt_drop_some: {
                 auto const indicated = item_list.get().indicated();
-                auto const result = renderer_update_pile_if(subject_p
-                  , move_selected_items(subject, subject_p, from, to, callback));
+                auto const result =
+                    move_selected_items(subject, subject_p, from, to, callback);
 
                 if (result > 0) {
+                    renderer_update_pile(subject_p);
                     item_list.assign(items(player));
                     item_list.get().indicate(indicated);
                 }
@@ -1821,7 +1814,7 @@ struct game_state {
         });
 
         if (&lvl == &current_level()) {
-            renderer_remove_entity(p);
+            r_map.remove_entity_at(p);
         }
     }
 
@@ -1971,7 +1964,12 @@ struct game_state {
           });
     }
 
-    placement_result impl_player_move_by_(level& lvl, entity_descriptor const player, point2i32 const p, vec2i32 const v) {
+    placement_result impl_player_move_by_(
+        level&                  lvl
+      , entity_descriptor const player
+      , point2i32         const p
+      , vec2i32           const v
+    ) {
         auto const result = lvl.move_by(player.obj.instance(), v);
         if (result != placement_result::ok) {
             return result;
@@ -1981,7 +1979,7 @@ struct game_state {
         BK_ASSERT(player_location() == p0);
 
         adjust_view_to_player(p0);
-        renderer_update(player.obj.definition(), p, p0);
+        r_map.move_object(p, p0, player.obj.definition());
 
         advance(1);
 
@@ -2030,7 +2028,7 @@ struct game_state {
 
         switch (result) {
         case placement_result::ok:
-            renderer_update(player.obj.definition(), p_cur, p_dst);
+            r_map.move_object(p_cur, p_dst, player.obj.definition());
             break;
         case placement_result::failed_entity:   BK_ATTRIBUTE_FALLTHROUGH;
         case placement_result::failed_obstacle: BK_ATTRIBUTE_FALLTHROUGH;
@@ -2058,7 +2056,7 @@ struct game_state {
 
     template <typename Definition>
     auto impl_create_object_from_def_at_(Definition const& def, point2i32 const p, random_state& rng) {
-        renderer_add(def.id, p);
+        r_map.add_object_at(p, def.id);
         return current_level().add_object_at(create_object(def, rng), p);
     }
 
@@ -2120,7 +2118,7 @@ struct game_state {
         auto const q = result.first;
 
         lvl.add_object_at(std::move(e), q);
-        renderer_add(id, q);
+        r_map.add_object_at(q, id);
 
         return q;
     }
@@ -2128,7 +2126,7 @@ struct game_state {
     item_instance_id add_object_at(unique_item&& i, point2i32 const p) {
         BK_ASSERT(!!i);
         auto const id = boken::find(the_world, i.get()).definition();
-        renderer_add(id, p);
+        r_map.add_object_at(p, id);
         return the_world.current_level().add_object_at(std::move(i), p);
     }
 
@@ -2220,63 +2218,21 @@ struct game_state {
                     return;
                 }
 
-                renderer_update(e.obj.definition(), p_before, p_after);
+                r_map.move_object(p_before, p_after, e.obj.definition());
             });
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Rendering
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void renderer_update(entity_id const id, point2i32 const p_old, point2i32 const p_new) {
-        entity_updates_.push_back({p_old, p_new, id});
-    }
-
-    void renderer_update(item_id const id, point2i32 const p_old, point2i32 const p_new) {
-        item_updates_.push_back({p_old, p_new, id});
-    }
-
-    void renderer_update(entity const& e, point2i32 const p_old, point2i32 const p_new) {
-        renderer_update(e.definition(), p_old, p_new);
-    }
-
-    void renderer_update(item const& i, point2i32 const p_old, point2i32 const p_new) {
-        renderer_update(i.definition(), p_old, p_new);
-    }
-
-    void renderer_add(entity_id const id, point2i32 const p) {
-        renderer_update(id, p, p);
-    }
-
-    void renderer_add(item_id const id, point2i32 const p) {
-        renderer_update(id, p, p);
-    }
-
-    void renderer_remove_item(point2i32 const p) {
-        item_updates_.push_back({p, p, item_id {}});
-    }
-
-    void renderer_remove_entity(point2i32 const p) {
-        entity_updates_.push_back({p, p, entity_id {}});
-    }
-
     void renderer_update_pile(point2i32 const p) {
         auto const pile = current_level().item_at(p);
         if (!pile) {
-            renderer_remove_item(p);
+            r_map.remove_item_at(p);
             return;
         }
 
-        auto const pile_id = get_pile_id();
-        renderer_add(get_pile_id(*pile, pile_id), p);
-    }
-
-    template <typename Bool>
-    Bool renderer_update_pile_if(point2i32 const p, Bool const value) {
-        if (!!value) {
-            renderer_update_pile(p);
-        }
-
-        return value;
+        r_map.update_object_at(p, get_pile_id(ctx, *pile));
     }
 
     //! Render the game
@@ -2291,20 +2247,6 @@ struct game_state {
 
         if (delta < frame_time) {
             return;
-        }
-
-        if (!entity_updates_.empty()) {
-            auto const n = static_cast<ptrdiff_t>(entity_updates_.size());
-            auto const p = entity_updates_.data();
-            r_map.update_data(p, p + n);
-            entity_updates_.clear();
-        }
-
-        if (!item_updates_.empty()) {
-            auto const n = static_cast<ptrdiff_t>(item_updates_.size());
-            auto const p = item_updates_.data();
-            r_map.update_data(p, p + n);
-            item_updates_.clear();
         }
 
         renderer.render(delta, current_view);
@@ -2374,9 +2316,6 @@ struct game_state {
     int last_mouse_y = 0;
 
     point2i32 highlighted_tile {-1, -1};
-
-    std::vector<map_renderer::update_t<item_id>>   item_updates_;
-    std::vector<map_renderer::update_t<entity_id>> entity_updates_;
 
     std::vector<point2i32> player_path_;
 

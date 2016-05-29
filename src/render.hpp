@@ -365,6 +365,19 @@ public:
 
     virtual void set_level(level const& lvl) noexcept = 0;
     virtual void set_tile_maps(std::initializer_list<std::pair<tile_map_type, tile_map const&>> tmaps) noexcept = 0;
+    virtual void set_pile_id(item_id id) noexcept = 0;
+
+    virtual void remove_entity_at(point2i32 p) = 0;
+    virtual void remove_item_at(point2i32 p) = 0;
+
+    virtual void add_object_at(point2i32 p, entity_id id) = 0;
+    virtual void add_object_at(point2i32 p, item_id id) = 0;
+
+    virtual void update_object_at(point2i32 p, entity_id id) = 0;
+    virtual void update_object_at(point2i32 p, item_id id) = 0;
+
+    virtual void move_object(point2i32 from, point2i32 to, entity_id id) = 0;
+    virtual void move_object(point2i32 from, point2i32 to, item_id id) = 0;
 
     virtual void update_map_data() = 0;
     virtual void update_map_data(const_sub_region_range<tile_id> sub_region) = 0;

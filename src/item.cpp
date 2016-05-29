@@ -260,13 +260,12 @@ item_id get_pile_id(game_database const& db) noexcept {
 item_id get_pile_id(
     const_context const  ctx
   , item_pile     const& pile
-  , item_id       const  pile_id
 ) noexcept {
     BK_ASSERT(!pile.empty());
 
     return (pile.size() == 1u)
       ? find(ctx.w, *pile.begin()).definition()
-      : pile_id;
+      : item_id {};
 }
 
 int32_t weight_of_exclusive(const_item_descriptor const i) noexcept {
