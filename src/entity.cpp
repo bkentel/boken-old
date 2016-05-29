@@ -144,42 +144,37 @@ unique_entity create_object(
     });
 }
 
-bool can_equip_item(
+namespace {
+
+template <typename Out>
+bool impl_can_equip_item(
     const_context           const ctx
   , const_entity_descriptor const subject
   , const_item_descriptor   const itm
-  , string_buffer_base*     const result
+  , Out&&                         result
 ) noexcept {
     if (!itm.def) {
-        return result
-            && result->append("{missing definition for item}")
-            && false;
+        return result.append("{missing definition for item}"), false;
     }
 
     if (!subject) {
-        return result
-            && result->append("{missing definition for entity}")
-            && false;
+        return result.append("{missing definition for entity}"), false;
     }
 
     auto const item_can_equip =
         get_property_value_or(itm, property(item_property::can_equip), 0);
 
     if (!item_can_equip) {
-        return result
-            && result->append("the %s can't be equipped"
-                 , name_of_decorated(ctx, itm).data())
-            && false;
+        return result.append("the %s can't be equipped"
+            , name_of_decorated(ctx, itm).data()), false;
     }
 
     auto const subject_can_equip =
         get_property_value_or(subject, property(entity_property::can_equip), 0);
 
     if (!subject_can_equip) {
-        return result
-            && result->append("%s can't equip any items"
-                 , name_of_decorated(ctx, subject).data())
-            && false;
+        return result.append("%s can't equip any items"
+            , name_of_decorated(ctx, subject).data()), false;
     }
 
     auto const first = subject.obj.body_begin();
@@ -189,13 +184,36 @@ bool can_equip_item(
     });
 
     if (it == last) {
-        return result
-            && result->append("%s has no free equipment slots"
-                 , name_of_decorated(ctx, subject).data())
-            && false;
+        return result.append("%s has no free equipment slots"
+            , name_of_decorated(ctx, subject).data()), false;
     }
 
     return true;
+}
+
+//TODO relocate
+struct discard_buffer {
+    template <typename... Args>
+    bool append(Args&&...) const noexcept { return true; }
+};
+
+} // namespace
+
+bool can_equip_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_item_descriptor   itm
+  , string_buffer_base&     result
+) noexcept {
+    return impl_can_equip_item(ctx, subject, itm, result);
+}
+
+bool can_equip_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_item_descriptor   itm
+) noexcept {
+    return impl_can_equip_item(ctx, subject, itm, discard_buffer {});
 }
 
 //=====--------------------------------------------------------------------=====

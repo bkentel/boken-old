@@ -73,29 +73,22 @@ string_view impl_can_remove_item(const_context ctx
 
 } // namespace detail
 
+//! returns whether the subject can equip the given item. If the subject can't,
+//! a formatted reason is written to the buffer given by result
+//@{
 bool can_equip_item(
     const_context           ctx
   , const_entity_descriptor subject
   , const_item_descriptor   itm
-  , string_buffer_base*     result
+  , string_buffer_base&     result
 ) noexcept;
 
-inline bool can_equip_item(
+bool can_equip_item(
     const_context           ctx
   , const_entity_descriptor subject
   , const_item_descriptor   itm
-  , string_buffer_base&     result
-) noexcept {
-    return can_equip_item(ctx, subject, itm, &result);
-}
-
-inline bool can_equip_item(
-    const_context           ctx
-  , const_entity_descriptor subject
-  , const_item_descriptor   itm
-) noexcept {
-    return can_equip_item(ctx, subject, itm, nullptr);
-}
+) noexcept;
+//@}
 
 template <typename UnaryF>
 bool can_add_item(
