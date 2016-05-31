@@ -4,7 +4,10 @@
 #include "types.hpp"
 #include "bkassert/assert.hpp"
 
+#include <tuple>
+#include <utility>
 #include <type_traits>
+#include <cstddef>
 
 namespace boken { class world; }
 namespace boken { class level; }
@@ -115,6 +118,25 @@ struct descriptor_base {
         return !!def;
     }
 
+    template <typename T>
+    bool operator==(descriptor_base<T, Definition> const& other) const noexcept {
+        return (std::addressof(other.obj) == std::addressof(obj))
+            && (other.def == def);
+    }
+
+    template <typename T>
+    bool operator!=(descriptor_base<T, Definition> const& other) const noexcept {
+        return !(*this == other);
+    }
+
+    Object* operator->() const noexcept {
+        return &obj;
+    }
+
+    Object* operator->() noexcept {
+        return &obj;
+    }
+
     Object&           obj;
     Definition const* def;
 };
@@ -153,6 +175,7 @@ struct level_location_base {
 using level_location = level_location_base<false>;
 using const_level_location = level_location_base<true>;
 
+// TODO: move or remove
 template <typename UnaryF>
 bool not_empty_or(UnaryF const f, string_view const s) noexcept {
     if (!s.empty()) {
@@ -162,5 +185,86 @@ bool not_empty_or(UnaryF const f, string_view const s) noexcept {
 
     return true;
 }
+
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
+namespace detail {
+
+enum class param_class {
+    subject
+  , object
+  , at
+  , from
+  , to
+};
+
+//=====--------------------------------------------------------------------=====
+template <param_class Class, typename T>
+struct param_t {
+    template <typename C, typename... Args, size_t... I>
+    constexpr param_t(std::tuple<C, Args...>&& args, std::integer_sequence<size_t, I...>)
+      : value {std::get<I + 1>(args)...}
+    {
+    }
+
+    template <typename C, typename... Args>
+    constexpr param_t(std::tuple<C, Args...>&& args)
+      : param_t {std::move(args), std::make_index_sequence<sizeof...(Args)> {}}
+    {
+        using class_t = std::integral_constant<param_class, Class>;
+        static_assert(std::is_same<std::decay_t<C>, class_t>::value, "wrong type");
+    }
+
+    operator T const&() const& { return value; }
+    operator T&&() && { return std::move(value); }
+
+    T value;
+};
+
+//=====--------------------------------------------------------------------=====
+template <param_class Class, typename... Args>
+constexpr auto make_param(Args&&... args) noexcept {
+    using class_t = std::integral_constant<param_class, Class>;
+    return std::forward_as_tuple(class_t {}, std::forward<Args>(args)...);
+}
+
+} // namespace detail;
+
+//=====--------------------------------------------------------------------=====
+template <typename... Args>
+constexpr auto p_subject(Args&&... args) noexcept {
+    return detail::make_param<detail::param_class::subject>(std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+constexpr auto p_object(Args&&... args) noexcept {
+    return detail::make_param<detail::param_class::object>(std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+constexpr auto p_from(Args&&... args) noexcept {
+    return detail::make_param<detail::param_class::from>(std::forward<Args>(args)...);
+}
+
+template <typename... Args>
+constexpr auto p_to(Args&&... args) noexcept {
+    return detail::make_param<detail::param_class::to>(std::forward<Args>(args)...);
+}
+
+//=====--------------------------------------------------------------------=====
+template <typename T>
+using subject_t = detail::param_t<detail::param_class::subject, T>;
+
+template <typename T>
+using object_t = detail::param_t<detail::param_class::object, T>;
+
+template <typename T>
+using at_t = detail::param_t<detail::param_class::at, T>;
+
+template <typename T>
+using from_t = detail::param_t<detail::param_class::from, T>;
+
+template <typename T>
+using to_t = detail::param_t<detail::param_class::to, T>;
 
 } // namespace boken
