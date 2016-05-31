@@ -298,6 +298,10 @@ item_instance_id get_instance(item const& i) noexcept {
     return i.instance();
 }
 
+item_instance_id get_instance(const_item_descriptor const i) noexcept {
+    return i->instance();
+}
+
 item_id get_id(item const& i) noexcept {
     return i.definition();
 }

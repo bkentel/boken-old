@@ -18,8 +18,6 @@ namespace boken { class random_state; }
 
 namespace boken {
 
-
-
 // object creation
 unique_item create_object(world& w, std::function<item (item_instance_id)> const& f);
 unique_entity create_object(world& w, std::function<entity (entity_instance_id)> const& f);
@@ -29,7 +27,9 @@ unique_entity create_object(game_database const& db, world& w, entity_definition
 
 // object -> instance
 entity_instance_id get_instance(entity const& e) noexcept;
-item_instance_id   get_instance(item   const& i) noexcept;
+entity_instance_id get_instance(const_entity_descriptor e) noexcept;
+item_instance_id   get_instance(item const& i) noexcept;
+item_instance_id   get_instance(const_item_descriptor i) noexcept;
 
 item_pile&       get_items(item&         i) noexcept;
 item_pile const& get_items(item const&   i) noexcept;
