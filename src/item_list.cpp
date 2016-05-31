@@ -483,11 +483,11 @@ void item_list_controller::resize_(point2i32 const p, vec2i32 const v) {
 
     bool const ok_x =
         ((last_hit_.x < 0) && ((value_cast(v.x) > 0) || crossed_x(frame.x0)))
-    || ((last_hit_.x > 0) && ((value_cast(v.x) < 0) || crossed_x(frame.x1)));
+     || ((last_hit_.x > 0) && ((value_cast(v.x) < 0) || crossed_x(frame.x1)));
 
     bool const ok_y =
         ((last_hit_.y < 0) && ((value_cast(v.y) > 0) || crossed_y(frame.y0)))
-    || ((last_hit_.y > 0) && ((value_cast(v.y) < 0) || crossed_y(frame.y1)));
+     || ((last_hit_.y > 0) && ((value_cast(v.y) < 0) || crossed_y(frame.y1)));
 
 
     if (!ok_x && !ok_y) {
@@ -498,6 +498,25 @@ void item_list_controller::resize_(point2i32 const p, vec2i32 const v) {
     auto const dh = ok_y ? v.y - sizei32y {} : sizei32y {};
 
     list_->resize_by(dw, dh, last_hit_.x, last_hit_.y);
+}
+
+bool item_list_controller::cancel() noexcept {
+    if (is_modal()) {
+        set_modal(false);
+        return false;
+    }
+
+    if (list_->get_selection().first) {
+        list_->selection_clear();
+        return false;
+    }
+
+    return true;
+}
+
+bool item_list_controller::cancel_force() noexcept {
+    while (!cancel()) {}
+    return true;
 }
 
 } // namespace boken

@@ -509,12 +509,12 @@ public:
         update_data(&update, &update + 1);
     }
 
-    void move_object(point2i32 from, const point2i32 const to, entity_id const id) final override {
+    void move_object(point2i32 from, point2i32 const to, entity_id const id) final override {
         update_t<entity_id> const update {from, to, id};
         update_data(&update, &update + 1);
     }
 
-    void move_object(point2i32 from, const point2i32 const to, item_id const id) final override {
+    void move_object(point2i32 from, point2i32 const to, item_id const id) final override {
         update_t<item_id> const update {from, to, get_item_id_(id)};
         update_data(&update, &update + 1);
     }

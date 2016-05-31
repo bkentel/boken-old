@@ -236,10 +236,33 @@ public:
             });
     }
 
-    template <typename BinaryF>
-    int for_each_selected(BinaryF f) {
-        return with_selected_if(always_true {}, f);
+    template <typename UnaryF>
+    int for_each_selected(UnaryF f) {
+        auto const& il = get();
+        auto const g = void_as_bool<true>(f);
+
+        using It = int const*;
+        return with_selected_range([&](It const first, It const last) {
+            int n = 0;
+
+            for (auto it = first; it != last; ++it) {
+                if (g(il.row_data(*it))) {
+                    ++n;
+                }
+            }
+
+            return n;
+        });
     }
+
+    // for successive calls:
+    // first, cancel modal state if set, and return false
+    // then, remove any selection, and return false
+    // finally return true
+    bool cancel() noexcept;
+
+    // Behaves as if calling cancel until it returns true.
+    bool cancel_force() noexcept;
 private:
     void set_visible_(bool state) noexcept;
 
