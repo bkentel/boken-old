@@ -63,6 +63,26 @@ string_view impl_can_add_item(
     return {};
 }
 
+bool impl_can_add_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_item_descriptor   itm
+  , const_item_descriptor   itm_dest
+  , string_buffer_base&     result
+) noexcept {
+    return true;
+}
+
+bool impl_can_remove_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_item_descriptor   itm_source
+  , const_item_descriptor   itm
+  , string_buffer_base&     result
+) noexcept {
+    return true;
+}
+
 string_view impl_can_add_item(
     const_context           const ctx
   , const_entity_descriptor const subject

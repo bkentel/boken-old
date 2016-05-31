@@ -502,10 +502,15 @@ public:
         });
     }
 
-    void selection_clear() final override {
+    int selection_clear() final override {
+        int n = 0;
         for (auto& row : row_data_) {
-            row.selected = false;
+            if (row.selected) {
+                row.selected = false;
+                ++n;
+            }
         }
+        return n;
     }
 
     std::pair<int const*, int const*> get_selection() const final override {

@@ -113,8 +113,7 @@ struct game_state {
         return require(lvl.find(e.obj.instance()));
     }
 
-    template <size_t N>
-    void println(static_string_buffer<N> const& buffer) {
+    void println(string_buffer_base const& buffer) {
         println(buffer.to_string());
     }
 
@@ -509,7 +508,7 @@ struct game_state {
                 continue;
             }
 
-            lvl.move_items(result.first, [&](unique_item&& itm) {
+            lvl.move_items(result.first, [&](unique_item&& itm, auto) {
                 if (itm.get() != dagger.obj.instance()) {
                     return;
                 }
@@ -917,32 +916,41 @@ struct game_state {
             return;
         }
 
-        auto const p = player_location();
+        auto const to = level_location {current_level(), player_location()};
+
+        using It = int const*;
+        auto const drop_items = [=](It const first, It const last) {
+            static_string_buffer<128> buffer;
+            auto const result = move_items(buffer, first, last
+              , p_subject(player), p_from(player), p_to(to), always_true {}
+              , [&](bool const ok, const_item_descriptor const itm, int const i) {
+                    if (ok) {
+                        buffer.append("%s drop the %s."
+                          , name_of_decorated(ctx, player).data()
+                          , name_of_decorated(ctx, itm).data());
+                    }
+
+                    println(buffer);
+                });
+
+            if (result > 0) {
+                renderer_update_pile(to.p);
+            }
+
+            return result;
+        };
+
+        using ct = command_type;
         auto const handler = [=](command_type const cmd) {
-            if (cmd == command_type::cancel) {
+            if (cmd == ct::cancel && item_list.get().selection_clear() <= 0) {
                 println("Nevermind.");
+                return event_result::filter_detach;
+            } else if ((cmd == ct::confirm) || (cmd == ct::alt_drop_some)) {
+                item_list.with_selected_range(drop_items);
                 return event_result::filter_detach;
             }
 
-            bool const do_drop = (cmd == command_type::confirm)
-                              || (cmd == command_type::alt_drop_some);
-
-            if (!do_drop) {
-                return event_result::filter;
-            }
-
-            auto const result = move_selected_items(
-                player                              // subject
-              , p                                   // subject_p
-              , player                              // from
-              , level_location {current_level(), p} // to
-              , msg_printer(&msg::drop_item));      // callback
-
-            if (result > 0) {
-                renderer_update_pile(p);
-            }
-
-            return event_result::filter_detach;
+            return event_result::filter;
         };
 
         if (n > 1) {
@@ -954,8 +962,8 @@ struct game_state {
 
     //! Common implementation for getting all items, or a selection of multiple
     //! items from the player's current location.
-    //! This is used for getting items directly from the game, not from a
-    //! container etc.
+    //! This is used for getting items directly from the field (not from a
+    //! container etc).
     //!
     //! For n > 1, get all items.
     //! For n < 0, get zero or more items.
@@ -964,63 +972,56 @@ struct game_state {
     void impl_do_get_items_(int const n) {
         BK_ASSERT(n != 0);
 
-        auto const p    = player_location();
-        auto&      lvl  = current_level();
+        auto const from = level_location {current_level(), player_location()};
 
-        if (auto* const pile = lvl.item_at(p)) {
+        if (auto* const pile = from.lvl.item_at(from.p)) {
             item_list.assign(*pile);
         } else {
             println("There is nothing here to get.");
             return;
         }
 
-        auto const subject   = player_descriptor();
-        auto const subject_p = p;
-        auto const from      = level_location {lvl, p};
-        auto const to        = subject;
-        auto const callback  = msg_printer(&msg::pickup_item);
+        using It = int const*;
+        auto const get_items = [=](It const first, It const last) {
+            static_string_buffer<128> buffer;
+            auto const player = player_descriptor();
+            auto const result = move_items(buffer, first, last
+              , p_subject(player), p_from(from), p_to(player), always_true {}
+              , [&](bool const ok, const_item_descriptor const itm, int const i) {
+                    if (ok) {
+                        buffer.append("%s pick up the %s."
+                          , name_of_decorated(ctx, player).data()
+                          , name_of_decorated(ctx, itm).data());
+                    }
+
+                    println(buffer);
+                });
+
+            if (result > 0) {
+                renderer_update_pile(from.p);
+            }
+
+            return result;
+        };
 
         // get all items
         if (n < 0) {
-            auto const result =
-                move_all_items(subject, subject_p, from, to, callback);
-
-            if (result > 0) {
-                renderer_update_pile(subject_p);
-            }
-
+            get_items(nullptr, nullptr);
             return;
         }
 
-        auto const was_visible = item_list.is_visible();
-        auto const indicated   = was_visible ? item_list.get().indicated() : 0;
-
         // get a selection of items
+        using ct = command_type;
         auto const handler = [=](command_type const cmd) {
-            if (cmd == command_type::cancel) {
+            if (cmd == ct::cancel && item_list.get().selection_clear() <= 0) {
                 println("Nevermind.");
+                return event_result::filter_detach;
+            } else if ((cmd == ct::confirm) || (cmd == ct::alt_get_items)) {
+                item_list.with_selected_range(get_items);
                 return event_result::filter_detach;
             }
 
-            bool const do_get = (cmd == command_type::confirm)
-                             || (cmd == command_type::alt_get_items);
-
-            if (!do_get) {
-                return event_result::filter;
-            }
-
-            auto const result =
-                move_selected_items(subject, subject_p, from, to, callback);
-
-            if (result > 0) {
-                renderer_update_pile(subject_p);
-                if (was_visible) {
-                    item_list.assign(items(subject));
-                    item_list.get().indicate(indicated);
-                }
-            }
-
-            return event_result::filter_detach;
+            return event_result::filter;
         };
 
         choose_multiple_items("Get which item(s)?", handler);
@@ -1082,33 +1083,39 @@ struct game_state {
             return;
         }
 
+        using It = int const*;
+        auto const insert_items = [=](It const first, It const last) {
+            static_string_buffer<128> buffer;
+            auto const player = player_descriptor();
+            return move_items(buffer, first, last
+              , p_subject(player), p_from(player), p_to(container), always_true {}
+              , [&](bool const ok, const_item_descriptor const itm, int const i) {
+                    if (ok) {
+                        buffer.append("%s insert the %s into the %s."
+                          , name_of_decorated(ctx, player).data()
+                          , name_of_decorated(ctx, itm).data()
+                          , name_of_decorated(ctx, container).data());
+                    }
+
+                    println(buffer);
+                });
+        };
+
+        using ct = command_type;
         auto const handler = [=](command_type const cmd) {
-            if (cmd == command_type::cancel) {
+            if (cmd == ct::cancel && item_list.get().selection_clear() <= 0) {
                 println("Nevermind.");
                 return event_result::filter_detach;
+            } else if ((cmd == ct::confirm) || (cmd == ct::alt_insert)) {
+                auto const indicated = item_list.get().indicated();
+                auto const result = item_list.with_selected_range(insert_items);
+
+                if (result > 0 && !fill_list()) {
+                    return event_result::filter_detach;
+                }
+
+                item_list.get().indicate(indicated);
             }
-
-            bool const do_insert = (cmd == command_type::confirm)
-                                || (cmd == command_type::alt_insert);
-
-            if (!do_insert) {
-                return event_result::filter;
-            }
-
-            auto const indicated = item_list.get().indicated();
-
-            auto const result = move_selected_items(
-                player                           // subject
-              , player_location()                // subject_p
-              , player                           // from
-              , container                        // to
-              , msg_printer(&msg::insert_item)); // callback
-
-            if (result > 0 && !fill_list()) {
-                return event_result::filter_detach;
-            }
-
-            item_list.get().indicate(indicated);
 
             return event_result::filter;
         };
@@ -1264,29 +1271,67 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Item transfer
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    template <typename Predicate>
-    int move_items(level_location const l, int const* const first, int const* const last, Predicate pred) {
+    template <typename FwdIt, typename Predicate>
+    int move_items(level_location const l, FwdIt const first, FwdIt const last, Predicate pred) {
         return l.lvl.move_items(l.p, first, last, pred).second;
     }
 
-    template <typename Predicate>
-    int move_items(entity_descriptor const e, int const* const first, int const* const last, Predicate pred) {
+    template <typename FwdIt, typename Predicate>
+    int move_items(entity_descriptor const e, FwdIt const first, FwdIt const last, Predicate pred) {
         return e.obj.items().remove_if(
             first, last, item_list_index_to_id(), pred);
     }
 
-    template <typename Predicate>
-    int move_items(item_descriptor const i, int const* const first, int const* const last, Predicate pred) {
+    template <typename FwdIt, typename Predicate>
+    int move_items(item_descriptor const i, FwdIt const first, FwdIt const last, Predicate pred) {
         return i.obj.items().remove_if(
             first, last, item_list_index_to_id(), pred);
     }
 
-    template <typename From, typename To, typename Predicate, typename Callback>
+    //! The @p subject attempts to move items from @p from to @p to.
+    //! @returns The number of items successfully moved.
+    //! @tparam Predicate bool (const_item_descriptor, FwdIt::value_type)
+    //! @tparam Callback  void (bool, item_descriptor, FwdIt::value_type)
+    template <typename FwdIt, typename From, typename To, typename Predicate
+            , typename Callback>
+    int move_items(
+        string_buffer_base&                result
+      , FwdIt                        const first
+      , FwdIt                        const last
+      , subject_t<entity_descriptor> const subject
+      , from_t<From>                 const from
+      , to_t<To>                     const to
+      , Predicate                          pred
+      , Callback                           callback
+    ) {
+        using I = std::decay_t<decltype(*first)>;
+        return move_items(from, first, last, [&](unique_item&& itm, I const i) {
+            auto const id  = itm.get();
+            auto const obj = p_object(item_descriptor {ctx, id});
+
+            result.clear();
+
+            if (!pred(const_item_descriptor {obj}, i)
+             || !can_remove_item(ctx, subject, from, obj, result)
+             || !can_add_item(ctx, subject, obj, to, result)
+            ) {
+                callback(false, obj, i);
+                return false;
+            }
+
+            callback(true, obj, i);
+            merge_into_pile(ctx, std::move(itm), obj, to);
+
+            return true;
+        });
+    }
+
+    template <typename FwdIt, typename From, typename To, typename Predicate, typename Callback>
     int move_items(
         const_entity_descriptor const subject
       , point2i32               const subject_p
-      , int const* const first
-      , int const* const last
+      , FwdIt const first
+      , FwdIt const last
       , From      from
       , To        to
       , Predicate filter
@@ -1303,7 +1348,7 @@ struct game_state {
             return true;
         };
 
-        return move_items(from, first, last, [&](unique_item&& itm) {
+        return move_items(from, first, last, [&](unique_item&& itm, int const index) {
             auto const i = item_descriptor {ctx, itm.get()};
 
             auto const on_fail = [&](string_view const reason) {
@@ -1508,34 +1553,34 @@ struct game_state {
     void do_view_equipment() {
         auto const player = player_descriptor();
 
+        auto const make_list = [=] {
+            item_list.clear();
+            item_list.append_if(player.obj.body_begin(), player.obj.body_end()
+              , [&](body_part const& part) { return !part.is_free(); }
+              , [&](body_part const& part) { return part.equip; }
+            );
+            item_list.layout();
+        };
+
         item_list.set_title("Equipment");
-
-        item_list.clear();
-        item_list.append_if(player.obj.body_begin(), player.obj.body_end()
-          , [&](body_part const& part) { return !part.is_free(); }
-          , [&](body_part const& part) { return part.equip; }
-        );
-
         item_list.set_modal(true);
         item_list.set_multiselect(true);
-        item_list.layout();
+        make_list();
         item_list.show();
-
-        auto const subject = player;
 
         item_list.set_on_command([=](command_type const cmd) {
             using ct = command_type;
 
             switch (cmd) {
+            case ct::confirm:
+                reload_item_list_if(
+                    [&] { return try_unequip_selected_items(player); }
+                  , make_list);
+                break;
             case ct::cancel:
-                if (item_list.is_modal()) {
-                    item_list.set_modal(false);
-                } else if (item_list.get().get_selection().first) {
-                    item_list.get().selection_clear();
-                } else {
+                if (item_list.cancel()) {
                     return event_result::filter_detach;
                 }
-
                 break;
             default:
                 break;
@@ -1543,6 +1588,82 @@ struct game_state {
 
             return event_result::filter;
         });
+    }
+
+    void try_equip_item(entity_descriptor const subject) {
+    }
+
+    // Attempt to equip the items currently selected in the item list.
+    int try_equip_selected_items(entity_descriptor const subject) {
+        static_string_buffer<128> buffer;
+
+        auto const result = item_list.for_each_selected([&](item_instance_id const id) {
+            auto const itm = item_descriptor {ctx, id};
+
+            buffer.clear();
+            auto const ok = boken::try_equip_item(ctx
+              , p_subject(subject)
+              , p_from(subject)
+              , p_object(itm)
+              , p_to(subject)
+              , buffer);
+            println(buffer);
+            return ok;
+        });
+
+        return result;
+    }
+
+    // Attempt to unequip the items currently selected in the item list.
+    int try_unequip_selected_items(entity_descriptor const subject) {
+        static_string_buffer<128> buffer;
+
+        auto const result = item_list.for_each_selected([&](item_instance_id const id) {
+            auto const itm = item_descriptor {ctx, id};
+
+            buffer.clear();
+            auto const ok = boken::try_unequip_item(ctx
+              , p_subject(subject)
+              , p_from(subject)
+              , p_object(itm)
+              , p_to(subject)
+              , buffer);
+            println(buffer);
+            return ok;
+        });
+
+        return result;
+    }
+
+    //! Attempt to drop the items currently selected in the item list.
+    int try_drop_selected_items(
+        entity_descriptor const subject
+      , level& lvl
+    ) {
+        auto const subject_p = require(lvl.find(subject->instance()));
+        auto const result = move_selected_items(
+            subject
+          , subject_p
+          , subject
+          , level_location {lvl, subject_p}
+          , msg_printer(&msg::drop_item));
+
+        if (result > 0) {
+            renderer_update_pile(subject_p);
+        }
+
+        return result;
+    }
+
+    template <typename Predicate, typename NullaryF>
+    void reload_item_list_if(Predicate pred, NullaryF f) {
+        if (!pred()) {
+            return;
+        }
+
+        auto const indicated = item_list.get().indicated();
+        f();
+        item_list.get().indicate(indicated);
     }
 
     void do_view_inventory() {
@@ -1554,38 +1675,19 @@ struct game_state {
         item_list.set_multiselect(true);
         item_list.show();
 
-        auto const subject   = player;
-        auto const subject_p = player_location();
-        auto const from      = subject;
-        auto const to        = level_location {current_level(), subject_p};
-        auto const callback  = msg_printer(&msg::drop_item);
-
         item_list.set_on_command([=](command_type const cmd) {
             using ct = command_type;
 
             switch (cmd) {
-            case ct::alt_drop_some: {
-                auto const indicated = item_list.get().indicated();
-                auto const result =
-                    move_selected_items(subject, subject_p, from, to, callback);
-
-                if (result > 0) {
-                    renderer_update_pile(subject_p);
-                    item_list.assign(items(player));
-                    item_list.get().indicate(indicated);
-                }
-
+            case ct::alt_drop_some:
+                reload_item_list_if(
+                    [&] { return try_drop_selected_items(player, current_level()); }
+                  , [&] { item_list.assign(items(player)); });
                 break;
-            }
             case ct::cancel:
-                if (item_list.is_modal()) {
-                    item_list.set_modal(false);
-                } else if (item_list.get().get_selection().first) {
-                    item_list.get().selection_clear();
-                } else {
+                if (item_list.cancel()) {
                     return event_result::filter_detach;
                 }
-
                 break;
             case ct::alt_open:
                 view_indicated_container();
@@ -1593,25 +1695,11 @@ struct game_state {
             case ct::alt_insert:
                 insert_into_indicated_container();
                 return event_result::filter_detach;
-            case ct::alt_equip: {
-                auto const indicated = item_list.get().indicated();
-                static_string_buffer<128> buffer;
-
-                item_list.with_indicated([&](item_instance_id const id) {
-                    auto const itm = const_item_descriptor {ctx, id};
-
-                    if (!can_equip_item(ctx, subject, itm, buffer)) {
-                        println(buffer);
-                        return;
-                    }
-
-                    subject.obj.equip(id);
-                    item_list.assign(items(player));
-                    item_list.get().indicate(indicated);
-                });
-
+            case ct::alt_equip:
+                reload_item_list_if(
+                    [&] { return try_equip_selected_items(player); }
+                  , [&] { item_list.assign(items(player)); });
                 break;
-            }
             default:
                 break;
             }

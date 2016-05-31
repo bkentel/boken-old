@@ -51,8 +51,10 @@ public:
 
     template <typename Predicate>
     int remove_if(Predicate pred) {
+        int i = 0;
+
         for (auto& id : items_) {
-            remove_id_(id, pred);
+            remove_id_(id, pred, i++);
         }
 
         return remove_dead_items_();
@@ -77,14 +79,14 @@ public:
                 BK_ASSERT(p_it != p_last);
             }
 
-            remove_id_(*p_it, pred);
+            remove_id_(*p_it, pred, *it);
         }
 
         return remove_dead_items_();
     }
 private:
-    template <typename Predicate>
-    void remove_id_(item_instance_id& id, Predicate&& pred) {
+    template <typename Predicate, typename Index>
+    void remove_id_(item_instance_id& id, Predicate&& pred, Index&& i) {
         // make an owning pointer to the item
         auto itm = unique_item {id, deleter_};
 
@@ -100,7 +102,7 @@ private:
             }
         };
 
-        pred(std::move(itm));
+        pred(std::move(itm), i);
     }
 
     int remove_dead_items_() {

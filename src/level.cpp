@@ -11,6 +11,9 @@
 #include "spatial_map.hpp"
 #include "rect.hpp"
 #include "graph.hpp"
+#include "format.hpp"
+#include "entity_properties.hpp"
+#include "item_properties.hpp"
 
 #include "forward_declarations.hpp"
 
@@ -27,6 +30,38 @@
 namespace boken {
 
 namespace detail {
+
+bool impl_can_add_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_item_descriptor   const itm
+  , const_level_location    const itm_dest
+  , string_buffer_base&           result
+) noexcept {
+    if (itm_dest.lvl.can_place_item_at(itm_dest.p) != placement_result::ok) {
+        result.append("%s can't put the %s there."
+          , name_of_decorated(ctx, subject).data()
+          , name_of_decorated(ctx, itm).data());
+        return false;
+    }
+
+    return true;
+}
+
+bool impl_can_remove_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_level_location    const itm_source
+  , const_item_descriptor   const itm
+  , string_buffer_base&           result
+) noexcept {
+    if (!itm_source.lvl.item_at(itm_source.p)) {
+        result.append("There is nothing there.");
+        return false;
+    }
+
+    return true;
+}
 
 string_view impl_can_add_item(
     const_context           const ctx
@@ -492,7 +527,7 @@ public:
         point2i32 const from
       , int const* const first
       , int const* const last
-      , std::function<void (unique_item&&)> const& pred
+      , std::function<void (unique_item&&, int)> const& pred
     ) {
         BK_ASSERT(( !first &&  !last)
                || (!!first && !!last));
@@ -524,7 +559,7 @@ public:
 
     std::pair<merge_item_result, int> move_items(
         point2i32 const from
-      , std::function<void (unique_item&&)> const& pred
+      , std::function<void (unique_item&&, int)> const& pred
     ) final override {
         return impl_move_items_(from, nullptr, nullptr, pred);
     }
@@ -533,7 +568,7 @@ public:
         point2i32 const from
       , int const* const first
       , int const* const last
-      , std::function<void (unique_item&&)> const& pred
+      , std::function<void (unique_item&&, int)> const& pred
     ) final override {
         return impl_move_items_(from, first, last, pred);
     }

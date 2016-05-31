@@ -163,7 +163,7 @@ public:
     virtual bool selection_toggle(int row) = 0;
     virtual void selection_set(std::initializer_list<int> rows) = 0;
     virtual void selection_union(std::initializer_list<int> rows) = 0;
-    virtual void selection_clear() = 0;
+    virtual int  selection_clear() = 0;
 
     //! Get an iterator range indicating the indicies of the currently selected
     //! items.

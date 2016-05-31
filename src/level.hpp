@@ -19,6 +19,7 @@ namespace boken {
     using tile_flags = flag_set<detail::tag_tile_flags>;
 }
 
+namespace boken { class string_buffer_base; }
 namespace boken { class entity; }
 namespace boken { class item; }
 namespace boken { class item_pile; }
@@ -232,14 +233,14 @@ public:
     virtual std::pair<merge_item_result, int>
     move_items(
         point2i32 from
-      , std::function<void (unique_item&&)> const& pred) = 0;
+      , std::function<void (unique_item&&, int)> const& pred) = 0;
 
     virtual std::pair<merge_item_result, int>
     move_items(
         point2i32  from
       , int const* first
       , int const* last
-      , std::function<void (unique_item&&)> const& pred) = 0;
+      , std::function<void (unique_item&&, int)> const& pred) = 0;
 
     //===--------------------------------------------------------------------===
     //                         Block-based data access
@@ -296,6 +297,46 @@ bool can_remove_item(
 ) noexcept {
     return not_empty_or(on_fail
       , detail::impl_can_remove_item(ctx, subject, subject_p, itm, src));
+}
+
+namespace detail {
+
+bool impl_can_add_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_item_descriptor   itm
+  , const_level_location    itm_dest
+  , string_buffer_base&     result
+) noexcept;
+
+bool impl_can_remove_item(
+    const_context           ctx
+  , const_entity_descriptor subject
+  , const_level_location    itm_source
+  , const_item_descriptor   itm
+  , string_buffer_base&     result
+) noexcept;
+
+} // namespace detail
+
+inline bool can_add_item(
+    const_context                      const ctx
+  , subject_t<const_entity_descriptor> const subject
+  , object_t<const_item_descriptor>    const itm
+  , to_t<const_level_location>         const itm_dest
+  , string_buffer_base&                      result
+) noexcept {
+    return detail::impl_can_add_item(ctx, subject, itm, itm_dest, result);
+}
+
+inline bool can_remove_item(
+    const_context                      const ctx
+  , subject_t<const_entity_descriptor> const subject
+  , from_t<const_level_location>       const itm_source
+  , object_t<const_item_descriptor>    const itm
+  , string_buffer_base&                      result
+) noexcept {
+    return detail::impl_can_remove_item(ctx, subject, itm_source, itm, result);
 }
 
 void merge_into_pile(context ctx, unique_item itm_ptr, item_descriptor itm

@@ -399,6 +399,11 @@ void item_list_controller::set_title(std::string title) {
 }
 
 //--------------------------------------------------------------------------
+bool item_list_controller::has_selection() const noexcept {
+    //TODO: a bit wasteful
+    return !!list_->get_selection().first;
+}
+
 bool item_list_controller::set_modal(bool const state) noexcept {
     bool const result = is_modal_;
     is_modal_ = state;

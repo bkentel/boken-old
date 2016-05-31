@@ -199,72 +199,65 @@ enum class param_class {
 };
 
 //=====--------------------------------------------------------------------=====
-template <param_class Class, typename T>
+template <typename T, param_class ClassT>
 struct param_t {
-    template <typename C, typename... Args, size_t... I>
-    constexpr param_t(std::tuple<C, Args...>&& args, std::integer_sequence<size_t, I...>)
-      : value {std::get<I + 1>(args)...}
+    explicit param_t(T v)
+      : value {v}
     {
     }
 
-    template <typename C, typename... Args>
-    constexpr param_t(std::tuple<C, Args...>&& args)
-      : param_t {std::move(args), std::make_index_sequence<sizeof...(Args)> {}}
+    template <typename U
+            , typename = std::enable_if_t<std::is_convertible<U, T>::value>>
+    param_t(param_t<U, ClassT> v)
+      : value {v.value}
     {
-        using class_t = std::integral_constant<param_class, Class>;
-        static_assert(std::is_same<std::decay_t<C>, class_t>::value, "wrong type");
     }
 
-    operator T const&() const& { return value; }
-    operator T&&() && { return std::move(value); }
+    template <typename U,
+              typename = std::enable_if_t<std::is_convertible<T, U>::value>>
+    operator U() const noexcept { return value; }
 
     T value;
 };
 
-//=====--------------------------------------------------------------------=====
-template <param_class Class, typename... Args>
-constexpr auto make_param(Args&&... args) noexcept {
-    using class_t = std::integral_constant<param_class, Class>;
-    return std::forward_as_tuple(class_t {}, std::forward<Args>(args)...);
-}
-
 } // namespace detail;
 
-//=====--------------------------------------------------------------------=====
-template <typename... Args>
-constexpr auto p_subject(Args&&... args) noexcept {
-    return detail::make_param<detail::param_class::subject>(std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-constexpr auto p_object(Args&&... args) noexcept {
-    return detail::make_param<detail::param_class::object>(std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-constexpr auto p_from(Args&&... args) noexcept {
-    return detail::make_param<detail::param_class::from>(std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-constexpr auto p_to(Args&&... args) noexcept {
-    return detail::make_param<detail::param_class::to>(std::forward<Args>(args)...);
-}
 
 //=====--------------------------------------------------------------------=====
 template <typename T>
-using subject_t = detail::param_t<detail::param_class::subject, T>;
+using subject_t = detail::param_t<T, detail::param_class::subject>;
 
 template <typename T>
-using object_t = detail::param_t<detail::param_class::object, T>;
+using object_t = detail::param_t<T, detail::param_class::object>;
 
 template <typename T>
-using at_t = detail::param_t<detail::param_class::at, T>;
+using at_t = detail::param_t<T, detail::param_class::at>;
 
 template <typename T>
-using from_t = detail::param_t<detail::param_class::from, T>;
+using from_t = detail::param_t<T, detail::param_class::from>;
 
 template <typename T>
-using to_t = detail::param_t<detail::param_class::to, T>;
+using to_t = detail::param_t<T, detail::param_class::to>;
+
+//=====--------------------------------------------------------------------=====
+template <typename T>
+constexpr auto p_subject(T const value) noexcept {
+    return subject_t<T> {value};
+}
+
+template <typename T>
+constexpr auto p_object(T const value) noexcept {
+    return object_t<T> {value};
+}
+
+template <typename T>
+constexpr auto p_from(T const value) noexcept {
+    return from_t<T> {value};
+}
+
+template <typename T>
+constexpr auto p_to(T const value) noexcept {
+    return to_t<T> {value};
+}
 
 } // namespace boken

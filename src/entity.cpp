@@ -4,6 +4,7 @@
 #include "item_properties.hpp"
 #include "forward_declarations.hpp"
 #include "math.hpp"
+#include "format.hpp"
 
 namespace boken {
 
@@ -97,6 +98,10 @@ entity_instance_id get_instance(entity const& e) noexcept {
     return e.instance();
 }
 
+entity_instance_id get_instance(const_entity_descriptor const e) noexcept {
+    return e->instance();
+}
+
 entity_id get_id(entity const& e) noexcept {
     return e.definition();
 }
@@ -146,75 +151,224 @@ unique_entity create_object(
 
 namespace {
 
-template <typename Out>
-bool impl_can_equip_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , const_item_descriptor   const itm
-  , Out&&                         result
-) noexcept {
-    if (!itm.def) {
-        return result.append("{missing definition for item}"), false;
-    }
-
-    if (!subject) {
-        return result.append("{missing definition for entity}"), false;
-    }
-
-    auto const item_can_equip =
-        get_property_value_or(itm, property(item_property::can_equip), 0);
-
-    if (!item_can_equip) {
-        return result.append("the %s can't be equipped"
-            , name_of_decorated(ctx, itm).data()), false;
-    }
-
-    auto const subject_can_equip =
-        get_property_value_or(subject, property(entity_property::can_equip), 0);
-
-    if (!subject_can_equip) {
-        return result.append("%s can't equip any items"
-            , name_of_decorated(ctx, subject).data()), false;
-    }
-
-    auto const first = subject.obj.body_begin();
-    auto const last  = subject.obj.body_end();
-    auto const it = std::find_if(first, last, [&](body_part const& part) {
-        return part.is_free();
-    });
-
-    if (it == last) {
-        return result.append("%s has no free equipment slots"
-            , name_of_decorated(ctx, subject).data()), false;
+template <typename T, typename Out>
+bool check_definition(T&& obj, Out&& out, char const* const msg) noexcept {
+    if (!obj) {
+        out.append(msg);
+        return false;
     }
 
     return true;
 }
 
-//TODO relocate
-struct discard_buffer {
-    template <typename... Args>
-    bool append(Args&&...) const noexcept { return true; }
-};
+template <typename Out>
+bool check_definition(const_entity_descriptor const e, Out&& out) noexcept {
+    return check_definition(e, out, "{missing definition for entity}");
+}
+
+template <typename Out>
+bool check_definition(const_item_descriptor const i, Out&& out) noexcept {
+    return check_definition(i, out, "{missing definition for item}");
+}
+
+template <typename... Args, typename Out>
+bool check_definitions(Out&& out, Args&&... args) noexcept {
+    bool result = true;
+    int const arr[] {(result &= check_definition(args, out), 0)...};
+    return result;
+}
 
 } // namespace
 
-bool can_equip_item(
-    const_context           ctx
-  , const_entity_descriptor subject
-  , const_item_descriptor   itm
-  , string_buffer_base&     result
+namespace detail {
+
+bool impl_can_add_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_item_descriptor   const itm
+  , const_entity_descriptor const itm_dest
+  , string_buffer_base&           result
 ) noexcept {
-    return impl_can_equip_item(ctx, subject, itm, result);
+    if (!check_definitions(result, subject, itm, itm_dest)) {
+        return false;
+    }
+
+    return true;
 }
 
-bool can_equip_item(
-    const_context           ctx
-  , const_entity_descriptor subject
-  , const_item_descriptor   itm
+bool impl_can_remove_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_entity_descriptor const itm_source
+  , const_item_descriptor   const itm
+  , string_buffer_base&           result
 ) noexcept {
-    return impl_can_equip_item(ctx, subject, itm, discard_buffer {});
+    if (!check_definitions(result, itm_source, itm)) {
+        return false;
+    }
+
+    return true;
 }
+
+bool impl_can_equip_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_entity_descriptor const itm_source
+  , const_item_descriptor   const itm
+  , const_entity_descriptor const itm_dest
+  , body_part const*        const part
+  , string_buffer_base&           result
+) noexcept {
+    if (!check_definitions(result, subject, itm_source, itm, itm_dest)) {
+        return false;
+    }
+
+    if (subject != itm_dest) {
+        return result.append("%s can't equip the %s to %s"
+          , name_of_decorated(ctx, subject).data()
+          , name_of_decorated(ctx, itm).data()
+          , name_of_decorated(ctx, itm_dest).data()), false;
+    }
+
+    if (subject != itm_source) {
+        return result.append("%s can't equip the %s from %s"
+          , name_of_decorated(ctx, subject).data()
+          , name_of_decorated(ctx, itm).data()
+          , name_of_decorated(ctx, itm_source).data()), false;
+    }
+
+    auto const item_is_equippable =
+        get_property_value_or(itm, property(item_property::can_equip), 0);
+
+    if (!item_is_equippable) {
+        return result.append("the %s can't be equipped"
+            , name_of_decorated(ctx, itm).data()), false;
+    }
+
+    auto const dest_can_equip =
+        get_property_value_or(itm_dest, property(entity_property::can_equip), 0);
+
+    if (!dest_can_equip) {
+        return result.append("%s can't equip any items"
+            , name_of_decorated(ctx, itm_dest).data()), false;
+    }
+
+    auto const last  = itm_dest->body_end();
+    auto const it = std::find_if(itm_dest->body_begin(), last
+      , [&](body_part const& part) { return part.is_free(); });
+
+    if (it == last) {
+        return result.append("%s has no free equipment slots"
+            , name_of_decorated(ctx, itm_dest).data()), false;
+    }
+
+    return true;
+}
+
+bool impl_try_equip_item(
+    const_context       const ctx
+  , entity_descriptor   const subject
+  , entity_descriptor   const itm_source
+  , item_descriptor     const itm
+  , entity_descriptor   const itm_dest
+  , body_part*          const part
+  , string_buffer_base&       result
+) noexcept {
+    if (!impl_can_equip_item(ctx, subject, itm_source, itm, itm_dest, part, result)) {
+        return false;
+    }
+
+    if (subject != itm_dest) {
+        BK_ASSERT(false && "TODO");
+    }
+
+    if (subject != itm_source) {
+        BK_ASSERT(false && "TODO");
+    }
+
+    auto const first = itm_dest->body_begin();
+    auto const last  = itm_dest->body_end();
+
+    auto const it = part
+      ? std::find_if(first, last, [&](body_part const& p) { return p.id == part->id; })
+      : std::find_if(first, last, [&](body_part const& p) { return p.is_free(); });
+
+    BK_ASSERT((it != last)
+           && (!part || std::addressof(*it) == part)
+           && it->is_free());
+
+    itm_dest->equip(it->id, get_instance(itm.obj));
+
+    result.append("%s equip the %s to its %s."
+      , name_of_decorated(ctx, subject).data()
+      , name_of_decorated(ctx, itm).data()
+      , "{part}");
+
+    return true;
+}
+
+bool impl_can_unequip_item(
+    const_context           const ctx
+  , const_entity_descriptor const subject
+  , const_entity_descriptor const itm_source
+  , const_item_descriptor   const itm
+  , const_entity_descriptor const itm_dest
+  , body_part const*              part
+  , string_buffer_base&           result
+) noexcept {
+    if (!check_definitions(result, subject, itm_source, itm, itm_dest)) {
+        return false;
+    }
+
+    if (subject != itm_source) {
+        BK_ASSERT(false && "TODO");
+    }
+
+    if (subject != itm_dest) {
+        BK_ASSERT(false && "TODO");
+    }
+
+    auto const item_id = get_instance(itm);
+
+    if (!part) {
+        auto const last = itm_source->body_end();
+        auto const it = std::find_if(itm_source->body_begin(), last
+          , [&](body_part const& p) { return p.equip == item_id; });
+
+        BK_ASSERT(it != last);
+
+        part = std::addressof(*it);
+    } else {
+        BK_ASSERT(part->equip == get_instance(itm));
+    }
+
+    return impl_can_add_item(ctx, subject, itm, subject, result);
+}
+
+bool impl_try_unequip_item(
+    const_context       const ctx
+  , entity_descriptor   const subject
+  , entity_descriptor   const itm_source
+  , item_descriptor     const itm
+  , entity_descriptor   const itm_dest
+  , body_part*                part
+  , string_buffer_base&       result
+) noexcept {
+    if (!impl_can_unequip_item(ctx, subject, itm_source, itm, itm_dest, part, result)) {
+        return false;
+    }
+
+    itm_source->unequip(get_instance(itm));
+
+    result.append("%s remove the %s from its %s."
+      , name_of_decorated(ctx, subject).data()
+      , name_of_decorated(ctx, itm).data()
+      , "{part}");
+
+    return true;
+}
+
+} // namespace detail
 
 //=====--------------------------------------------------------------------=====
 //                                  entity
@@ -290,23 +444,49 @@ body_part const* entity::body_end() const noexcept {
     return body_parts_.data() + body_parts_.size();
 }
 
-void entity::equip(int32_t const index) {
-    BK_ASSERT(check_index(index, items().size()));
-    equip(items()[static_cast<size_t>(index)]);
-}
+namespace {
 
-void entity::equip(item_instance_id const id) {
-    auto const last = std::end(body_parts_);
-    auto const it = std::find_if(begin(body_parts_), last
-      , [&](body_part const& part) { return part.is_free(); });
+template <typename Container, typename Predicate>
+void entity_equip_impl(Container&& parts, item_pile& source, item_instance_id const id, Predicate pred) {
+    using std::begin;
+    using std::end;
 
-    BK_ASSERT(it != last
-           && it->equip == item_instance_id {});
+    auto const last = end(parts);
+    auto const it = std::find_if(begin(parts), last, pred);
 
-    auto itm = items().remove_item(id);
+    BK_ASSERT((it != last)
+           && (it->equip == item_instance_id {}));
+
+    auto itm = source.remove_item(id);
     BK_ASSERT(!!itm);
 
     it->equip = itm.release();
+}
+
+} // namespace
+
+void entity::equip(item_instance_id const id) {
+    entity_equip_impl(body_parts_, items(), id
+      , [&](body_part const& part) { return part.is_free(); });
+}
+
+void entity::equip(body_part_id const part_id, item_instance_id const id) {
+    entity_equip_impl(body_parts_, items(), id
+      , [&](body_part const& part) { return part.id == part_id; });
+}
+
+
+void entity::unequip(item_instance_id const id) {
+    auto const last = std::end(body_parts_);
+    auto const it = std::find_if(begin(body_parts_), last
+      , [&](body_part const& part) { return part.equip == id; });
+
+    BK_ASSERT(it != last
+           && it->equip == id);
+
+    it->equip = item_instance_id {};
+
+    items().add_item({id, item_deleter_});
 }
 
 } //namespace boken

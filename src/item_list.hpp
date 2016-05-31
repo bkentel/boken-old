@@ -4,6 +4,7 @@
 #include "math_types.hpp"
 #include "types.hpp"
 #include "algorithm.hpp"
+#include "functional.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -129,7 +130,8 @@ public:
 
     template <typename FwdIt, typename Predicate, typename Transform>
     void append_if(FwdIt const first, FwdIt const last, Predicate pred, Transform trans) {
-        for_each_matching(first, last, pred, [&](auto const& value) {
+        using value_t = std::decay_t<decltype(*first)>;
+        for_each_matching(first, last, pred, [&](value_t const& value) {
             append(trans(value));
         });
     }
@@ -141,6 +143,8 @@ public:
     void set_title(std::string title);
 
     //--------------------------------------------------------------------------
+    bool has_selection() const noexcept;
+
     bool set_modal(bool state) noexcept;
 
     bool is_modal() const noexcept;
