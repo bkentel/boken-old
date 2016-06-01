@@ -86,7 +86,6 @@
     <ClCompile Include="src\test\flag_set.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
-    <ClCompile Include="src\messages.cpp" />
     <ClCompile Include="src\test\algorithm.t.cpp">
       <Filter>test</Filter>
     </ClCompile>
@@ -167,7 +166,6 @@
     <ClInclude Include="src\entity_properties.hpp">
       <Filter>objects</Filter>
     </ClInclude>
-    <ClInclude Include="src\messages.hpp" />
     <ClInclude Include="src\events.hpp" />
     <ClInclude Include="src\functional.hpp" />
     <ClInclude Include="src\maybe.hpp" />
@@ -175,6 +173,10 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="src\format.hpp" />
+    <ClInclude Include="src\names.hpp">
+      <Filter>objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\context_fwd.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="test">

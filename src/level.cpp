@@ -12,8 +12,7 @@
 #include "rect.hpp"
 #include "graph.hpp"
 #include "format.hpp"
-#include "entity_properties.hpp"
-#include "item_properties.hpp"
+#include "names.hpp"
 
 #include "forward_declarations.hpp"
 
@@ -61,26 +60,6 @@ bool impl_can_remove_item(
     }
 
     return true;
-}
-
-string_view impl_can_add_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_level_location    const dest
-) noexcept {
-    return {};
-}
-
-string_view impl_can_remove_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_level_location    const dest
-) noexcept {
-    return {};
 }
 
 } // namespace detail

@@ -2,9 +2,11 @@
 
 #include "config.hpp"
 #include "types.hpp"
+#include "math_types.hpp"
+#include "context_fwd.hpp"
+
 #include "bkassert/assert.hpp"
 
-#include <tuple>
 #include <utility>
 #include <type_traits>
 #include <cstddef>
@@ -25,6 +27,8 @@ entity_id get_id(entity            const& e  ) noexcept;
 item_id   get_id(item              const& i  ) noexcept;
 entity_id get_id(entity_definition const& def) noexcept;
 item_id   get_id(item_definition   const& def) noexcept;
+entity_id get_id(const_entity_descriptor e) noexcept;
+item_id   get_id(const_item_descriptor i) noexcept;
 
 item   const& find(world const& w, item_instance_id   id) noexcept;
 entity const& find(world const& w, entity_instance_id id) noexcept;
@@ -153,20 +157,24 @@ template <bool Const>
 struct level_location_base {
     using type = std::conditional_t<Const, std::add_const_t<level>, level>;
 
-    level_location_base(type& level, point2i32 const where)
+    constexpr level_location_base(type& level, point2i32 const where) noexcept
       : lvl {level}
       , p   {where}
     {
     }
 
     template <bool C, typename = std::enable_if_t<Const || !C>>
-    level_location_base(level_location_base<C> other)
+    constexpr level_location_base(level_location_base<C> other) noexcept
       : lvl {other.lvl}
       , p   {other.p}
     {
     }
 
+    auto* operator->() const noexcept { return std::addressof(lvl); }
+    auto* operator->()       noexcept { return std::addressof(lvl); }
+
     constexpr explicit operator bool() const noexcept { return true; }
+    constexpr operator point2i32() const noexcept { return p; }
 
     std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
     point2i32 p;
@@ -175,15 +183,41 @@ struct level_location_base {
 using level_location = level_location_base<false>;
 using const_level_location = level_location_base<true>;
 
-// TODO: move or remove
-template <typename UnaryF>
-bool not_empty_or(UnaryF const f, string_view const s) noexcept {
-    if (!s.empty()) {
-        f(s);
+//=====--------------------------------------------------------------------=====
+//=====--------------------------------------------------------------------=====
+
+namespace detail {
+
+template <typename T, typename Out>
+bool check_definition(T&& obj, Out&& out, char const* const msg) noexcept {
+    if (!obj) {
+        out.append("%s", msg);
         return false;
     }
 
     return true;
+}
+
+template <typename Out>
+bool check_definition(const_entity_descriptor const e, Out&& out) noexcept {
+    return check_definition(e, out, "{missing definition for entity}");
+}
+
+template <typename Out>
+bool check_definition(const_item_descriptor const i, Out&& out) noexcept {
+    return check_definition(i, out, "{missing definition for item}");
+}
+
+} // namespace detail
+
+template <typename... Args, typename Out>
+bool check_definitions(Out&& out, Args&&... args) noexcept {
+    static_assert(sizeof...(args) > 0, "");
+    bool result = true;
+    int const arr[] {(result &= detail::check_definition(
+        std::forward<Args>(args), std::forward<Out>(out)), 0)...};
+    (void)arr;
+    return result;
 }
 
 //=====--------------------------------------------------------------------=====

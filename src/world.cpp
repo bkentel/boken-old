@@ -86,8 +86,8 @@ public:
         return current_level();
     }
 private:
-    item_deleter   item_deleter_   {this};
-    entity_deleter entity_deleter_ {this};
+    item_deleter   item_deleter_   {*this};
+    entity_deleter entity_deleter_ {*this};
 
     contiguous_fixed_size_block_storage<item>   items_;
     contiguous_fixed_size_block_storage<entity> entities_;
@@ -96,13 +96,21 @@ private:
     std::vector<std::unique_ptr<level>> levels_;
 };
 
-void item_deleter::operator()(item_instance_id const id) const noexcept {
-    static_cast<world_impl*>(world_)->items_.deallocate(value_cast<size_t>(id));
+namespace detail {
+
+template <>
+void object_deleter<item_instance_id>::operator()(item_instance_id const id) const noexcept {
+    static_cast<world_impl&>(world_.get())
+        .items_.deallocate(value_cast<size_t>(id));
 }
 
-void entity_deleter::operator()(entity_instance_id const id) const noexcept {
-    static_cast<world_impl*>(world_)->entities_.deallocate(value_cast<size_t>(id));
+template <>
+void object_deleter<entity_instance_id>::operator()(entity_instance_id const id) const noexcept {
+    static_cast<world_impl&>(world_.get())
+        .entities_.deallocate(value_cast<size_t>(id));
 }
+
+} // detail
 
 namespace {
 

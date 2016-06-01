@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config.hpp"
+#include "math_types.hpp"
 #include "property_set.hpp"
 
 #include <string>

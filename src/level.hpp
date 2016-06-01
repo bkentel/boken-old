@@ -263,44 +263,6 @@ make_level(random_state& rng, world& w, sizei32x width, sizei32y height
 
 namespace detail {
 
-string_view impl_can_add_item(const_context ctx
-  , const_entity_descriptor subject, point2i32 subject_p
-  , const_item_descriptor itm, const_level_location dst) noexcept;
-
-string_view impl_can_remove_item(const_context ctx
-    , const_entity_descriptor subject, point2i32 subject_p
-    , const_item_descriptor itm, const_level_location src) noexcept;
-
-} // namespace detail
-
-template <typename UnaryF>
-bool can_add_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_level_location    const dst
-  , UnaryF                  const on_fail
-) noexcept {
-    return not_empty_or(on_fail
-      , detail::impl_can_add_item(ctx, subject, subject_p, itm, dst));
-}
-
-template <typename UnaryF>
-bool can_remove_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_level_location    const src
-  , UnaryF                  const on_fail
-) noexcept {
-    return not_empty_or(on_fail
-      , detail::impl_can_remove_item(ctx, subject, subject_p, itm, src));
-}
-
-namespace detail {
-
 bool impl_can_add_item(
     const_context           ctx
   , const_entity_descriptor subject

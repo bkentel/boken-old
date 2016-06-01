@@ -107,7 +107,6 @@
     <ClCompile Include="src\item_list.cpp" />
     <ClCompile Include="src\level.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\messages.cpp" />
     <ClCompile Include="src\message_log.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
@@ -148,6 +147,7 @@
     <ClInclude Include="src\command.hpp" />
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\context.hpp" />
+    <ClInclude Include="src\context_fwd.hpp" />
     <ClInclude Include="src\data.hpp" />
     <ClInclude Include="src\definition.hpp" />
     <ClInclude Include="src\entity.hpp" />
@@ -171,8 +171,8 @@
     <ClInclude Include="src\math.hpp" />
     <ClInclude Include="src\math_types.hpp" />
     <ClInclude Include="src\maybe.hpp" />
-    <ClInclude Include="src\messages.hpp" />
     <ClInclude Include="src\message_log.hpp" />
+    <ClInclude Include="src\names.hpp" />
     <ClInclude Include="src\object.hpp" />
     <ClInclude Include="src\pch.hpp" />
     <ClInclude Include="src\property_set.hpp" />

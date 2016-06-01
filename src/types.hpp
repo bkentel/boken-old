@@ -1,13 +1,12 @@
 #pragma once
 
-#include "math_types.hpp"
 #include <memory>
 #include <cstdint>
 
 namespace boken { class world; }
+namespace boken { template <typename, typename> class tagged_value; }
 
 namespace boken {
-
 //===------------------------------------------------------------------------===
 //                                  Tags
 //===------------------------------------------------------------------------===
@@ -22,7 +21,6 @@ struct tag_id_body_part       {};
 //===------------------------------------------------------------------------===
 //                              Type aliases
 //===------------------------------------------------------------------------===
-
 using entity_id          = tagged_value<uint32_t, tag_id_entity>;
 using entity_instance_id = tagged_value<uint32_t, tag_id_instance_entity>;
 using entity_property_id = tagged_value<uint32_t, tag_id_property_entity>;
@@ -39,33 +37,26 @@ using item_property_value   = uint32_t;
 //===------------------------------------------------------------------------===
 //                              Custom deleters
 //===------------------------------------------------------------------------===
-class item_deleter {
-public:
-    using pointer = item_instance_id;
+namespace detail {
 
-    explicit item_deleter(world* const w) noexcept : world_ {w} { }
-    void operator()(pointer const id) const noexcept;
-    world const& source_world() const noexcept { return *world_; }
+template <typename T>
+class object_deleter {
+public:
+    using pointer = T;
+    explicit object_deleter(world& w) noexcept : world_ {w} { }
+    void operator()(pointer id) const noexcept;
 private:
-    world* world_;
+    std::reference_wrapper<world> world_;
 };
 
-using unique_item = std::unique_ptr<item_instance_id, item_deleter const&>;
+} // namespace detail
 
-class entity_deleter {
-public:
-    using pointer = entity_instance_id;
+using item_deleter   = detail::object_deleter<item_instance_id>;
+using entity_deleter = detail::object_deleter<entity_instance_id>;
+using unique_item    = std::unique_ptr<item_instance_id, item_deleter const&>;
+using unique_entity  = std::unique_ptr<entity_instance_id, entity_deleter const&>;
 
-    explicit entity_deleter(world* const w) noexcept : world_ {w} { }
-    void operator()(pointer const id) const noexcept;
-    world const& source_world() const noexcept { return *world_; }
-private:
-    world* world_;
-};
-
-using unique_entity = std::unique_ptr<entity_instance_id, entity_deleter const&>;
-
-item_deleter   const& get_item_deleter(world const& w) noexcept;
+item_deleter const& get_item_deleter(world const& w) noexcept;
 entity_deleter const& get_entity_deleter(world const& w) noexcept;
 
 } //namespace boken

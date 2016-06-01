@@ -7,8 +7,6 @@
 namespace boken { class item; }
 namespace boken { class entity; }
 namespace boken { class level; }
-namespace boken { class item_deleter; }
-namespace boken { class entity_deleter; }
 
 namespace boken {
 

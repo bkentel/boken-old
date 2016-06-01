@@ -5,8 +5,26 @@
 #include "forward_declarations.hpp"
 #include "math.hpp"
 #include "format.hpp"
+#include "hash.hpp"
+#include "names.hpp"
 
 namespace boken {
+
+//! common entity properties
+enum class entity_property : uint32_t {
+    is_player = djb2_hash_32c("is_player")
+  , can_equip = djb2_hash_32c("can_equip")
+  , body_n    = djb2_hash_32c("body_n")
+};
+
+namespace {
+
+constexpr entity_property_id property(entity_property const p) noexcept {
+    using type = std::underlying_type_t<entity_property>;
+    return entity_property_id {static_cast<type>(p)};
+}
+
+} // namespace
 
 //=====--------------------------------------------------------------------=====
 //                               free functions
@@ -30,37 +48,9 @@ entity_id get_id(entity_definition const& def) noexcept {
     return def.id;
 }
 
-namespace detail {
-
-string_view impl_can_add_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_entity_descriptor const dest
-) noexcept {
-    if (!itm.def) {
-        return "{missing definition for item}";
-    }
-
-    if (!dest) {
-        return "{missing definition for destination entity}";
-    }
-
-    return {};
+entity_id get_id(const_entity_descriptor const e) noexcept {
+    return e->definition();
 }
-
-string_view impl_can_remove_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_entity_descriptor const dest
-) noexcept {
-    return {};
-}
-
-} // namespace detail
 
 void merge_into_pile(
     context           const ctx
@@ -124,6 +114,11 @@ entity_property_value get_property_value_or(
       : fallback;
 }
 
+bool can_equip(const_entity_descriptor const e) noexcept {
+    constexpr auto p_can_equip = property(entity_property::can_equip);
+    return !!get_property_value_or(e, p_can_equip, 0);
+}
+
 namespace {
 
 entity create_object(
@@ -148,37 +143,6 @@ unique_entity create_object(
         return create_object(db, w, instance, def, rng);
     });
 }
-
-namespace {
-
-template <typename T, typename Out>
-bool check_definition(T&& obj, Out&& out, char const* const msg) noexcept {
-    if (!obj) {
-        out.append(msg);
-        return false;
-    }
-
-    return true;
-}
-
-template <typename Out>
-bool check_definition(const_entity_descriptor const e, Out&& out) noexcept {
-    return check_definition(e, out, "{missing definition for entity}");
-}
-
-template <typename Out>
-bool check_definition(const_item_descriptor const i, Out&& out) noexcept {
-    return check_definition(i, out, "{missing definition for item}");
-}
-
-template <typename... Args, typename Out>
-bool check_definitions(Out&& out, Args&&... args) noexcept {
-    bool result = true;
-    int const arr[] {(result &= check_definition(args, out), 0)...};
-    return result;
-}
-
-} // namespace
 
 namespace detail {
 
@@ -237,18 +201,12 @@ bool impl_can_equip_item(
           , name_of_decorated(ctx, itm_source).data()), false;
     }
 
-    auto const item_is_equippable =
-        get_property_value_or(itm, property(item_property::can_equip), 0);
-
-    if (!item_is_equippable) {
+    if (!can_equip(itm)) {
         return result.append("the %s can't be equipped"
             , name_of_decorated(ctx, itm).data()), false;
     }
 
-    auto const dest_can_equip =
-        get_property_value_or(itm_dest, property(entity_property::can_equip), 0);
-
-    if (!dest_can_equip) {
+    if (!can_equip(itm_dest)) {
         return result.append("%s can't equip any items"
             , name_of_decorated(ctx, itm_dest).data()), false;
     }
@@ -403,11 +361,11 @@ entity::entity(
     std::generate_n(back_inserter(body_parts_), n, [&, i = 0]() mutable {
         char key[] = "body_\0\0";
         if (n <= 9) {
-            *(std::end(key) - 3) = '0' + static_cast<char>(i);
+            *(std::end(key) - 3) = static_cast<char>('0' + i);
         } else {
             BK_ASSERT(n <= 99);
-            *(std::end(key) - 2) = '0' + static_cast<char>(i / 10);
-            *(std::end(key) - 3) = '0' + static_cast<char>(i % 10);
+            *(std::end(key) - 2) = static_cast<char>('0' + i / 10);
+            *(std::end(key) - 3) = static_cast<char>('0' + i % 10);
         }
 
         ++i;

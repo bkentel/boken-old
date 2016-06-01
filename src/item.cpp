@@ -3,6 +3,8 @@
 #include "item_properties.hpp"
 #include "forward_declarations.hpp"
 #include "format.hpp"
+#include "hash.hpp"
+#include "names.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -10,6 +12,25 @@
 #include <numeric>
 
 namespace boken {
+
+//! common item properties
+enum class item_property : uint32_t {
+    weight             = djb2_hash_32c("weight")
+  , capacity           = djb2_hash_32c("capacity")
+  , stack_size         = djb2_hash_32c("stack_size")
+  , current_stack_size = djb2_hash_32c("current_stack_size")
+  , identified         = djb2_hash_32c("identified")
+  , can_equip          = djb2_hash_32c("can_equip")
+};
+
+namespace {
+
+constexpr item_property_id property(item_property const p) noexcept {
+    using type = std::underlying_type_t<item_property>;
+    return item_property_id {static_cast<type>(p)};
+}
+
+} // namespace
 
 item_pile const& items(const_item_descriptor const i) noexcept {
     return i.obj.items();
@@ -29,38 +50,58 @@ item_id get_id(item_definition const& def) noexcept {
     return def.id;
 }
 
+item_id get_id(const_item_descriptor const i) noexcept {
+    return i->definition();
+}
+
 namespace detail {
 
-string_view impl_can_add_item(
-    const_context           const ctx
-  , const_item_descriptor   const itm
-  , const_item_descriptor   const dest
+bool impl_can_add_item(
+    const_context                  const ctx
+  , const_entity_descriptor const* const subject
+  , const_item_descriptor          const itm
+  , const_item_descriptor          const dest
+  , string_buffer_base&                  result
 ) noexcept {
+    if (!check_definitions(result, itm, dest)
+     || (subject && !check_definitions(result, *subject))
+    ) {
+        return false;
+    }
     constexpr auto p_capacity = property(item_property::capacity);
-
-    if (!itm.def) {
-        return "{missing definition for item}";
-    }
-
-    if (!dest) {
-        return "{missing definition for destination item}";
-    }
 
     auto const dest_capacity = get_property_value_or(dest, p_capacity, 0);
     if (dest_capacity <= 0) {
-        return "the destination is not a container";
+        if (subject) {
+            result.append("%s can't put the %s in the %s: the destination is not a container."
+              , name_of_decorated(ctx, *subject).data()
+              , name_of_decorated(ctx, itm).data()
+              , name_of_decorated(ctx, dest).data());
+        } else {
+            result.append("the %s be can't put in the %s: the destination is not a container."
+              , name_of_decorated(ctx, itm).data()
+              , name_of_decorated(ctx, dest).data());
+        }
+
+        return false;
     }
 
     auto const itm_capacity = get_property_value_or(itm, p_capacity, 0);
     if (itm_capacity > 0) {
-        return "the item is too big";
+        result.append("the %s won't fit in the %s: the item is too big."
+          , name_of_decorated(ctx, itm).data()
+          , name_of_decorated(ctx, dest).data());
+        return false;
     }
 
     if (dest.obj.items().size() + 1 > dest_capacity) {
-        return "the destination is full";
+        result.append("the %s won't fit in the %s: the destination is full."
+          , name_of_decorated(ctx, itm).data()
+          , name_of_decorated(ctx, dest).data());
+        return false;
     }
 
-    return {};
+    return true;
 }
 
 bool impl_can_add_item(
@@ -70,7 +111,7 @@ bool impl_can_add_item(
   , const_item_descriptor   itm_dest
   , string_buffer_base&     result
 ) noexcept {
-    return true;
+    return impl_can_add_item(ctx, &subject, itm, itm_dest, result);
 }
 
 bool impl_can_remove_item(
@@ -81,27 +122,6 @@ bool impl_can_remove_item(
   , string_buffer_base&     result
 ) noexcept {
     return true;
-}
-
-string_view impl_can_add_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_item_descriptor   const dest
-) noexcept {
-    auto const result = impl_can_add_item(ctx, itm, dest);
-    return result;
-}
-
-string_view impl_can_remove_item(
-    const_context           const ctx
-  , const_entity_descriptor const subject
-  , point2i32               const subject_p
-  , const_item_descriptor   const itm
-  , const_item_descriptor   const dest
-) noexcept {
-    return {};
 }
 
 } // namespace detail
@@ -224,6 +244,10 @@ uint32_t is_identified(const_item_descriptor const itm) noexcept {
     return get_property_value_or(itm, property(item_property::identified), 0);
 }
 
+void set_identified(item_descriptor const i, uint32_t const level) {
+    i->add_or_update_property({property(item_property::identified), level});
+}
+
 uint32_t is_container(const_item_descriptor const itm) noexcept {
     return get_property_value_or(itm, property(item_property::capacity), 0);
 }
@@ -342,6 +366,11 @@ item_property_value get_property_value_or(
     return itm
       ? itm.obj.property_value_or(*itm.def, property, fallback)
       : fallback;
+}
+
+bool can_equip(const_item_descriptor const i) noexcept {
+    constexpr auto p_can_equip = property(item_property::can_equip);
+    return !!get_property_value_or(i, p_can_equip, 0);
 }
 
 namespace {
