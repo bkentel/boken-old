@@ -74,6 +74,7 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
 
     auto const event_kmods = kb_modifiers {event.mods};
 
+    BK_DISABLE_WSWITCH_ENUM_BEGIN
     switch (event.keycode) {
     case kb_keycode::k_d :
         if (event_kmods.exclusive_any(kb_mod::ctrl)) {
@@ -170,6 +171,7 @@ void command_translator_impl::translate(kb_event const& event, kb_modifiers cons
     default:
         break;
     }
+    BK_DISABLE_WSWITCH_ENUM_END
 }
 
 std::unique_ptr<command_translator> make_command_translator() {

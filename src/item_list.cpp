@@ -4,6 +4,8 @@
 #include "command.hpp"
 #include "item_pile.hpp"
 #include "events.hpp"
+#include "names.hpp"
+#include "item_properties.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -25,7 +27,6 @@ void item_list_controller::add_column(std::string heading, get_f getter, sort_f 
     list_->add_column(id, std::move(heading), std::move(getter), std::move(sorter));
 }
 
-
 void item_list_controller::add_column(std::string heading, get_f getter) {
     auto const by_string = [](
         const_item_descriptor, string_view const lhs
@@ -37,6 +38,66 @@ void item_list_controller::add_column(std::string heading, get_f getter) {
     add_column(std::move(heading), std::move(getter), by_string);
 }
 
+//! add a standard column
+void item_list_controller::add_column(
+    const_context const ctx
+  , column_type   const type
+) {
+    using id_t = const_item_descriptor;
+
+    switch (type) {
+    case column_type::icon:
+        add_column(" ", [=](id_t const i) {
+            return name_of(ctx, i).substr(0, 1).to_string();
+        });
+        break;
+    case column_type::name:
+        add_column("Name", [=](id_t const i) {
+            return name_of_decorated(ctx, i);
+        });
+        break;
+    case column_type::weight:
+        add_column("Weight"
+          , [=](id_t const i) {
+                return std::to_string(weight_of_inclusive(ctx, i));
+            }
+          , [=](id_t const lhs, string_view, id_t const rhs, string_view) {
+                return compare(weight_of_inclusive(ctx, lhs)
+                             , weight_of_inclusive(ctx, rhs));
+            });
+        break;
+    case column_type::count:
+        add_column("Count"
+          , [=](id_t const i) {
+                return std::to_string(current_stack_size(i));
+            }
+          , [=](id_t const lhs, string_view, id_t const rhs, string_view) {
+                return compare(current_stack_size(lhs)
+                             , current_stack_size(rhs));
+            });
+        break;
+    default:
+        BK_ASSERT(false);
+        break;
+    }
+}
+
+void item_list_controller::add_columns(
+    const_context      const ctx
+  , column_type const* const first
+  , column_type const* const last
+) {
+    for (auto it = first; it != last; ++it) {
+        add_column(ctx, *it);
+    }
+}
+
+void item_list_controller::add_columns(
+    const_context const ctx
+  , std::initializer_list<column_type> const list
+) {
+    add_columns(ctx, list.begin(), list.end());
+}
 
 //--------------------------------------------------------------------------
 void item_list_controller::set_on_command(on_command_t handler) {
@@ -511,7 +572,7 @@ bool item_list_controller::cancel() noexcept {
         return false;
     }
 
-    if (list_->get_selection().first) {
+    if (has_selection()) {
         list_->selection_clear();
         return false;
     }

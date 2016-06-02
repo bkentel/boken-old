@@ -38,3 +38,20 @@
 #else
 #   define BK_ATTRIBUTE_FALLTHROUGH
 #endif
+
+#if defined(__clang__)
+#   define BK_DISABLE_WSWITCH_ENUM_BEGIN \
+        _Pragma("clang diagnostic push") \
+        _Pragma("clang diagnostic ignored \"-Wswitch-enum\"")
+#   define BK_DISABLE_WSWITCH_ENUM_END \
+        _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__)
+#   define BK_DISABLE_WSWITCH_ENUM_BEGIN \
+        _Pragma("GCC diagnostic push") \
+        _Pragma("GCC diagnostic ignored \"-Wswitch-enum\"")
+#   define BK_DISABLE_WSWITCH_ENUM_END \
+        _Pragma("GCC diagnostic pop")
+#else
+#   define BK_DISABLE_WSWITCH_ENUM_BEGIN
+#   define BK_DISABLE_WSWITCH_ENUM_END
+#endif

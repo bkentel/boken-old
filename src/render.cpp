@@ -105,8 +105,8 @@ void tool_tip_renderer_impl::render(duration_t, renderer2d& r, view const&) {
     auto const text_r = [&] {
         auto const win_w  = window_r.width();
         for (;;) {
-            auto const text_r = text_.extent();
-            auto const text_w = text_r.width();
+            auto const ext    = text_.extent();
+            auto const text_w = ext.width();
 
             if (text_w > win_w) {
                 text_.set_max_width(win_w);

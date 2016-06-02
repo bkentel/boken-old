@@ -65,7 +65,7 @@ public:
     //===--------------------------------------------------------------------===
 
     //! The width of the level in tiles.
-    virtual sizei32x width()  const noexcept = 0;
+    virtual sizei32x width() const noexcept = 0;
 
     //! The width of the level in tiles.
     virtual sizei32y height() const noexcept = 0;
@@ -73,23 +73,20 @@ public:
     //! The bounds of the level in tiles.
     virtual recti32 bounds() const noexcept = 0;
 
-    //! The identifier for the level; generally just an integer.
+    //! The identifier for the level.
     virtual size_t id() const noexcept = 0;
 
-    //! Return a pointer to and position of the entity with the given id.
-    //! Otherwise return {nullptr, {0, 0}}
-    //! @note A failure to find the entity could, for example, be because it
-    //! has died or been moved to another level.
+    //! Return a valid position if an entity with @p id exists on the level.
     virtual maybe<point2i32> find(entity_instance_id id) const noexcept = 0;
 
-    //! Return a pointer to the entity at @p p, otherwise a nullptr if no entity
-    //! is at the given position.
+    //! Return a valid instance id if an entity is at the position given by @p p.
     virtual maybe<entity_instance_id> entity_at(point2i32 p) const noexcept = 0;
 
-    //! Return a pointer to the item_pile at @p p, otherwise a nullptr if no
-    //! item_pile is at the given position.
+    //! Return a valid pointer if an item_pile exists at the position given by
+    //! @p p. Otherwise, return a nullptr.
     virtual item_pile const* item_at(point2i32 p) const noexcept = 0;
 
+    //! As entity_at, but return an array of instance ids.
     template <typename... Args>
     auto entities_at(point2i32 const p, Args const... points) const noexcept {
         constexpr size_t N = 1 + sizeof...(Args);

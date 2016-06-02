@@ -213,7 +213,7 @@ bool impl_can_equip_item(
 
     auto const last  = itm_dest->body_end();
     auto const it = std::find_if(itm_dest->body_begin(), last
-      , [&](body_part const& part) { return part.is_free(); });
+      , [&](body_part const& p) { return p.is_free(); });
 
     if (it == last) {
         return result.append("%s has no free equipment slots"

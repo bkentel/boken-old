@@ -63,15 +63,6 @@ int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item
 }
 
 struct game_state {
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Convenience functions
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    auto item_list_index_to_id() noexcept {
-        return [&](int const i) noexcept {
-            return item_list.get().row_data(i);
-        };
-    }
-
     //--------------------------------------------------------------------------
     // Player functions
     //--------------------------------------------------------------------------
@@ -106,13 +97,14 @@ struct game_state {
         return the_world.current_level();
     }
 
-    //--------------------------------------------------------------------------
-    //--------------------------------------------------------------------------
     //! hard fail if the entity doesn't exist on the given level.
     point2i32 require_entity_on_level(const_entity_descriptor const e, level const& lvl) const {
-        return require(lvl.find(e.obj.instance()));
+        return require(lvl.find(e->instance()));
     }
 
+    //--------------------------------------------------------------------------
+    // Message functions
+    //--------------------------------------------------------------------------
     void println(string_buffer_base const& buffer) {
         println(buffer.to_string());
     }
@@ -131,59 +123,6 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Special member functions
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void init_item_list() {
-        item_list.add_column("", [&](const_item_descriptor const i) {
-            auto const& tmap = database.get_tile_map(tile_map_type::item);
-            auto const index = tmap.find(i.obj.definition());
-
-            BK_ASSERT(index < 0x7Fu); //TODO
-
-            std::array<char, 7> as_string {};
-            as_string[0] =
-                static_cast<char>(static_cast<uint8_t>(index & 0x7Fu));
-
-            return std::string {as_string.data()};
-        });
-
-        item_list.add_column("Name", [&](const_item_descriptor const i) {
-            return name_of_decorated(ctx, i);
-        });
-
-        item_list.add_column("Weight"
-          , [&](const_item_descriptor const i) {
-                return std::to_string(weight_of_inclusive(ctx, i));
-            }
-          , [&](const_item_descriptor const lhs, string_view
-              , const_item_descriptor const rhs, string_view
-            ) {
-                return compare(weight_of_inclusive(ctx, lhs), weight_of_inclusive(ctx, rhs));
-            });
-
-        item_list.add_column("Count"
-          , [&](const_item_descriptor const i) {
-                return std::to_string(current_stack_size(i));
-            }
-          , [&](const_item_descriptor const lhs, string_view
-              , const_item_descriptor const rhs, string_view
-            ) {
-                return compare(current_stack_size(lhs), current_stack_size(rhs));
-            });
-
-        item_list.layout();
-
-        item_list.hide();
-
-        item_list.set_on_focus_change([&](bool const is_focused) {
-            r_item_list.set_focus(is_focused);
-            if (is_focused) {
-                tool_tip.visible(false);
-            }
-        });
-
-        item_list.set_on_selection_change([&](int const row) {
-        });
-    }
-
     game_state() {
         bind_event_handlers_();
 
@@ -209,6 +148,26 @@ struct game_state {
         }
     }
 
+    void init_item_list() {
+        using col_t = item_list_controller::column_type;
+
+        item_list.add_columns(
+            ctx, {col_t::icon, col_t::name, col_t::weight, col_t::count});
+
+        item_list.layout();
+        item_list.hide();
+
+        item_list.set_on_focus_change([&](bool const is_focused) {
+            r_item_list.set_focus(is_focused);
+            if (is_focused) {
+                tool_tip.visible(false);
+            }
+        });
+
+        item_list.set_on_selection_change([&](int const row) {
+        });
+    }
+
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Utility / Helpers
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -226,45 +185,6 @@ struct game_state {
         //TODO: round?
         return underlying_cast_unsafe<int32_t>(current_view.world_to_window(
             p, tmap.tile_width(), tmap.tile_height()));
-    }
-
-    //! Update the rendering scale.
-    //! @pre sx > 0 && sy > 0
-    void update_view_scale(float const sx, float const sy) noexcept {
-        update_view(sx, sy, current_view.x_off, current_view.y_off);
-    }
-
-    void update_view_scale(point2f const scale) noexcept {
-        update_view_scale(value_cast(scale.x), value_cast(scale.y));
-    }
-
-    //! Update the rendering offset (translation).
-    void update_view_trans(float const dx, float const dy) {
-        update_view(current_view.scale_x, current_view.scale_y, dx, dy);
-    }
-
-    void update_view_trans(point2f const trans) noexcept {
-        update_view_trans(value_cast(trans.x), value_cast(trans.y));
-    }
-
-    //! Update the rendering transformation matrix.
-    //! @pre sx > 0 && sy > 0
-    void update_view(float const sx, float const sy
-                   , float const dx, float const dy
-    ) noexcept {
-        BK_ASSERT(sx > 0.0f && sy > 0.0f);
-
-        current_view.scale_x = sx;
-        current_view.scale_y = sy;
-        current_view.x_off   = dx;
-        current_view.y_off   = dy;
-
-        update_highlight_tile();
-    }
-
-    void update_view(point2f const scale, point2f const trans) noexcept {
-        update_view(value_cast(scale.x), value_cast(scale.y)
-                  , value_cast(trans.x), value_cast(trans.y));
     }
 
     //! Debug command to create a corridor at the give position.
@@ -835,6 +755,7 @@ struct game_state {
         case ct::alt_drop_some : break;
         case ct::alt_open      : break;
         case ct::alt_insert    : break;
+        case ct::alt_equip     : break;
 
         default:
             BK_ASSERT(false);
@@ -1241,6 +1162,7 @@ struct game_state {
             int indicated = 0;
             int result    = 0;
 
+            BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
             case command_type::alt_get_items:
                 indicated = item_list.get().indicated();
@@ -1258,6 +1180,7 @@ struct game_state {
             default:
                 break;
             }
+            BK_DISABLE_WSWITCH_ENUM_END
 
             if (result > 0) {
                 item_list.set_title(name_of_decorated(ctx, container));
@@ -1323,22 +1246,31 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Item transfer
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    //! Helper functions to implement move_items
+    //@{
     template <typename FwdIt, typename Predicate>
-    int move_items(level_location const l, FwdIt const first, FwdIt const last, Predicate pred) {
+    int impl_move_items(level_location const l, FwdIt const first, FwdIt const last, Predicate pred) {
         return l.lvl.move_items(l.p, first, last, pred).second;
     }
 
-    template <typename FwdIt, typename Predicate>
-    int move_items(entity_descriptor const e, FwdIt const first, FwdIt const last, Predicate pred) {
-        return e.obj.items().remove_if(
-            first, last, item_list_index_to_id(), pred);
+    template <typename Obj, typename FwdIt, typename Predicate>
+    int impl_move_items(Obj const obj, FwdIt const first, FwdIt const last, Predicate pred, int) {
+        return obj->items().remove_if(first, last
+          , [&](int const i) noexcept { return item_list.get().row_data(i); }
+          , pred);
     }
 
     template <typename FwdIt, typename Predicate>
-    int move_items(item_descriptor const i, FwdIt const first, FwdIt const last, Predicate pred) {
-        return i.obj.items().remove_if(
-            first, last, item_list_index_to_id(), pred);
+    int impl_move_items(item_descriptor const i, FwdIt const first, FwdIt const last, Predicate pred) {
+        return impl_move_items(i, first, last, pred, 0);
     }
+
+    template <typename FwdIt, typename Predicate>
+    int impl_move_items(entity_descriptor const e, FwdIt const first, FwdIt const last, Predicate pred) {
+        return impl_move_items(e, first, last, pred, 0);
+    }
+    //@}
 
     //! The @p subject attempts to move items from @p from to @p to.
     //! @returns The number of items successfully moved.
@@ -1357,7 +1289,7 @@ struct game_state {
       , Callback                           callback
     ) {
         using I = std::decay_t<decltype(*first)>;
-        return move_items(from, first, last, [&](unique_item&& itm, I const i) {
+        return impl_move_items(from, first, last, [&](unique_item&& itm, I const i) {
             auto const id  = itm.get();
             auto const obj = p_object(item_descriptor {ctx, id});
 
@@ -1470,6 +1402,7 @@ struct game_state {
             [=](command_type const type, uint64_t) {
                 using ct = command_type;
 
+                BK_DISABLE_WSWITCH_ENUM_BEGIN
                 switch (type) {
                 case ct::reset_view : BK_ATTRIBUTE_FALLTHROUGH;
                 case ct::reset_zoom :
@@ -1491,6 +1424,7 @@ struct game_state {
                 default:
                     break;
                 }
+                BK_DISABLE_WSWITCH_ENUM_END
 
                 return event_result::filter;
             };
@@ -1499,8 +1433,7 @@ struct game_state {
     }
 
     void do_cancel() {
-        if (item_list.is_visible()) {
-            item_list.set_modal(false);
+        if (item_list.is_visible() && item_list.cancel()) {
             item_list.hide();
         }
     }
@@ -1558,6 +1491,7 @@ struct game_state {
         item_list.set_on_command([=](command_type const cmd) {
             using ct = command_type;
 
+            BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
             case ct::confirm:
                 reload_item_list_if(
@@ -1572,6 +1506,7 @@ struct game_state {
             default:
                 break;
             }
+            BK_DISABLE_WSWITCH_ENUM_END
 
             return event_result::filter;
         });
@@ -1645,6 +1580,7 @@ struct game_state {
         item_list.set_on_command([=](command_type const cmd) {
             using ct = command_type;
 
+            BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
             case ct::alt_drop_some:
                 reload_item_list_if(
@@ -1670,6 +1606,7 @@ struct game_state {
             default:
                 break;
             }
+            BK_DISABLE_WSWITCH_ENUM_END
 
             return event_result::filter;
         });
@@ -2235,6 +2172,45 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Rendering
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //! Update the rendering scale.
+    //! @pre sx > 0 && sy > 0
+    void update_view_scale(float const sx, float const sy) noexcept {
+        update_view(sx, sy, current_view.x_off, current_view.y_off);
+    }
+
+    void update_view_scale(point2f const scale) noexcept {
+        update_view_scale(value_cast(scale.x), value_cast(scale.y));
+    }
+
+    //! Update the rendering offset (translation).
+    void update_view_trans(float const dx, float const dy) {
+        update_view(current_view.scale_x, current_view.scale_y, dx, dy);
+    }
+
+    void update_view_trans(point2f const trans) noexcept {
+        update_view_trans(value_cast(trans.x), value_cast(trans.y));
+    }
+
+    //! Update the rendering transformation matrix.
+    //! @pre sx > 0 && sy > 0
+    void update_view(float const sx, float const sy
+                   , float const dx, float const dy
+    ) noexcept {
+        BK_ASSERT(sx > 0.0f && sy > 0.0f);
+
+        current_view.scale_x = sx;
+        current_view.scale_y = sy;
+        current_view.x_off   = dx;
+        current_view.y_off   = dy;
+
+        update_highlight_tile();
+    }
+
+    void update_view(point2f const scale, point2f const trans) noexcept {
+        update_view(value_cast(scale.x), value_cast(scale.y)
+                  , value_cast(trans.x), value_cast(trans.y));
+    }
+
     void renderer_update_pile(point2i32 const p) {
         auto const pile = current_level().item_at(p);
         if (!pile) {

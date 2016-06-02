@@ -5,6 +5,7 @@
 #include "types.hpp"
 #include "algorithm.hpp"
 #include "functional.hpp"
+#include "context_fwd.hpp"
 
 #include "bkassert/assert.hpp"
 
@@ -40,6 +41,10 @@ public:
     using get_f  = inventory_list::get_f;
     using sort_f = inventory_list::sort_f;
 
+    enum class column_type {
+        icon, name, weight, count
+    };
+
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
 
@@ -48,6 +53,14 @@ public:
 
     //! use a string based sort
     void add_column(std::string heading, get_f getter);
+
+    //! add a standard column
+    void add_column(const_context ctx, column_type type);
+
+    void add_columns(const_context ctx
+        , column_type const* first, column_type const* last);
+
+    void add_columns(const_context ctx, std::initializer_list<column_type> list);
 
     //--------------------------------------------------------------------------
 
