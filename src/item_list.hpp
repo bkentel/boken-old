@@ -45,6 +45,14 @@ public:
         icon, name, weight, count
     };
 
+    enum class flag_type : uint32_t {
+        visible     = 1u << 0
+      , modal       = 1u << 1
+      , multiselect = 1u << 2
+    };
+
+    void set_properties(std::string title, std::initializer_list<flag_type> flags);
+
     //--------------------------------------------------------------------------
     explicit item_list_controller(std::unique_ptr<inventory_list> list);
 
@@ -167,6 +175,8 @@ public:
     bool is_multiselect() const noexcept;
 
     bool has_focus() const noexcept;
+
+    void set_visible(bool state) noexcept;
     //--------------------------------------------------------------------------
     void show() noexcept;
 
@@ -181,52 +191,19 @@ public:
     inventory_list const& get() const noexcept { return *list_; }
     inventory_list&       get()       noexcept { return *list_; }
     //--------------------------------------------------------------------------
-
-    // @param pred f(item_instance_id) -> {bool, item*, item_definition const*}
-    template <typename Predicate, typename Unaryf>
-    bool with_index_if(int const i, Predicate pred, Unaryf f) {
-        auto const& il = get();
-        BK_ASSERT((!il.empty())
-               && (i < static_cast<int>(il.rows())));
-
-        auto const id     = il.row_data(i);
-        auto const result = pred(id);
-
-        if (!std::get<0>(result)) {
-            return false;
-        }
-
-        auto const itm = std::get<1>(result);
-        auto const def = std::get<2>(result);
-
-        BK_ASSERT(!!itm && !!def);
-
-        f(*itm, *def);
-        return true;
-    }
-
-    template <typename Unaryf>
-    bool with_index(int const i, Unaryf f) {
-        auto const& il = get();
-        BK_ASSERT((!il.empty())
-               && (i < static_cast<int>(il.rows())));
-
-        f(il.row_data(i));
-        return true;
-    }
-
-    template <typename Predicate, typename Unaryf>
-    bool with_indicated_if(Predicate pred, Unaryf f) {
-        auto const& il = get();
-        return !il.empty() && with_index_if(il.indicated(), pred, f);
-    }
-
     template <typename Unaryf>
     bool with_indicated(Unaryf f) {
         auto const& il = get();
-        return !il.empty() && with_index(il.indicated(), f);
+        return !il.empty() && ((void)f(il.row_data(il.indicated())), true);
     }
 
+    //! If a selection exists, calls f with a pointer to the first and last
+    //! element in the selection.
+    //! If the list is empty, f is not called.
+    //! Otherwise, calls f with a range of one element consisting of the
+    //! currently indicated item
+    //!
+    //! @tparam BinaryF int (int const* beg, int const* end)
     template <typename BinaryF>
     int with_selected_range(BinaryF f) {
         auto const& il = get();
@@ -281,8 +258,6 @@ public:
     // Behaves as if calling cancel until it returns true.
     bool cancel_force() noexcept;
 private:
-    void set_visible_(bool state) noexcept;
-
     void resize_(point2i32 p, vec2i32 v);
 
     event_result do_on_command_(command_type type);
@@ -291,13 +266,14 @@ private:
 private:
     std::unique_ptr<inventory_list> list_;
 
-    on_command_t          on_command_;
-    on_command_t          on_command_swap_;
+    std::vector<on_command_t> command_stack_;
+    on_command_t              on_command_;
+    on_command_t              on_command_swap_;
 
     on_focus_change_t     on_focus_change_;
     on_selection_change_t on_selection_change_;
 
-    point2i32    last_mouse_  {};
+    point2i32 last_mouse_  {};
     inventory_list::hit_test_result last_hit_ {};
 
     // The current set of columns to sort by.

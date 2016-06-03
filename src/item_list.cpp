@@ -10,6 +10,7 @@
 #include "bkassert/assert.hpp"
 
 #include <algorithm>
+#include <numeric>
 
 namespace boken {
 
@@ -20,6 +21,29 @@ item_list_controller::item_list_controller(std::unique_ptr<inventory_list> list)
     set_on_command();
     set_on_focus_change();
     set_on_selection_change();
+}
+
+void item_list_controller::set_properties(
+    std::string title
+  , std::initializer_list<flag_type> const flags
+) {
+    set_title(std::move(title));
+
+    auto const has_flag = [&] {
+        using type = std::underlying_type_t<flag_type>;
+        type const value = std::accumulate(begin(flags), end(flags), uint32_t {0}
+          , [](type const sum, auto const f) noexcept {
+                return sum | static_cast<type>(f);
+            });
+
+        return [=](flag_type const flag) noexcept {
+            return !!(value & static_cast<type>(flag));
+        };
+    }();
+
+    set_visible(has_flag(flag_type::visible));
+    set_modal(has_flag(flag_type::modal));
+    set_multiselect(has_flag(flag_type::multiselect));
 }
 
 void item_list_controller::add_column(std::string heading, get_f getter, sort_f sorter) {
@@ -102,7 +126,12 @@ void item_list_controller::add_columns(
 //--------------------------------------------------------------------------
 void item_list_controller::set_on_command(on_command_t handler) {
     if (!is_processing_callback_) {
+        if (on_command_) {
+            command_stack_.push_back(std::move(on_command_));
+        }
+
         on_command_ = std::move(handler);
+        on_command_(command_type::none);
     } else {
         BK_ASSERT(!on_command_swap_);
         on_command_swap_ = std::move(handler);
@@ -386,22 +415,33 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
 
     auto const pass = !is_modal();
 
-    auto const on_detach = [&] {
+    auto const on_detach = [&](bool const detach) {
         if (on_command_swap_) {
             std::swap(on_command_swap_, on_command_);
+            if (!detach) {
+                command_stack_.push_back(std::move(on_command_swap_));
+            }
+
             on_command_swap_ = on_command_t {};
-        } else {
-            set_on_command();
-            set_modal(false);
-            hide();
+            on_command_(command_type::none);
+        } else if (detach) {
+            if (!command_stack_.empty()) {
+                on_command_ = std::move(command_stack_.back());
+                command_stack_.pop_back();
+                on_command_(command_type::none);
+            } else {
+                set_on_command();
+                set_modal(false);
+                hide();
+            }
         }
     };
 
     switch (result) {
-    case event_result::filter:                           return false;
-    case event_result::filter_detach:       on_detach(); return false;
-    case event_result::pass_through:                     return pass;
-    case event_result::pass_through_detach: on_detach(); return pass;
+    case event_result::filter:              on_detach(false); return false;
+    case event_result::filter_detach:       on_detach(true);  return false;
+    case event_result::pass_through:        on_detach(false); return pass;
+    case event_result::pass_through_detach: on_detach(true);  return pass;
     default:
         BK_ASSERT(false);
         break;
@@ -500,17 +540,17 @@ bool item_list_controller::has_focus() const noexcept {
 
 //--------------------------------------------------------------------------
 void item_list_controller::show() noexcept {
-    set_visible_(true);
+    set_visible(true);
 }
 
 void item_list_controller::hide() noexcept {
-    set_visible_(false);
+    set_visible(false);
 }
 
 //! @returns the visible state of the list after toggling.
 bool item_list_controller::toggle_visible() noexcept {
     bool const is_visible = list_->is_visible();
-    set_visible_(!is_visible);
+    set_visible(!is_visible);
     return !is_visible;
 }
 
@@ -518,7 +558,7 @@ bool item_list_controller::is_visible() const noexcept {
     return list_->is_visible();
 }
 
-void item_list_controller::set_visible_(bool const state) noexcept {
+void item_list_controller::set_visible(bool const state) noexcept {
     auto const prev_state = is_visible();
 
     is_moving_ = false;
@@ -567,13 +607,13 @@ void item_list_controller::resize_(point2i32 const p, vec2i32 const v) {
 }
 
 bool item_list_controller::cancel() noexcept {
-    if (is_modal()) {
-        set_modal(false);
+    if (has_selection()) {
+        list_->selection_clear();
         return false;
     }
 
-    if (has_selection()) {
-        list_->selection_clear();
+    if (is_modal()) {
+        set_modal(false);
         return false;
     }
 

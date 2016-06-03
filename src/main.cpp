@@ -135,6 +135,7 @@ struct game_state {
         r_map.set_pile_id(get_pile_id(database));
 
         init_item_list();
+        init_equip_list();
 
         generate();
 
@@ -165,6 +166,26 @@ struct game_state {
         });
 
         item_list.set_on_selection_change([&](int const row) {
+        });
+    }
+
+    void init_equip_list() {
+        using col_t = item_list_controller::column_type;
+
+        equip_list.add_columns(
+            ctx, {col_t::icon, col_t::name, col_t::weight, col_t::count});
+
+        equip_list.layout();
+        equip_list.hide();
+
+        equip_list.set_on_focus_change([&](bool const is_focused) {
+            r_equip_list.set_focus(is_focused);
+            if (is_focused) {
+                tool_tip.visible(false);
+            }
+        });
+
+        equip_list.set_on_selection_change([&](int const row) {
         });
     }
 
@@ -581,34 +602,41 @@ struct game_state {
     }
 
     bool ui_on_key(kb_event const event, kb_modifiers const kmods) {
-        return item_list.on_key(event, kmods);
+        return item_list.on_key(event, kmods)
+            && equip_list.on_key(event, kmods);
     }
 
     bool ui_on_text_input(text_input_event const event) {
-        return item_list.on_text_input(event);
+        return item_list.on_text_input(event)
+            && equip_list.on_text_input(event);
     }
 
     bool ui_on_mouse_button(mouse_event const event, kb_modifiers const kmods) {
-        return item_list.on_mouse_button(event, kmods);
+        return item_list.on_mouse_button(event, kmods)
+            && equip_list.on_mouse_button(event, kmods);
     }
 
     bool ui_on_mouse_move(mouse_event const event, kb_modifiers const kmods) {
-        return item_list.on_mouse_move(event, kmods) && [&] {
-            if (!intersects(message_window.bounds(), point2i32 {event.x, event.y})) {
-                return true;
-            }
+        return item_list.on_mouse_move(event, kmods)
+            && equip_list.on_mouse_move(event, kmods)
+            && [&] {
+                if (!intersects(message_window.bounds(), point2i32 {event.x, event.y})) {
+                    return true;
+                }
 
-            r_message_log.show();
-            return true;
-        }();
+                r_message_log.show();
+                return true;
+            }();
     }
 
     bool ui_on_mouse_wheel(int const wy, int const wx, kb_modifiers const kmods) {
-        return item_list.on_mouse_wheel(wy, wx, kmods);
+        return item_list.on_mouse_wheel(wy, wx, kmods)
+            && equip_list.on_mouse_wheel(wy, wx, kmods);
     }
 
     bool ui_on_command(command_type const type, uintptr_t const data) {
-        return item_list.on_command(type, data);
+        return item_list.on_command(type, data)
+            && equip_list.on_command(type, data);
     }
 
     void on_key(kb_event const event, kb_modifiers const kmods) {
@@ -1144,49 +1172,56 @@ struct game_state {
             set_identified(container, 1);
         }
 
-        auto const name   = name_of_decorated(ctx, container);
-
         {
             static_string_buffer<128> buffer;
-            buffer.append("You open the %s.", name.data());
+            buffer.append("You open the %s."
+                , name_of_decorated(ctx, container).data());
             println(buffer);
         }
 
-        item_list.set_title(name);
-        item_list.assign(items(container));
-        item_list.set_modal(true);
-        item_list.set_multiselect(true);
-        item_list.show();
+        using ft = item_list_controller::flag_type;
+        using ct = command_type;
 
-        item_list.set_on_command([=](command_type const cmd) {
-            int indicated = 0;
-            int result    = 0;
+        auto const setup_list = [=](int const i) {
+            item_list.set_properties(name_of_decorated(ctx, container)
+              , {ft::modal, ft::multiselect, ft::visible});
 
+            item_list.assign(items(container));
+            item_list.get().indicate(i);
+        };
+
+        item_list.set_on_command([=, i = 0](command_type const cmd) mutable {
             BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
-            case command_type::alt_get_items:
-                indicated = item_list.get().indicated();
-                result = player_get_selected_items(p_from(container));
+            case ct::none:
+                setup_list(i);
                 break;
-            case command_type::alt_drop_some:
-                indicated = item_list.get().indicated();
-                result = player_drop_selected_items(p_from(container));
+            case ct::alt_get_items:
+                i = item_list.get().indicated();
+                if (player_get_selected_items(p_from(container))) {
+                    setup_list(i);
+                }
                 break;
-            case command_type::alt_insert:
+            case ct::alt_drop_some:
+                i = item_list.get().indicated();
+                if (player_drop_selected_items(p_from(container))) {
+                    setup_list(i);
+                }
+                break;
+            case ct::alt_insert:
+                i = item_list.get().indicated();
                 insert_into_container(container);
-                return event_result::filter_detach;
-            case command_type::cancel:
+                break;
+            case ct::cancel:
+                if (item_list.has_selection()) {
+                    item_list.get().selection_clear();
+                    break;
+                }
                 return event_result::filter_detach;
             default:
                 break;
             }
             BK_DISABLE_WSWITCH_ENUM_END
-
-            if (result > 0) {
-                item_list.set_title(name_of_decorated(ctx, container));
-                item_list.assign(items(container));
-                item_list.get().indicate(indicated);
-            }
 
             return event_result::filter;
         });
@@ -1272,6 +1307,33 @@ struct game_state {
     }
     //@}
 
+    bool update_items(const_entity_descriptor const e) {
+        auto const player = player_descriptor();
+        return (e == player) && (update_item_list(player), true);
+    }
+
+    template <typename From, typename To>
+    static void update_items(From&&, To&&) {
+    }
+
+    template <typename From, typename To>
+    void update_items(from_t<descriptor_base<From, entity_definition>> const from, To&&) {
+        update_items(from);
+    }
+
+    template <typename From, typename To>
+    void update_items(From&&, to_t<descriptor_base<To, entity_definition>> const to) {
+        update_items(to);
+    }
+
+    template <typename From, typename To>
+    void update_items(
+        from_t<descriptor_base<From, entity_definition>> const from
+      , to_t<descriptor_base<To, entity_definition>>     const to
+    ) {
+        update_items(from) || update_items(to);
+    }
+
     //! The @p subject attempts to move items from @p from to @p to.
     //! @returns The number of items successfully moved.
     //! @tparam Predicate bool (const_item_descriptor, FwdIt::value_type)
@@ -1289,7 +1351,7 @@ struct game_state {
       , Callback                           callback
     ) {
         using I = std::decay_t<decltype(*first)>;
-        return impl_move_items(from, first, last, [&](unique_item&& itm, I const i) {
+        auto const n = impl_move_items(from, first, last, [&](unique_item&& itm, I const i) {
             auto const id  = itm.get();
             auto const obj = p_object(item_descriptor {ctx, id});
 
@@ -1308,6 +1370,12 @@ struct game_state {
 
             return true;
         });
+
+        if (n > 0) {
+            update_items(from, to);
+        }
+
+        return n;
     }
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1436,6 +1504,10 @@ struct game_state {
         if (item_list.is_visible() && item_list.cancel()) {
             item_list.hide();
         }
+
+        if (equip_list.is_visible() && equip_list.cancel()) {
+            equip_list.hide();
+        }
     }
 
     void do_toggle_inventory() {
@@ -1455,64 +1527,86 @@ struct game_state {
     }
 
     void do_toggle_equipment() {
-        if (item_list.is_visible()) {
-            if (!item_list.is_modal()) {
-                item_list.set_modal(true);
+        if (equip_list.is_visible()) {
+            if (!equip_list.is_modal()) {
+                equip_list.set_modal(true);
             }
 
             return;
         }
 
-        if (!item_list.toggle_visible()) {
+        if (!equip_list.toggle_visible()) {
             return;
         }
 
         do_view_equipment();
     }
 
+
+    //! Update the equipment list window
+    //! TODO: currently this just repopulates the window from scratch each time
+    //!       this could be implemented more intelligently to only add / remove
+    //!       what is actually required.
+    void update_equipment_list(const_entity_descriptor const e) {
+        if (!equip_list.is_visible()) {
+            return;
+        }
+
+        auto const i = equip_list.get().indicated();
+
+        equip_list.clear();
+
+        equip_list.append_if(e->body_begin(), e->body_end()
+          , [&](body_part const& p) { return !p.is_free(); }
+          , [&](body_part const& p) { return p.equip; }
+        );
+
+        equip_list.layout();
+
+        equip_list.get().indicate(i);
+    }
+
+    //! Update the item list window
+    //! TODO: currently this just repopulates the window from scratch each time
+    //!       this could be implemented more intelligently to only add / remove
+    //!       what is actually required.
+    void update_item_list(const_entity_descriptor const e, int indicated = -1) {
+        if (!item_list.is_visible()) {
+            return;
+        }
+
+        if (indicated < 0) {
+            indicated = equip_list.get().indicated();
+        }
+
+        item_list.assign(e->items());
+        item_list.get().indicate(indicated);
+    }
+
     void do_view_equipment() {
         auto const player = player_descriptor();
 
-        auto const make_list = [=] {
-            item_list.clear();
-            item_list.append_if(player.obj.body_begin(), player.obj.body_end()
-              , [&](body_part const& part) { return !part.is_free(); }
-              , [&](body_part const& part) { return part.equip; }
-            );
-            item_list.layout();
-        };
+        using ct = command_type;
+        using ft = item_list_controller::flag_type;
 
-        item_list.set_title("Equipment");
-        item_list.set_modal(true);
-        item_list.set_multiselect(true);
-        make_list();
-        item_list.show();
+        equip_list.set_properties(
+            "Equipment", {ft::visible, ft::multiselect, ft::modal});
+        update_equipment_list(player);
 
-        item_list.set_on_command([=](command_type const cmd) {
-            using ct = command_type;
-
-            BK_DISABLE_WSWITCH_ENUM_BEGIN
-            switch (cmd) {
-            case ct::confirm:
-                reload_item_list_if(
-                    [&] { return try_unequip_selected_items(player); }
-                  , make_list);
-                break;
-            case ct::cancel:
-                if (item_list.cancel()) {
+        equip_list.set_on_command([=](command_type const cmd) {
+            if (cmd == ct::confirm) {
+                if (try_unequip_selected_items(player)) {
+                    update_equipment_list(player);
+                    update_item_list(player);
+                }
+            } else if (cmd == ct::cancel) {
+                if (equip_list.cancel()) {
                     return event_result::filter_detach;
                 }
-                break;
-            default:
-                break;
             }
-            BK_DISABLE_WSWITCH_ENUM_END
 
             return event_result::filter;
         });
-    }
-
-    void try_equip_item(entity_descriptor const subject) {
     }
 
     // Attempt to equip the items currently selected in the item list.
@@ -1540,7 +1634,7 @@ struct game_state {
     int try_unequip_selected_items(entity_descriptor const subject) {
         static_string_buffer<128> buffer;
 
-        auto const result = item_list.for_each_selected([&](item_instance_id const id) {
+        auto const result = equip_list.for_each_selected([&](item_instance_id const id) {
             auto const itm = item_descriptor {ctx, id};
 
             buffer.clear();
@@ -1557,35 +1651,25 @@ struct game_state {
         return result;
     }
 
-    template <typename Predicate, typename NullaryF>
-    void reload_item_list_if(Predicate pred, NullaryF f) {
-        if (!pred()) {
-            return;
-        }
-
-        auto const indicated = item_list.get().indicated();
-        f();
-        item_list.get().indicate(indicated);
-    }
-
     void do_view_inventory() {
         auto const player = player_descriptor();
 
-        item_list.set_title("Inventory");
-        item_list.assign(items(player));
-        item_list.set_modal(true);
-        item_list.set_multiselect(true);
-        item_list.show();
-
-        item_list.set_on_command([=](command_type const cmd) {
+        item_list.set_on_command([=, i = 0](command_type const cmd) mutable {
             using ct = command_type;
+            using ft = item_list_controller::flag_type;
 
             BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
+            case ct::none:
+                item_list.set_properties(
+                    "Inventory", {ft::modal, ft::multiselect, ft::visible});
+                update_item_list(player, i);
+
+                break;
             case ct::alt_drop_some:
-                reload_item_list_if(
-                    [&] { return player_drop_selected_items(p_from(player)); }
-                  , [&] { item_list.assign(items(player)); });
+                if (player_drop_selected_items(p_from(player))) {
+                    update_item_list(player);
+                }
                 break;
             case ct::cancel:
                 if (item_list.cancel()) {
@@ -1593,16 +1677,18 @@ struct game_state {
                 }
                 break;
             case ct::alt_open:
+                i = item_list.get().indicated();
                 view_indicated_container();
-                return event_result::filter_detach;
-            case ct::alt_insert:
-                insert_into_indicated_container();
-                return event_result::filter_detach;
-            case ct::alt_equip:
-                reload_item_list_if(
-                    [&] { return try_equip_selected_items(player); }
-                  , [&] { item_list.assign(items(player)); });
                 break;
+            case ct::alt_insert:
+                i = item_list.get().indicated();
+                insert_into_indicated_container();
+                break;
+            case ct::alt_equip:
+                if (try_equip_selected_items(player)) {
+                    update_equipment_list(player);
+                    update_item_list(player);
+                }
             default:
                 break;
             }
@@ -2131,7 +2217,7 @@ struct game_state {
             [&](entity_instance_id const id, point2i32 const p) noexcept {
                 auto const e = entity_descriptor {ctx, id};
 
-                // don't move the player this way
+                // don't allow the player to move in this fashion
                 if (id == player) {
                     return std::make_pair(e, p);
                 }
@@ -2295,13 +2381,17 @@ struct game_state {
 
     timer timers;
 
-    item_list_controller item_list {make_inventory_list(ctx, trender)};
+    item_list_controller item_list  {make_inventory_list(ctx, trender)};
+    item_list_controller equip_list {make_inventory_list(ctx, trender)};
 
     map_renderer& r_map = renderer.add_task(
         "map renderer", make_map_renderer(), 0);
 
     message_log_renderer& r_message_log = renderer.add_task(
         "message log", make_message_log_renderer(trender, message_window), 0);
+
+    item_list_renderer& r_equip_list = renderer.add_task(
+        "equip list", make_item_list_renderer(trender, equip_list.get()), 0);
 
     item_list_renderer& r_item_list = renderer.add_task(
         "item list", make_item_list_renderer(trender, item_list.get()), 0);
