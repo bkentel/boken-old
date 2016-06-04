@@ -104,16 +104,6 @@ bool impl_can_add_item(
     return true;
 }
 
-bool impl_can_add_item(
-    const_context           ctx
-  , const_entity_descriptor subject
-  , const_item_descriptor   itm
-  , const_item_descriptor   itm_dest
-  , string_buffer_base&     result
-) noexcept {
-    return impl_can_add_item(ctx, &subject, itm, itm_dest, result);
-}
-
 bool impl_can_remove_item(
     const_context           ctx
   , const_entity_descriptor subject

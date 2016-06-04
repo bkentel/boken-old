@@ -11,7 +11,7 @@ public:
     command_translator_impl();
     void on_command(command_handler_t handler) final override;
     void translate(text_input_event const& event) const final override;
-    void translate(kb_event const& event, kb_modifiers const& kmods) const final override;
+    void translate(kb_event event, kb_modifiers kmods) const final override;
 private:
     command_handler_t handler_;
 };
@@ -26,94 +26,61 @@ void command_translator_impl::on_command(command_handler_t handler) {
 }
 
 void command_translator_impl::translate(text_input_event const& event) const {
+    using ct = command_type;
+
     utf8_decoder_iterator it {event.text.data()};
     auto const cp = *it;
 
     switch (cp) {
-    case ',' :
-        handler_(command_type::get_all_items, 0);
-        break;
-    case '<' :
-        handler_(command_type::move_up, 0);
-        break;
-    case '>' :
-        handler_(command_type::move_down, 0);
-        break;
-    case 'i':
-        handler_(command_type::toggle_show_inventory, 0);
-        break;
-    case 'e':
-        handler_(command_type::toggle_show_equipment, 0);
-        break;
-    case 'd':
-        handler_(command_type::drop_one, 0);
-        break;
-    case 'D':
-        handler_(command_type::drop_some, 0);
-        break;
-    case 'g':
-        handler_(command_type::get_items, 0);
-        break;
-    case 'o':
-        handler_(command_type::open, 0);
-        break;
-    case 'v':
-        handler_(command_type::view, 0);
-        break;
-    default:
-        break;
+    case ',' : handler_(ct::get_all_items, 0); break;
+    case '<' : handler_(ct::move_up, 0); break;
+    case '>' : handler_(ct::move_down, 0); break;
+    case 'i' : handler_(ct::toggle_show_inventory, 0); break;
+    case 'e' : handler_(ct::toggle_show_equipment, 0); break;
+    case 'd' : handler_(ct::drop_one, 0); break;
+    case 'D' : handler_(ct::drop_some, 0); break;
+    case 'g' : handler_(ct::get_items, 0); break;
+    case 'o' : handler_(ct::open, 0); break;
+    case 'v' : handler_(ct::view, 0); break;
+    default  : break;
     }
 }
 
-void command_translator_impl::translate(kb_event const& event, kb_modifiers const& kmods) const {
+void command_translator_impl::translate(kb_event const event, kb_modifiers const kmods) const {
     using ct = command_type;
 
     if (!event.went_down) {
         return;
     }
 
-    auto const event_kmods = kb_modifiers {event.mods};
+    auto const keycode_result = [&] {
+        auto const mods = kb_modifiers {event.mods};
 
-    BK_DISABLE_WSWITCH_ENUM_BEGIN
-    switch (event.keycode) {
-    case kb_keycode::k_d :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::alt_drop_some, 0);
-            return;
+        auto const if_mod = [&](auto const mod, ct const cmd) {
+            return mods.exclusive_any(mod)
+                && ((void)handler_(cmd, 0), true);
+        };
+
+        auto const if_ctrl = [&](ct const cmd) {
+            return if_mod(kb_mod::ctrl, cmd);
+        };
+
+        BK_DISABLE_WSWITCH_ENUM_BEGIN
+        switch (event.keycode) {
+        case kb_keycode::k_d : return if_ctrl(ct::alt_drop_some);
+        case kb_keycode::k_g : return if_ctrl(ct::alt_get_items);
+        case kb_keycode::k_o : return if_ctrl(ct::alt_open);
+        case kb_keycode::k_i : return if_ctrl(ct::alt_insert);
+        case kb_keycode::k_e : return if_ctrl(ct::alt_equip);
+        case kb_keycode::k_t : return if_ctrl(ct::debug_teleport_self);
+        default              : break;
         }
-        break;
-    case kb_keycode::k_g :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::alt_get_items, 0);
-            return;
-        }
-        break;
-    case kb_keycode::k_o :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::alt_open, 0);
-            return;
-        }
-        break;
-    case kb_keycode::k_i :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::alt_insert, 0);
-            return;
-        }
-        break;
-    case kb_keycode::k_e :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::alt_equip, 0);
-            return;
-        }
-        break;
-    case kb_keycode::k_t :
-        if (event_kmods.exclusive_any(kb_mod::ctrl)) {
-            handler_(command_type::debug_teleport_self, 0);
-            return;
-        }
-        break;
-    default:
-        break;
+
+        return false;
+    }();
+
+    if (keycode_result) {
+        return;
     }
 
     switch (event.scancode) {

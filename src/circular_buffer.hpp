@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bkassert/assert.hpp>
+#include "bkassert/assert.hpp"
 
 #include <iterator>
 #include <vector>
@@ -8,6 +8,7 @@
 
 namespace boken {
 
+//! Random access iterator for circular_buffer
 template <typename T>
 class simple_circular_buffer_iterator : public std::iterator_traits<T*> {
     using this_t = simple_circular_buffer_iterator<T>;
@@ -106,6 +107,7 @@ private:
     size_t    capacity_ {};
 };
 
+//! A fixed size (at run time) circular buffer.
 template <typename T>
 class simple_circular_buffer {
 public:
@@ -183,6 +185,5 @@ template <typename T>
 auto end(simple_circular_buffer<T> const& buffer) noexcept {
     return buffer.end();
 }
-
 
 } //namespace boken

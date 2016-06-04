@@ -24,11 +24,11 @@ item_pile&       items(item_descriptor       i) noexcept;
 namespace detail {
 
 bool impl_can_add_item(
-    const_context           ctx
-  , const_entity_descriptor subject
-  , const_item_descriptor   itm
-  , const_item_descriptor   itm_dest
-  , string_buffer_base&     result
+    const_context                  ctx
+  , const_entity_descriptor const* subject
+  , const_item_descriptor          itm
+  , const_item_descriptor          itm_dest
+  , string_buffer_base&            result
 ) noexcept;
 
 bool impl_can_remove_item(
@@ -48,7 +48,8 @@ inline bool can_add_item(
   , to_t<const_item_descriptor>        const itm_dest
   , string_buffer_base&                      result
 ) noexcept {
-    return detail::impl_can_add_item(ctx, subject, itm, itm_dest, result);
+    const_entity_descriptor const s = subject;
+    return detail::impl_can_add_item(ctx, &s, itm, itm_dest, result);
 }
 
 inline bool can_remove_item(

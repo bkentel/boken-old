@@ -1,17 +1,18 @@
 #pragma once
 
 #include "hash.hpp"
-#include "config.hpp" // string_view
+#include "config.hpp"
 
 #include <functional>
 #include <memory>
+
 #include <cstdint>
 
 namespace boken { struct kb_event; }
 
 namespace boken {
     namespace detail { struct tag_kb_modifiers; }
-    template <typename T> class flag_set;
+    template <typename> class flag_set;
     using kb_modifiers = flag_set<detail::tag_kb_modifiers>;
 }
 
@@ -83,7 +84,7 @@ public:
 
     virtual void on_command(command_handler_t handler) = 0;
     virtual void translate(text_input_event const& event) const = 0;
-    virtual void translate(kb_event const& event, kb_modifiers const& kmods) const = 0;
+    virtual void translate(kb_event event, kb_modifiers kmods) const = 0;
 };
 
 std::unique_ptr<command_translator> make_command_translator();

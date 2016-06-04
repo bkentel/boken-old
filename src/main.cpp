@@ -1,35 +1,33 @@
-#include "catch.hpp"        // for run_unit_tests
 #include "algorithm.hpp"
 #include "allocator.hpp"
+#include "catch.hpp"        // for run_unit_tests
 #include "command.hpp"
 #include "data.hpp"
 #include "entity.hpp"       // for entity
-#include "entity_def.hpp"   // for entity_definition
+#include "entity_properties.hpp"
 #include "events.hpp"
+#include "format.hpp"
 #include "hash.hpp"         // for djb2_hash_32
+#include "inventory.hpp"
 #include "item.hpp"
-#include "item_def.hpp"     // for item_definition
+#include "item_list.hpp"
+#include "item_properties.hpp"
 #include "level.hpp"        // for level, placement_result, make_level, etc
 #include "math.hpp"         // for vec2i32, floor_as, point2f, basic_2_tuple, etc
 #include "message_log.hpp"  // for message_log
+#include "names.hpp"
 #include "random.hpp"       // for random_state, make_random_state
 #include "random_algorithm.hpp"
+#include "rect.hpp"
 #include "render.hpp"       // for game_renderer
+#include "scope_guard.hpp"
 #include "system.hpp"       // for system, kb_modifiers, mouse_event, etc
 #include "text.hpp"         // for text_layout, text_renderer
 #include "tile.hpp"         // for tile_map
+#include "timer.hpp"
 #include "types.hpp"        // for value_cast, tag_size_type_x, etc
 #include "utility.hpp"      // for BK_OFFSETOF
 #include "world.hpp"        // for world, make_world
-#include "inventory.hpp"
-#include "rect.hpp"
-#include "scope_guard.hpp"
-#include "item_properties.hpp"
-#include "entity_properties.hpp"
-#include "names.hpp"
-#include "timer.hpp"
-#include "item_list.hpp"
-#include "format.hpp"
 
 #include <algorithm>        // for move
 #include <chrono>           // for microseconds, operator-, duration, etc
@@ -49,19 +47,6 @@ namespace boken {
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-int get_entity_loot(entity& e, random_state& rng, std::function<void(unique_item&&)> const& f) {
-    int result = 0;
-
-    auto& items = e.items();
-    while (!items.empty()) {
-        auto itm = items.remove_item(0);
-        f(std::move(itm));
-        ++result;
-    }
-
-    return result;
-}
-
 struct game_state {
     //--------------------------------------------------------------------------
     // Player functions
@@ -1689,6 +1674,7 @@ struct game_state {
                     update_equipment_list(player);
                     update_item_list(player);
                 }
+                break;
             default:
                 break;
             }
@@ -1859,17 +1845,29 @@ struct game_state {
         context_stack.push(std::move(c));
     }
 
+    int get_entity_loot(entity_descriptor const e, level_location const loc) {
+        auto const result = e->items().remove_if([&](unique_item&& itm, int) {
+            auto const i = item_descriptor {ctx, itm.get()};
+            merge_into_pile(ctx, std::move(itm), i, loc);
+            return true;
+        });
+
+        if (result > 0 && &loc.lvl == &current_level()) {
+            renderer_update_pile(loc);
+        }
+
+        return result;
+    }
+
     void do_kill(level& lvl, entity_descriptor const e, point2i32 const p) {
         auto const ent = lvl.remove_entity_at(p);
-        BK_ASSERT(!!ent && ent.get() == e.obj.instance());
+        BK_ASSERT(!!ent && ent.get() == e->instance());
 
         static_string_buffer<128> buffer;
         buffer.append("The %s dies.", name_of_decorated(ctx, e).data());
         println(buffer);
 
-        get_entity_loot(e.obj, rng_superficial, [&](unique_item&& itm) {
-            add_object_at(std::move(itm), {lvl, p});
-        });
+        get_entity_loot(e, {current_level(), p});
 
         if (&lvl == &current_level()) {
             r_map.remove_entity_at(p);

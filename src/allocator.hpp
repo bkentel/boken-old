@@ -1,10 +1,11 @@
 #pragma once
 
-#include <bkassert/assert.hpp>
+#include "bkassert/assert.hpp"
 
-#include <utility> // forward, move, etc
+#include <utility>
 #include <vector>
-#include <memory>  // addressof
+#include <memory>
+
 #include <cstddef>
 #include <cstdint>
 
@@ -50,14 +51,19 @@ public:
 
     template <typename... Args>
     std::pair<T*, size_t> allocate(Args&&... args) {
+        // TODO: what if the constructor throws here?
+
+        // do we need to allocate a new block of storage?
         if (next_free_ >= data_.size()) {
             data_.emplace_back(construct_t {}, std::forward<Args>(args)...);
             return {std::addressof(data_.back().data), ++next_free_}; // ids start at 1
         }
 
+        // no, we have a free block somewhere to use
         block_t&   block = data_[next_free_];
         auto const i     = block.info.next;
 
+        // reset the active union member
         block.info.~block_data_t();
 
         auto const p = std::addressof(block.data);
@@ -70,14 +76,13 @@ public:
         return result;
     }
 
+    //! free the block with the given id by calling its destructor
     void deallocate(size_t const i) noexcept {
-        // ids start at 1
-        BK_ASSERT(i > 0);
-        BK_ASSERT(i < data_.size() + 1);
+        BK_ASSERT(i >= 1 && i <= data_.size()); // ids start at 1
 
         auto const index = static_cast<uint32_t>(i) - 1;
         data_[index].data.~T();
-        new (std::addressof(data_[index].info)) block_data_t {next_free_, 0x00DEAD00u};
+        new (&data_[index].info) block_data_t {next_free_, 0x00DEAD00u};
 
         next_free_ = index;
     }

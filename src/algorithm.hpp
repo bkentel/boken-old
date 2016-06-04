@@ -11,45 +11,7 @@
 
 namespace boken {
 
-namespace detail {
-
-template <typename T, typename U>
-constexpr bool check_index(T const i, U const size, std::integral_constant<int, 0>) noexcept {
-    static_assert(std::is_unsigned<T>::value && std::is_unsigned<U>::value, "");
-    return i < size;
-}
-
-template <typename T, typename U>
-constexpr bool check_index(T const i, U const size, std::integral_constant<int, 1>) noexcept {
-    static_assert(std::is_unsigned<T>::value && std::is_signed<U>::value, "");
-    return size >= 0 && i < static_cast<T>(size);
-}
-
-template <typename T, typename U>
-constexpr bool check_index(T const i, U const size, std::integral_constant<int, 2>) noexcept {
-    static_assert(std::is_signed<T>::value && std::is_unsigned<U>::value, "");
-    return i >= 0 && i < static_cast<T>(size);
-}
-
-template <typename T, typename U>
-constexpr bool check_index(T const i, U const size, std::integral_constant<int, 3>) noexcept {
-    static_assert(std::is_signed<T>::value && std::is_signed<U>::value, "");
-    return i >= 0 && i < size;
-}
-
-} // namespace detail
-
-template <typename T, typename U>
-constexpr bool check_index(T const i, U const size) noexcept {
-    static_assert(std::is_integral<T>::value && std::is_integral<U>::value, "");
-
-    using type = std::integral_constant<int
-      , (std::is_signed<T>::value ? 1 : 0) << 1
-      | (std::is_signed<U>::value ? 1 : 0)>;
-
-    return detail::check_index(i, size, type {});
-}
-
+//! Functor that always returns the same constexpr value.
 template <typename T, T Value>
 struct always_same {
     template <typename... Args>
@@ -61,6 +23,7 @@ struct always_same {
 using always_true  = always_same<bool, true>;
 using always_false = always_same<bool, false>;
 
+//! Functor that takes any number of arguments and does nothing.
 struct ignore {
     template <typename... Args>
     inline constexpr void operator()(Args&&...) const noexcept {
@@ -97,6 +60,8 @@ void fill(Container& c, Value const& v) {
     std::fill(begin(c), end(c), v);
 }
 
+//! For every element in [first, last) that matches the predicate, write the
+//! index of that element + @p i to @p out.
 template <typename InputIt, typename I, typename OutIt, typename Predicate>
 void copy_index_if(
     InputIt const first
@@ -113,11 +78,11 @@ void copy_index_if(
     }
 }
 
+//! Container wide version of copy_index_if
 template <typename Container, typename I, typename OutIt, typename Predicate>
 void copy_index_if(Container&& c, I i, OutIt out, Predicate pred) {
     copy_index_if(begin(c), end(c), i, out, pred);
 }
-
 
 //! Invoke f for each index i in the range [first, last) with the ith element
 //! of c. For values of i which are out of range, do nothing.
@@ -166,6 +131,8 @@ auto&& at_xy(Container&& c, point2<T> const p, size_type_x<U> const w) noexcept 
                , value_cast(p.x), value_cast(p.y), value_cast(w));
 }
 
+//! Return a pointer to the value with key in the container.
+//! Otherwise return a nullptr.
 template<typename AssociativeContainer
        , typename Key = typename AssociativeContainer::key_type>
 auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
@@ -177,6 +144,8 @@ auto find_or_nullptr(AssociativeContainer&& c, Key const& key) noexcept {
       : std::addressof(it->second);
 }
 
+//! As std::for_each, but only invokes the callback for items that match the
+//! supplied predicate.
 template <typename FwdIt, typename Predicate, typename UnaryF>
 void for_each_matching(
     FwdIt const first
@@ -191,6 +160,7 @@ void for_each_matching(
     });
 }
 
+//! Container wise version of for_each_matching
 template <typename Container, typename Predicate, typename UnaryF>
 void for_each_matching(
     Container&& c
@@ -203,6 +173,7 @@ void for_each_matching(
     for_each_matching(begin(c), end(c), pred, callback);
 }
 
+//! Like std::strcmp, but for any types that provide < and == operators.
 template <typename T, typename U>
 constexpr int compare(T const& lhs, U const& rhs) noexcept {
     return lhs <  rhs ? -1
