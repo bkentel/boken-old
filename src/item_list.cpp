@@ -424,16 +424,24 @@ bool item_list_controller::on_command(command_type const type, uint64_t const da
 
             on_command_swap_ = on_command_t {};
             on_command_(command_type::none);
-        } else if (detach) {
-            if (!command_stack_.empty()) {
-                on_command_ = std::move(command_stack_.back());
-                command_stack_.pop_back();
-                on_command_(command_type::none);
-            } else {
-                set_on_command();
-                set_modal(false);
-                hide();
-            }
+            return;
+        }
+
+        if (!detach) {
+            return;
+        }
+
+        // The default handler should never not be on the stack if a user
+        // handler is being detached
+        BK_ASSERT(!command_stack_.empty());
+
+        on_command_ = std::move(command_stack_.back());
+        command_stack_.pop_back();
+        on_command_(command_type::none);
+
+        if (command_stack_.empty()) {
+            set_modal(false);
+            hide();
         }
     };
 

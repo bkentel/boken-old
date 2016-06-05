@@ -1789,7 +1789,7 @@ struct game_state {
 
             query_yes_no([=](command_type const cmd) {
                 if (cmd == command_type::confirm) {
-                    view_container(container);;
+                    view_container(container);
                 }
             });
         } else if (matches == 2) {
