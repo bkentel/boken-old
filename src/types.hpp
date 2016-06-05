@@ -1,10 +1,11 @@
 #pragma once
 
+#include "id_fwd.hpp"
+
 #include <memory>
 #include <cstdint>
 
 namespace boken { class world; }
-namespace boken { template <typename, typename> class tagged_value; }
 
 namespace boken {
 //===------------------------------------------------------------------------===
@@ -18,16 +19,6 @@ struct tag_id_instance_item   {};
 struct tag_id_property_item   {};
 struct tag_id_region          {};
 struct tag_id_body_part       {};
-//===------------------------------------------------------------------------===
-//                              Type aliases
-//===------------------------------------------------------------------------===
-using entity_id          = tagged_value<uint32_t, tag_id_entity>;
-using entity_instance_id = tagged_value<uint32_t, tag_id_instance_entity>;
-using entity_property_id = tagged_value<uint32_t, tag_id_property_entity>;
-using item_id            = tagged_value<uint32_t, tag_id_item>;
-using item_instance_id   = tagged_value<uint32_t, tag_id_instance_item>;
-using item_property_id   = tagged_value<uint32_t, tag_id_property_item>;
-using body_part_id       = tagged_value<uint32_t, tag_id_body_part>;
 
 using region_id = tagged_value<uint16_t, tag_id_region>;
 

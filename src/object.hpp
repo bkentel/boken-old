@@ -1,15 +1,13 @@
 #pragma once
 
 #include "item_pile.hpp"
-#include "forward_declarations.hpp"
+#include "object_fwd.hpp"
 
 #include <type_traits>
 #include <utility>
 #include <initializer_list>
 
 #include <cstdint>
-
-namespace boken { class game_database; }
 
 namespace boken {
 

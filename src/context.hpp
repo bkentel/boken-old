@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config.hpp"
 #include "types.hpp"
 #include "math_types.hpp"
 #include "context_fwd.hpp"
@@ -11,35 +10,13 @@
 #include <type_traits>
 #include <cstddef>
 
-namespace boken { class world; }
 namespace boken { class level; }
-namespace boken { class game_database; }
-namespace boken { class entity; }
-namespace boken { class item; }
-namespace boken { struct entity_definition; }
-namespace boken { struct item_definition; }
 
 namespace boken {
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-entity_id get_id(entity            const& e  ) noexcept;
-item_id   get_id(item              const& i  ) noexcept;
-entity_id get_id(entity_definition const& def) noexcept;
-item_id   get_id(item_definition   const& def) noexcept;
-entity_id get_id(const_entity_descriptor e) noexcept;
-item_id   get_id(const_item_descriptor i) noexcept;
-
-item   const& find(world const& w, item_instance_id   id) noexcept;
-entity const& find(world const& w, entity_instance_id id) noexcept;
-item&         find(world&       w, item_instance_id   id) noexcept;
-entity&       find(world&       w, entity_instance_id id) noexcept;
-
-item_definition   const* find(game_database const& db, item_id   id) noexcept;
-entity_definition const* find(game_database const& db, entity_id id) noexcept;
-
 //===------------------------------------------------------------------------===
-//
+//! Convenience wrapper around the world state and game database (both of which
+//! are used extensively throughout the codebase).
 //===------------------------------------------------------------------------===
 template <bool Const>
 struct context_base {
@@ -53,7 +30,7 @@ struct context_base {
     }
 
     context_base(world_t& w_, game_database const& db_) noexcept
-      : w {w_}
+      : w  {w_}
       , db {db_}
     {
     }
@@ -61,9 +38,6 @@ struct context_base {
     world_t&             w;
     game_database const& db;
 };
-
-using context       = context_base<false>;
-using const_context = context_base<true>;
 
 //===------------------------------------------------------------------------===
 //
@@ -145,26 +119,21 @@ struct descriptor_base {
     Definition const* def;
 };
 
-using item_descriptor         = descriptor_base<item,         item_definition>;
-using const_item_descriptor   = descriptor_base<item const,   item_definition>;
-using entity_descriptor       = descriptor_base<entity,       entity_definition>;
-using const_entity_descriptor = descriptor_base<entity const, entity_definition>;
-
 //===------------------------------------------------------------------------===
 //
 //===------------------------------------------------------------------------===
 template <bool Const>
 struct level_location_base {
-    using type = std::conditional_t<Const, std::add_const_t<level>, level>;
+    using level_t = std::conditional_t<Const, level const, level>;
 
-    constexpr level_location_base(type& level, point2i32 const where) noexcept
-      : lvl {level}
+    constexpr level_location_base(level_t& lvl_, point2i32 const where) noexcept
+      : lvl {lvl_}
       , p   {where}
     {
     }
 
-    template <bool C, typename = std::enable_if_t<Const || !C>>
-    constexpr level_location_base(level_location_base<C> other) noexcept
+    template <bool C, typename = std::enable_if_t<!C || Const>>
+    constexpr level_location_base(level_location_base<C> const other) noexcept
       : lvl {other.lvl}
       , p   {other.p}
     {
@@ -173,107 +142,74 @@ struct level_location_base {
     auto* operator->() const noexcept { return std::addressof(lvl); }
     auto* operator->()       noexcept { return std::addressof(lvl); }
 
-    constexpr explicit operator bool() const noexcept { return true; }
     constexpr operator point2i32() const noexcept { return p; }
 
-    std::conditional_t<Const, std::add_const_t<level>, level>& lvl;
+    level_t&  lvl;
     point2i32 p;
 };
 
-using level_location = level_location_base<false>;
-using const_level_location = level_location_base<true>;
-
 //=====--------------------------------------------------------------------=====
+// check_definitions
 //=====--------------------------------------------------------------------=====
-
 namespace detail {
 
 template <typename T, typename Out>
-bool check_definition(T&& obj, Out&& out, char const* const msg) noexcept {
-    if (!obj) {
-        out.append("%s", msg);
-        return false;
-    }
-
-    return true;
+bool check_definition(T const& obj, Out&& out, char const* const msg) noexcept {
+    return !!obj || ((void)out.append("%s", msg), false);
 }
 
 template <typename Out>
-bool check_definition(const_entity_descriptor const e, Out&& out) noexcept {
+bool check_definition(const_entity_descriptor const& e, Out&& out) noexcept {
     return check_definition(e, out, "{missing definition for entity}");
 }
 
 template <typename Out>
-bool check_definition(const_item_descriptor const i, Out&& out) noexcept {
+bool check_definition(const_item_descriptor const& i, Out&& out) noexcept {
     return check_definition(i, out, "{missing definition for item}");
 }
 
 } // namespace detail
 
+//! Return whether all of the arguments are valid definitions. For any invalid
+//! arguments, out.append(...) is called.
 template <typename... Args, typename Out>
-bool check_definitions(Out&& out, Args&&... args) noexcept {
+bool check_definitions(Out&& out, Args const&... args) noexcept {
     static_assert(sizeof...(args) > 0, "");
-    bool result = true;
-    int const arr[] {(result &= detail::check_definition(
-        std::forward<Args>(args), std::forward<Out>(out)), 0)...};
-    (void)arr;
-    return result;
+    using expand_t = bool const [];
+
+    bool ok = true;
+    (void)expand_t {(ok = detail::check_definition(args, out))...};
+    return ok;
 }
 
 //=====--------------------------------------------------------------------=====
+// Function parameter types: subject, object, etc
 //=====--------------------------------------------------------------------=====
 namespace detail {
 
-enum class param_class {
-    subject
-  , object
-  , at
-  , from
-  , to
-};
-
-//=====--------------------------------------------------------------------=====
 template <typename T, param_class ClassT>
 struct param_t {
-    explicit param_t(T v)
-      : value {v}
+    constexpr explicit param_t(T v)
+      : value {std::move(v)}
     {
     }
 
     template <typename U
             , typename = std::enable_if_t<std::is_convertible<U, T>::value>>
-    param_t(param_t<U, ClassT> v)
-      : value {v.value}
+    constexpr param_t(param_t<U, ClassT> v)
+      : value {std::move(v.value)}
     {
     }
 
     template <typename U,
               typename = std::enable_if_t<std::is_convertible<T, U>::value>>
-    operator U() const noexcept { return value; }
+    constexpr operator U() const noexcept { return value; }
 
     T value;
 };
 
 } // namespace detail;
 
-
-//=====--------------------------------------------------------------------=====
-template <typename T>
-using subject_t = detail::param_t<T, detail::param_class::subject>;
-
-template <typename T>
-using object_t = detail::param_t<T, detail::param_class::object>;
-
-template <typename T>
-using at_t = detail::param_t<T, detail::param_class::at>;
-
-template <typename T>
-using from_t = detail::param_t<T, detail::param_class::from>;
-
-template <typename T>
-using to_t = detail::param_t<T, detail::param_class::to>;
-
-//=====--------------------------------------------------------------------=====
 template <typename T>
 constexpr auto p_subject(T const value) noexcept {
     return subject_t<T> {value};

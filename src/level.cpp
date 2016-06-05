@@ -14,8 +14,6 @@
 #include "format.hpp"
 #include "names.hpp"
 
-#include "forward_declarations.hpp"
-
 #include <bkassert/assert.hpp>  // for BK_ASSERT
 
 #include <algorithm>            // for max, find_if, fill, max_element, min, etc

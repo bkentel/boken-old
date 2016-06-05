@@ -2,7 +2,6 @@
 #include "algorithm.hpp"
 #include "entity_properties.hpp"
 #include "item_properties.hpp"
-#include "forward_declarations.hpp"
 #include "math.hpp"
 #include "format.hpp"
 #include "hash.hpp"

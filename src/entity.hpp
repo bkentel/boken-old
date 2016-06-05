@@ -8,6 +8,7 @@
 #include <cstdint>
 
 namespace boken { class item; }
+namespace boken { class random_state; }
 namespace boken { class string_buffer_base; }
 
 namespace boken {

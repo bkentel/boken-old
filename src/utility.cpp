@@ -41,6 +41,7 @@ bool detail::static_string_buffer_append(
     offset += n;
     return true; // ok
 }
+
 #if defined(__clang__)
 #   pragma clang diagnostic pop
 #elif defined(__GNUC__)

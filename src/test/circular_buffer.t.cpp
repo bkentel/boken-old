@@ -43,7 +43,7 @@ TEST_CASE("circular_buffer") {
     for (size_t i = 0; i < strings.size(); ++i) {
         auto const size_before = buffer.size();
         buffer.push(strings[i]);
-        auto const size_after = buffer.size();;
+        auto const size_after = buffer.size();
 
         if (i < capacity) {
             REQUIRE((size_after - size_before) == 1);

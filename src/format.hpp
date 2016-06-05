@@ -5,7 +5,6 @@
 #include <array>
 #include <string>
 
-#include <cstdint>
 #include <cstddef>
 #include <cstdarg>
 
@@ -19,6 +18,11 @@ bool static_string_buffer_append(
   , ptrdiff_t&  offset
   , size_t      size
   , va_list     args) noexcept;
+
+template <size_t N>
+struct static_string_buffer_base {
+    std::array<char, N> buffer_;
+};
 
 } // namespace detail
 
@@ -76,15 +80,6 @@ private:
     char*     data_;
     ptrdiff_t capacity_;
 };
-
-namespace detail {
-
-template <size_t N>
-struct static_string_buffer_base {
-    std::array<char, N> buffer_;
-};
-
-} // namespace detail
 
 template <size_t N>
 class static_string_buffer

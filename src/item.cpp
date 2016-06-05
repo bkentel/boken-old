@@ -1,7 +1,6 @@
 #include "item.hpp"
 #include "item_pile.hpp"
 #include "item_properties.hpp"
-#include "forward_declarations.hpp"
 #include "format.hpp"
 #include "hash.hpp"
 #include "names.hpp"

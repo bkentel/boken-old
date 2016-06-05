@@ -1,10 +1,10 @@
 #include "data.hpp"
-#include "entity_def.hpp"  // for entity_definition
-#include "item_def.hpp"    // for item_definition
+#include "entity_def.hpp"
+#include "item_def.hpp"
 #include "tile.hpp"
 #include "serialize.hpp"
-#include "forward_declarations.hpp"
 #include "algorithm.hpp"
+#include "context_fwd.hpp"
 
 #include "bkassert/assert.hpp"
 

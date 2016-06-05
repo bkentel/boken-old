@@ -5,10 +5,30 @@
 #include <string>
 #include <cstdint>
 
+//=====--------------------------------------------------------------------=====
+//                            Forward Declarations
+//=====--------------------------------------------------------------------=====
+namespace boken {
+
+template <typename, typename> class tagged_value;
+
+struct tag_id_property_item;
+
+using item_property_id    = tagged_value<uint32_t, tag_id_property_item>;
+using item_property_value = uint32_t;
+
+}
+//=====--------------------------------------------------------------------=====
+
 namespace boken {
 
 //! common item properties
 enum class item_property : uint32_t;
+
+item_property_value get_property_value_or(
+    const_item_descriptor itm
+  , item_property_id      property
+  , item_property_value   fallback) noexcept;
 
 //! Get the weight of an item exclusive of any other items that might be
 //! contained within it.
