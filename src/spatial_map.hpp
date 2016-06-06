@@ -9,13 +9,6 @@
 
 namespace boken {
 
-//! @returns an iterator to the first item in the container matching the
-//! predicate. Otherwise returns the end iterator.
-template <typename Container, typename Predicate>
-auto find_iterator_to(Container&& c, Predicate pred) noexcept {
-    return std::find_if(std::begin(c), std::end(c), pred);
-}
-
 //! @returns the offset from the start to the first item in the container
 //! matching the predicate. Otherwise returns -1.
 template <typename Container, typename Predicate>
@@ -46,7 +39,7 @@ struct identity {
 
 template <typename Value             //!< The value type stored
         , typename GetKey = identity //!< GetKey(value) -> key for value
-        , typename Scalar = int      //!< The scalar type for positions
+        , typename Scalar = int32_t  //!< The scalar type for positions
 >
 class spatial_map {
 public:
@@ -72,24 +65,28 @@ public:
         return values_.size();
     }
 
+    //! add the value at the point p if a value isn't already present for the
+    //! the point given by p.
     std::pair<value_type*, bool> insert(point_type const p, value_type&& value) {
         auto const offset = find_offset_to_(p);
-        if (offset >= 0) {
-            return {values_.data() + offset, false};
+        if (offset < 0) {
+            return insert_(p, std::move(value));
         }
 
-        return insert_(p, std::move(value));
+        return {values_.data() + offset, false};
     }
 
+    //! add the value at the point p overwriting any existing value.
     std::pair<value_type*, bool> insert_or_replace(point_type const p, value_type&& value) {
         auto const offset = find_offset_to_(p);
-        if (offset >= 0) {
-            *(positions_.begin() + offset) = p;
-            *(values_.begin() + offset) = std::move(value);
-            return {values_.data() + offset, false};
+        if (offset < 0) {
+            return insert_(p, std::move(value));
         }
 
-        return insert_(p, std::move(value));
+        *(positions_.begin() + offset) = p;
+        *(values_.begin()    + offset) = std::move(value);
+
+        return {values_.data() + offset, false};
     }
 
     template <typename BinaryF>
@@ -120,7 +117,7 @@ public:
 
     value_type* find(point_type const p) noexcept {
         auto const offset = find_offset_to_(p);
-        return offset < 0
+        return (offset < 0)
           ? nullptr
           : values_.data() + offset;
     }
@@ -185,10 +182,8 @@ private:
 
     template <typename Key>
     bool move_to_(Key const k, point_type const p) noexcept {
-        return move_to_if(k
-          , [p](auto&&) noexcept {
-              return std::make_pair(true, p);
-          });
+        return move_to_if_(k, [p](auto&&) noexcept {
+              return std::make_pair(true, p); });
     }
 
     std::pair<value_type*, bool> insert_(point_type const p, value_type&& value) {

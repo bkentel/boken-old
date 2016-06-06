@@ -8,28 +8,35 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
+#include <array>
 #include <functional>
 
 #include <cstdint>
 #include <cstddef>
 
+//=====--------------------------------------------------------------------=====
+//                            Forward Declarations
+//=====--------------------------------------------------------------------=====
 namespace boken {
-    namespace detail { struct tag_tile_flags; }
-    template <typename T> class flag_set;
-    using tile_flags = flag_set<detail::tag_tile_flags>;
-}
 
-namespace boken { class string_buffer_base; }
-namespace boken { class entity; }
-namespace boken { class item; }
-namespace boken { class item_pile; }
-namespace boken { class random_state; }
-namespace boken { struct tile_data; }
-namespace boken { struct tile_data_set; }
-namespace boken { class world; }
-namespace boken { enum class tile_type : uint16_t; }
-namespace boken { enum class tile_id : uint32_t; }
-namespace boken { enum class merge_item_result : uint32_t; }
+namespace detail { struct tag_tile_flags; }
+
+template <typename> class flag_set;
+using tile_flags = flag_set<detail::tag_tile_flags>;
+
+class string_buffer_base;
+class item_pile;
+class random_state;
+struct tile_data;
+struct tile_data_set;
+
+enum class tile_type : uint16_t;
+enum class tile_id : uint32_t;
+enum class merge_item_result : uint32_t;
+
+} // namespace boken
+//=====--------------------------------------------------------------------=====
 
 namespace boken {
 

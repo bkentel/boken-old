@@ -10,9 +10,7 @@
 #include <functional>
 #include <algorithm>
 #include <tuple>
-
-namespace boken { class world; }
-namespace boken { class game_database; }
+#include <type_traits>
 
 namespace boken {
 

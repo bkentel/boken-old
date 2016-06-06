@@ -6,7 +6,6 @@
 #include "types.hpp"
 #include "flag_set.hpp"
 
-#include <bitset>
 #include <type_traits>
 #include <unordered_map>
 

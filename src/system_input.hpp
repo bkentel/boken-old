@@ -4,7 +4,6 @@
 #include "flag_set.hpp"
 
 #include <array>
-
 #include <type_traits>
 
 #include <cstdint>
