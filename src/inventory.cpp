@@ -80,6 +80,10 @@ public:
         return title_;
     }
 
+    string_view title_text() const noexcept final override {
+        return title_.text();
+    }
+
     layout_metrics metrics() const noexcept final override {
         return metrics_;
     }

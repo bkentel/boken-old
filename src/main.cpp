@@ -860,13 +860,13 @@ struct game_state {
         auto const handler = [=](command_type const cmd) {
             if (cmd == ct::cancel && item_list.get().selection_clear() <= 0) {
                 println("Nevermind.");
-                return event_result::filter_detach;
             } else if ((cmd == ct::confirm) || (cmd == ct::alt_drop_some)) {
                 player_drop_selected_items(p_from(player));
-                return event_result::filter_detach;
+            } else {
+                return event_result::filter;
             }
 
-            return event_result::filter;
+            return event_result::filter_detach;
         };
 
         if (n > 1) {
@@ -908,13 +908,13 @@ struct game_state {
         auto const handler = [=](command_type const cmd) {
             if (cmd == ct::cancel && item_list.get().selection_clear() <= 0) {
                 println("Nevermind.");
-                return event_result::filter_detach;
             } else if ((cmd == ct::confirm) || (cmd == ct::alt_get_items)) {
                 player_get_selected_items(p_from(from));
-                return event_result::filter_detach;
+            } else {
+                return event_result::filter;
             }
 
-            return event_result::filter;
+            return event_result::filter_detach;
         };
 
         choose_multiple_items("Get which item(s)?", handler);
@@ -1167,39 +1167,34 @@ struct game_state {
         using ft = item_list_controller::flag_type;
         using ct = command_type;
 
-        auto const setup_list = [=](int const i) {
-            item_list.set_properties(name_of_decorated(ctx, container)
-              , {ft::modal, ft::multiselect, ft::visible});
-
+        auto const setup_list = [=] {
+            item_list.set_title(name_of_decorated(ctx, container));
             item_list.assign(items(container));
-            item_list.get().indicate(i);
         };
+
+        item_list.set_flags({ft::modal, ft::multiselect, ft::visible});
 
         item_list.set_on_command([=, i = 0](command_type const cmd) mutable {
             BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
             case ct::none:
-                setup_list(i);
+                setup_list();
                 break;
             case ct::alt_get_items:
-                i = item_list.get().indicated();
                 if (player_get_selected_items(p_from(container))) {
-                    setup_list(i);
+                    setup_list();
                 }
                 break;
             case ct::alt_drop_some:
-                i = item_list.get().indicated();
                 if (player_drop_selected_items(p_from(container))) {
-                    setup_list(i);
+                    setup_list();
                 }
                 break;
             case ct::alt_insert:
-                i = item_list.get().indicated();
                 insert_into_container(container);
                 break;
             case ct::cancel:
-                if (item_list.has_selection()) {
-                    item_list.get().selection_clear();
+                if (item_list.cancel_selection()) {
                     break;
                 }
                 return event_result::filter_detach;
@@ -1486,13 +1481,11 @@ struct game_state {
     }
 
     void do_cancel() {
-        if (item_list.is_visible() && item_list.cancel()) {
-            item_list.hide();
-        }
-
-        if (equip_list.is_visible() && equip_list.cancel()) {
-            equip_list.hide();
-        }
+        item_list.cancel_modal() || item_list.cancel_selection()
+                                 || item_list.cancel_all()
+                                 || equip_list.cancel_modal()
+                                 || equip_list.cancel_selection()
+                                 || equip_list.cancel_all();
     }
 
     void do_toggle_inventory() {
@@ -1561,7 +1554,7 @@ struct game_state {
         }
 
         if (indicated < 0) {
-            indicated = equip_list.get().indicated();
+            indicated = item_list.get().indicated();
         }
 
         item_list.assign(e->items());
@@ -1585,7 +1578,9 @@ struct game_state {
                     update_item_list(player);
                 }
             } else if (cmd == ct::cancel) {
-                if (equip_list.cancel()) {
+                if (!equip_list.cancel_modal()
+                 && !equip_list.cancel_selection()
+                ) {
                     return event_result::filter_detach;
                 }
             }
@@ -1639,17 +1634,17 @@ struct game_state {
     void do_view_inventory() {
         auto const player = player_descriptor();
 
-        item_list.set_on_command([=, i = 0](command_type const cmd) mutable {
-            using ct = command_type;
-            using ft = item_list_controller::flag_type;
+        using ct = command_type;
+        using ft = item_list_controller::flag_type;
 
+        item_list.set_properties(
+            "Inventory", {ft::modal, ft::multiselect, ft::visible});
+
+        item_list.set_on_command([=](command_type const cmd) mutable {
             BK_DISABLE_WSWITCH_ENUM_BEGIN
             switch (cmd) {
             case ct::none:
-                item_list.set_properties(
-                    "Inventory", {ft::modal, ft::multiselect, ft::visible});
-                update_item_list(player, i);
-
+                update_item_list(player);
                 break;
             case ct::alt_drop_some:
                 if (player_drop_selected_items(p_from(player))) {
@@ -1657,16 +1652,14 @@ struct game_state {
                 }
                 break;
             case ct::cancel:
-                if (item_list.cancel()) {
-                    return event_result::filter_detach;
+                if (item_list.cancel_modal() || item_list.cancel_selection()) {
+                    break;
                 }
-                break;
+                return event_result::filter_detach;
             case ct::alt_open:
-                i = item_list.get().indicated();
                 view_indicated_container();
                 break;
             case ct::alt_insert:
-                i = item_list.get().indicated();
                 insert_into_indicated_container();
                 break;
             case ct::alt_equip:
@@ -2353,7 +2346,7 @@ struct game_state {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     struct state_t {
         template <typename T>
-        using up = std::unique_ptr<T>;
+        using up = std::unique_ptr<T> const;
 
         up<system>             system_ptr          = make_system();
         up<random_state>       rng_substantive_ptr = make_random_state();
@@ -2364,6 +2357,14 @@ struct game_state {
         up<game_renderer>      renderer_ptr        = make_game_renderer(*system_ptr, *trender_ptr);
         up<command_translator> cmd_translator_ptr  = make_command_translator();
         up<message_log>        messsage_window_ptr = make_message_log(*trender_ptr);
+
+        context const ctx = context {*world_ptr, *database_ptr};
+
+        up<item_list_controller> item_list_ptr
+            = make_item_list_controller(make_inventory_list(ctx, *trender_ptr));
+
+        up<item_list_controller> equip_list_ptr
+            = make_item_list_controller(make_inventory_list(ctx, *trender_ptr));
     } state {};
 
     system&             os              = *state.system_ptr;
@@ -2375,12 +2376,11 @@ struct game_state {
     text_renderer&      trender         = *state.trender_ptr;
     command_translator& cmd_translator  = *state.cmd_translator_ptr;
     message_log&        message_window  = *state.messsage_window_ptr;
-    context const       ctx             = context {the_world, database};
+    item_list_controller& item_list     = *state.item_list_ptr;
+    item_list_controller& equip_list    = *state.equip_list_ptr;
 
+    context const ctx = context {the_world, database};
     timer timers;
-
-    item_list_controller item_list  {make_inventory_list(ctx, trender)};
-    item_list_controller equip_list {make_inventory_list(ctx, trender)};
 
     map_renderer& r_map = renderer.add_task(
         "map renderer", make_map_renderer(), 0);

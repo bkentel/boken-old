@@ -78,6 +78,7 @@ public:
 
     //--------------------------------------------------------------------------
     virtual text_layout const& title() const noexcept = 0;
+    virtual string_view title_text() const noexcept = 0;
     virtual layout_metrics metrics() const noexcept = 0;
     virtual recti32 cell_bounds(int col, int row) const noexcept = 0;
     virtual vec2i32 scroll_offset() const noexcept = 0;
